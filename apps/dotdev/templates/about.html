@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}About Raniendu{% endblock %}
+{% block content %}
+<section class="about-page" aria-labelledby="about-page-heading">
+    <div class="about-header">
+        <div class="about-avatar" aria-hidden="true">
+            <img src="{{ url_for('static', filename='images/about/profile.jpeg') }}" alt="Raniendu Mukherjee"
+                class="profile-img">
+        </div>
+        <div class="about-intro">
+            <p class="about-role">Data Engineer · Pacific Northwest</p>
+            <h1 id="about-page-heading" class="about-name">Hey, I'm Raniendu</h1>
+            <p class="about-summary">
+                I build data systems that empower teams to make smarter, data-driven decisions. My journey in tech has
+                taken me through some of the industry's biggest names, including Amazon, Meta, and AWS.
+            </p>
+            <p class="about-summary">
+                Based in the Greater Seattle Area, I spend my days architecting and maintaining robust data platforms.
+                Outside of work, you'll find me exploring new cities or tinkering with personal projects.
+            </p>
+        </div>
+    </div>
+
+    <div class="about-content">
+        <section class="about-section" aria-labelledby="story-heading">
+            <h2 id="story-heading">My Story</h2>
+            <p>
+                I cut my teeth at AWS, learning to manage massive datasets and ensure the smooth operation of critical
+                pipelines. A later chapter at Meta introduced me to the fascinating (and occasionally terrifying) world
+                of real-time ads telemetry. Today, I'm back at Amazon, helping the Ads team navigate their complex data
+                landscape.
+            </p>
+            <p>
+                What drives me? I'm passionate about transforming messy, chaotic data into clear, actionable insights.
+                Whether it's building a streaming pipeline that processes millions of events per second or ensuring
+                analysts can trust their dashboards, I find satisfaction in making data useful. The highlight of my work
+                is collaborating with brilliant, dedicated people who share a commitment to quality.
+            </p>
+        </section>
+
+        <section class="about-section" aria-labelledby="interests-heading">
+            <h2 id="interests-heading">What I'm Into</h2>
+            <div class="interests-grid masonry">
+                <article class="interest-card feature-card travel-feature-card">
+                    <div class="travel-card-header">
+                        <span class="interest-icon" aria-hidden="true">✈️</span>
+                        <div>
+                            <h3>Travel</h3>
+                        </div>
+                    </div>
+                    {% if latest_photos %}
+                    <div class="about-travel-photos">
+                        {% for photo in latest_photos %}
+                        <a href="{{ photo.href }}" class="about-travel-photo"
+                            aria-label="View {{ photo.location }} trip">
+                            <img src="{{ url_for('static', filename=photo.src) }}" alt="{{ photo.alt }}" loading="lazy"
+                                decoding="async">
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <p class="travel-description">Always planning the next trip. Check out my <a
+                            href="{{ url_for('travels') }}">travels
+                            page</a> to see where I've been.</p>
+                </article>
+
+                <article class="interest-card compact-card">
+                    <span class="interest-icon" aria-hidden="true">🎵</span>
+                    <div>
+                        <h3>Music</h3>
+                        <p>Eclectic taste ranging from indie rock to electronic. Always looking for new recommendations.
+                        </p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="about-section" aria-labelledby="work-heading">
+            <h2 id="work-heading">Let's Connect</h2>
+            <p>
+                For a deeper dive into my technical background, my <a href="{{ url_for('resume') }}">resume</a> is just
+                a click away. I'm always open to connecting with fellow professionals. Whether you want to talk about
+                data engineering, discuss career paths, or share war stories about production incidents, feel free to <a
+                    href="{{ url_for('contact') }}">reach out</a>.
+            </p>
+        </section>
+    </div>
+</section>
+{% endblock %}

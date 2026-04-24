@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Resume — Raniendu Singh{% endblock %}
+{% block meta_description %}Resume for Raniendu Singh, senior data engineer specializing in large-scale analytics
+platforms.{% endblock %}
+{% block content %}
+<section aria-labelledby="resume-heading">
+    <header class="resume-header">
+        <h1 id="resume-heading">Resume</h1>
+        <p>Senior data engineer with 15+ years designing reliable, scalable and cost-effective data platforms</p>
+        <a class="resume-download" href="{{ url_for('static', filename='documents/Raniendu_Singh_Resume2.pdf') }}"
+            download>
+            Download PDF
+        </a>
+    </header>
+
+    <section class="resume-section" aria-labelledby="resume-overview">
+        <h2 id="resume-overview">Overview</h2>
+        <p>
+            I have several years of experience in building large scale data platforms. I have a strong background in
+            programming, data engineering, and analytics, as well as a Master of Technology in Software Systems from
+            Birla Institute of Technology and Science.
+            In my most recent role, my focus is on building data platform and measurement systems to support the
+            effectiveness of the Ads Sales organization at Amazon. My core focus areas include scalable data platforms,
+            data quality, and automation.
+        </p>
+    </section>
+
+    <section class="resume-section" aria-labelledby="resume-experience">
+        <h2 id="resume-experience">Experience</h2>
+        <div class="resume-list">
+            <article class="resume-role">
+                <header>
+                    <h3>Senior Data Engineer · Amazon Ads</h3>
+                    <span class="duration">Oct 2024 – Present</span>
+                </header>
+                <ul>
+                    <li>Building data platform and data-driven workflows to enhance productivity and effectiveness for
+                        Amazon Ads Sales organization.</li>
+                    <li>Developing measurement systems to track and optimize sales performance metrics.</li>
+                    <li>Designing event-driven systems for integrating upstream and downstream applications with
+                        real-time data flows.</li>
+                </ul>
+            </article>
+
+            <article class="resume-role">
+                <header>
+                    <h3>Data Engineer · Meta</h3>
+                    <span class="duration">Jan 2024 – Oct 2024</span>
+                </header>
+                <ul>
+                    <li>Worked in the Ads Monetization org building data models, data pipelines and dashboards.</li>
+                    <li>Measured reliability, performance and adoption of Meta Ads Manager features such as GenAI Ads
+                        and contextual e-commerce ads.</li>
+                    <li>Built monitoring and analytics for backend services supporting GenAI features.</li>
+                </ul>
+            </article>
+
+            <article class="resume-role">
+                <header>
+                    <h3>Senior Data Engineer · Amazon / AWS</h3>
+                    <span class="duration">Aug 2013 – Dec 2023</span>
+                </header>
+                <ul>
+                    <li><strong>Amazon Ads:</strong> Led re-architecture of data systems, building a new Data Lake.
+                        Built event-driven ETL pipelines on AWS and systems to measure data quality and enable alerting.
+                    </li>
+                    <li><strong>Amazon Go:</strong> Built data models and pipelines to measure accuracy and cost of
+                        Just-Walk-Out-Technology powering Amazon Go Stores. Supported Customer Experience Data Science
+                        team.</li>
+                    <li><strong>Amazon Web Services:</strong> Designed the Data Lake for AWS Sales team serving as a
+                        scalable backend for the Analytics Layer.</li>
+                    <li><strong>Amazon Transportation Systems:</strong> Led migration from Oracle to Amazon Redshift.
+                        Tracked business metrics such as scheduled deliveries.</li>
+                </ul>
+            </article>
+
+            <article class="resume-role">
+                <header>
+                    <h3>Associate Technical Consultant · Teradata</h3>
+                    <span class="duration">Feb 2010 – Jul 2013</span>
+                </header>
+                <ul>
+                    <li>Worked on pre-sales proof of concept projects for potential clients evaluating Teradata vs
+                        competitors.</li>
+                    <li>Physical data model design including indexing and partitioning schemes.</li>
+                    <li>SQL/ETL optimization and automation scripts in Python and Teradata Utilities.</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+
+    <section class="resume-section" aria-labelledby="resume-skills">
+        <h2 id="resume-skills">Technical Skills</h2>
+        <ul>
+            <li>Data Warehousing, Amazon Redshift, AWS, Airflow, Spark, Presto, Teradata</li>
+            <li>Languages: SQL, Python, Scala</li>
+        </ul>
+    </section>
+
+    <section class="resume-section" aria-labelledby="resume-education">
+        <h2 id="resume-education">Education</h2>
+        <dl class="resume-meta">
+            <div>
+                <dt>M.Tech. Software Systems</dt>
+                <dd>Birla Institute of Technology & Science · 2014-2016</dd>
+                <dt>B.E. Computer Engineering</dt>
+                <dd>University of Pune · 2005-2009</dd>
+            </div>
+            <div class="resume-meta-contact">
+                <dt>Certifications</dt>
+                <dd>Teradata Certified Professional</dd>
+            </div>
+        </dl>
+    </section>
+</section>
+{% endblock %}

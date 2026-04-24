@@ -1,0 +1,50 @@
+body.about-theme:not(.dark-mode) {
+    --color-background: #f2f6ff;
+    --color-surface: rgba(255, 255, 255, 0.9);
+    --color-elevated: rgba(37, 99, 235, 0.1);
+    --color-border: rgba(37, 99, 235, 0.18);
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #1f2a44;
+    --color-text-tertiary: #3f4c70;
+    --color-accent: #2563eb;
+    --color-accent-soft: rgba(37, 99, 235, 0.16);
+    --color-success: #0ea5e9;
+    background: linear-gradient(180deg, rgba(226, 232, 255, 0.75), rgba(255, 255, 255, 0.95));
+    color: var(--color-text-primary);
+}
+
+body.about-theme:not(.dark-mode) .site-header {
+    background: rgba(255, 255, 255, 0.85);
+    border-bottom-color: rgba(37, 99, 235, 0.16);
+}
+
+body.about-theme:not(.dark-mode) .brand,
+body.about-theme:not(.dark-mode) .nav-links a {
+    color: var(--color-text-secondary);
+}
+
+body.about-theme:not(.dark-mode) .nav-links a:hover,
+body.about-theme:not(.dark-mode) .nav-links a:focus {
+    color: var(--color-text-primary);
+}
+
+body.about-theme:not(.dark-mode) .nav-links a.active {
+    color: var(--color-accent);
+}
+
+body.about-theme:not(.dark-mode) .theme-toggle {
+    background: rgba(37, 99, 235, 0.12);
+    border-color: rgba(37, 99, 235, 0.25);
+}
+
+body.about-theme:not(.dark-mode) .theme-toggle svg {
+    fill: var(--color-accent);
+}
+
+body.about-theme:not(.dark-mode) .site-footer {
+    border-top-color: rgba(37, 99, 235, 0.16);
+}
+
+body.about-theme:not(.dark-mode) .site-footer p {
+    color: var(--color-text-secondary);
+}

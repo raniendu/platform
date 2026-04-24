@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Travels — Raniendu Singh{% endblock %}
+{% block meta_description %}Map of places lived and visited by Raniendu Singh, plus travel photo notes.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+{% endblock %}
+
+{% block content %}
+<section aria-labelledby="travels-heading">
+    <div class="section-header">
+        <h1 id="travels-heading">Travels</h1>
+        <p>Places I have called home, cities I keep returning to, and the trails that shaped my notebooks.</p>
+    </div>
+    <div class="travels-map">
+        <div id="travel-map" data-pins='{{ travel_pins | tojson | safe }}'></div>
+        <p class="map-hint">Hold Ctrl / ⌘ and scroll to zoom</p>
+    </div>
+    <div class="gallery-grid">
+        {% for entry in travel_entries %}
+        {% for photo in entry.photos %}
+        <div class="gallery-item">
+            <img src="{{ url_for('static', filename=photo.src) }}" alt="{{ photo.alt }}" loading="lazy" decoding="async"
+                data-location="{{ entry.location }}" data-date="{{ entry.display_date }}" data-title="{{ entry.title }}"
+                data-caption="{{ photo.caption }}">
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+</section>
+<div id="image-modal" class="image-modal" aria-hidden="true">
+    <button class="modal-close" aria-label="Close modal">
+        <svg viewBox="0 0 24 24">
+            <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+    </button>
+    <div class="modal-content">
+        <img id="modal-image" src="" alt="">
+        <div class="modal-info">
+            <div class="modal-meta">
+                <span id="modal-location" class="modal-location"></span>
+                <span class="modal-separator">•</span>
+                <time id="modal-date" class="modal-date"></time>
+            </div>
+            <p id="modal-caption" class="modal-caption"></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+<script src="{{ url_for('static', filename='js/travels.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/gallery.js') }}" defer></script>
+{% endblock %}

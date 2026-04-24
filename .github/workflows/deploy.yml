@@ -1,0 +1,77 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to shared Droplet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          PLATFORM_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_SSH_PRIVATE_KEY }}
+          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+        run: |
+          test -n "$PLATFORM_SSH_PRIVATE_KEY"
+          test -n "$PLATFORM_SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PLATFORM_SSH_PRIVATE_KEY" > ~/.ssh/platform_key
+          chmod 600 ~/.ssh/platform_key
+          ssh-keyscan -p "${PLATFORM_SSH_PORT:-22}" "$PLATFORM_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload repository
+        env:
+          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.env*' \
+            --exclude '**/.venv/' \
+            --exclude '**/.pytest_cache/' \
+            --exclude '**/__pycache__/' \
+            -e "ssh -i ~/.ssh/platform_key -p ${ssh_port}" \
+            ./ "${ssh_user}@${PLATFORM_SSH_HOST}:/opt/platform/"
+
+      - name: Upload production environment
+        env:
+          PLATFORM_ENV_FILE: ${{ secrets.PLATFORM_ENV_FILE }}
+          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          test -n "$PLATFORM_ENV_FILE"
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          printf '%s\n' "$PLATFORM_ENV_FILE" | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
+            "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "cat > /opt/platform/.env.production && chmod 600 /opt/platform/.env.production"
+
+      - name: Start production Compose
+        env:
+          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build"
+

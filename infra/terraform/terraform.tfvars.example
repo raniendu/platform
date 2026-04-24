@@ -1,0 +1,7 @@
+region               = "nyc3"
+droplet_size         = "s-2vcpu-4gb"
+droplet_name         = "platform-shared"
+project_name         = "platform"
+ssh_key_fingerprints = ["replace-with-do-ssh-key-fingerprint"]
+allowed_ssh_cidrs    = ["replace-with-your-ip/32"]
+

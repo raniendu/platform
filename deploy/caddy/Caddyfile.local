@@ -1,0 +1,16 @@
+{
+	auto_https off
+}
+
+http://dotdev.localhost {
+	reverse_proxy dotdev:8501
+}
+
+http://prefect.localhost {
+	reverse_proxy prefect-server:4200
+}
+
+http://flow.localhost {
+	reverse_proxy airflow-webserver:8080
+}
+

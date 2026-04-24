@@ -1,0 +1,205 @@
+name: platform
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: platform-caddy-local
+    ports:
+      - "80:80"
+    volumes:
+      - ../caddy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - dotdev
+      - prefect-server
+      - airflow-webserver
+    networks:
+      - platform
+    restart: unless-stopped
+
+  dotdev:
+    build:
+      context: ../../apps/dotdev
+      dockerfile: Dockerfile
+    container_name: platform-dotdev-local
+    environment:
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+    ports:
+      - "8501:8501"
+    networks:
+      - platform
+    restart: unless-stopped
+
+  prefect-postgres:
+    image: postgres:15-alpine
+    container_name: platform-prefect-postgres-local
+    environment:
+      POSTGRES_USER: prefect
+      POSTGRES_PASSWORD: ${PREFECT_POSTGRES_PASSWORD:-prefect_local}
+      POSTGRES_DB: prefect
+    volumes:
+      - prefect-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prefect -d prefect"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - platform
+    restart: unless-stopped
+
+  prefect-server:
+    build:
+      context: ../../apps/prefect
+      dockerfile: Dockerfile
+    container_name: platform-prefect-server-local
+    command: prefect server start --host 0.0.0.0
+    environment:
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect:${PREFECT_POSTGRES_PASSWORD:-prefect_local}@prefect-postgres:5432/prefect
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_SERVER_API_PORT: 4200
+      PREFECT_UI_URL: http://prefect.localhost
+      PREFECT_API_URL: http://prefect.localhost/api
+    ports:
+      - "4200:4200"
+    depends_on:
+      prefect-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - platform
+    restart: unless-stopped
+
+  prefect-worker:
+    build:
+      context: ../../apps/prefect
+      dockerfile: Dockerfile
+    container_name: platform-prefect-worker-local
+    command: /bin/bash /app/docker/prefect/start-worker.sh
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      WORK_POOL_NAME: ${PREFECT_WORK_POOL_NAME:-default-pool}
+      WORK_POOL_TYPE: ${PREFECT_WORK_POOL_TYPE:-process}
+      PUSHOVER_APP_TOKEN: ${PUSHOVER_APP_TOKEN:-}
+      PUSHOVER_USER_KEY: ${PUSHOVER_USER_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENVIRONMENT: local
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    networks:
+      - platform
+    restart: unless-stopped
+
+  airflow-postgres:
+    image: postgres:15-alpine
+    container_name: platform-airflow-postgres-local
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:-airflow_local}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - platform
+    restart: unless-stopped
+
+  airflow-init:
+    build:
+      context: ../../apps/flow
+      dockerfile: Dockerfile
+    container_name: platform-airflow-init-local
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
+        airflow db migrate
+    environment: &airflow-local-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_POSTGRES_PASSWORD:-airflow_local}@airflow-postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-}
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-local_airflow_secret_key_change_me}
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-local_airflow_secret_key_change_me}
+    volumes: &airflow-local-volumes
+      - ../../apps/flow/dags:/opt/airflow/dags:ro
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+      - platform
+
+  airflow-webserver:
+    build:
+      context: ../../apps/flow
+      dockerfile: Dockerfile
+    container_name: platform-airflow-webserver-local
+    command: api-server
+    environment: *airflow-local-env
+    volumes: *airflow-local-volumes
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+      - platform
+    restart: unless-stopped
+
+  airflow-scheduler:
+    build:
+      context: ../../apps/flow
+      dockerfile: Dockerfile
+    container_name: platform-airflow-scheduler-local
+    command: scheduler
+    environment: *airflow-local-env
+    volumes: *airflow-local-volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+      - platform
+    restart: unless-stopped
+
+networks:
+  platform:
+    name: platform-local
+    driver: bridge
+
+volumes:
+  prefect-postgres-data:
+  airflow-postgres-data:
+  airflow-logs:
+  airflow-plugins:

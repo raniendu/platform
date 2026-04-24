@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Home — Raniendu Singh{% endblock %}
+{% block meta_description %}Data engineer building resilient data platforms, sharing travel notes and writing about
+systems.{% endblock %}
+{% block content %}
+<section class="hero" aria-labelledby="home-hero-title">
+    <div>
+        <p class="hero-eyebrow">Senior Data Engineer, Amazon Ads</p>
+        <h1 class="hero-title" id="home-hero-title">Raniendu Singh</h1>
+        <p class="lead">
+            I design scalable and cost-effective data platforms for work. Outside of work, I love to travel and
+            experience different countries, cultures and enjoy nature.
+        </p>
+        <div class="hero-actions">
+            <a class="button" href="{{ url_for('resume') }}">View resume</a>
+            <a class="button-secondary" href="{{ url_for('contact') }}">Say hello</a>
+        </div>
+    </div>
+</section>
+
+<section aria-labelledby="latest-posts-heading">
+    <div class="section-header">
+        <h2 id="latest-posts-heading">Latest posts</h2>
+        <a href="{{ url_for('posts') }}">View all</a>
+    </div>
+    {% if latest_posts %}
+    <ol class="timeline" role="list">
+        {% for post in latest_posts %}
+        <li class="timeline-item">
+            <div class="timeline-meta">
+                <time datetime="{{ post.date }}">{{ post.display_date }}</time>
+                {% if post.tags %}
+                <div class="tag-list">
+                    {% for tag in post.tags %}
+                    <span class="tag-chip">#{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div>
+                <a class="timeline-title" href="{{ url_for('posts') }}#{{ post.slug }}">{{ post.title }}</a>
+                {% if post.excerpt %}
+                <p class="post-excerpt">{{ post.excerpt }}</p>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <p class="posts-empty">No notes published yet. Check back soon.</p>
+    {% endif %}
+</section>
+
+<section aria-labelledby="travel-photos-heading">
+    <div class="section-header">
+        <h2 id="travel-photos-heading">Latest travel photos</h2>
+        <a href="{{ url_for('travels') }}">See all travels</a>
+    </div>
+    {% if latest_photos %}
+    <div class="photo-grid">
+        {% for photo in latest_photos %}
+        <a href="{{ url_for('travels') }}?photo={{ photo.src }}">
+            <figure>
+                <img src="{{ url_for('static', filename=photo.src) }}" alt="{{ photo.alt }}" loading="lazy"
+                    decoding="async">
+                <figcaption>{{ photo.caption }}</figcaption>
+            </figure>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="posts-empty">Travel photos coming soon.</p>
+    {% endif %}
+</section>
+{% endblock %}

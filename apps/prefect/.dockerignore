@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.env.*
+.air/
+.git/
+.hypothesis/
+.pytest_cache/
+.venv/
+__pycache__/
+*.egg-info/
+tests/
+docs/
+terraform/
+

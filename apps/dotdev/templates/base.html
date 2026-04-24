@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Raniendu Singh — Data Engineer{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Personal site for Raniendu Singh — data engineer building reliable data platforms and travel stories.{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}Raniendu Singh — Data Engineer{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Notes on data engineering, travels, and resume for Raniendu Singh.{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body id="top">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="{{ url_for('home') }}">Raniendu Singh</a>
+            <nav aria-label="Primary" id="primary-navigation">
+                <ul class="nav-list">
+                    <li><a class="nav-link" href="{{ url_for('home') }}" {% if active_page == 'home' %}aria-current="page"{% endif %}>Home</a></li>
+                    <li><a class="nav-link" href="{{ url_for('about') }}" {% if active_page == 'about' %}aria-current="page"{% endif %}>About</a></li>
+                    <li><a class="nav-link" href="{{ url_for('resume') }}" {% if active_page == 'resume' %}aria-current="page"{% endif %}>Resume</a></li>
+                    <li><a class="nav-link" href="{{ url_for('posts') }}" {% if active_page == 'posts' %}aria-current="page"{% endif %}>Posts</a></li>
+                    <li><a class="nav-link" href="{{ url_for('travels') }}" {% if active_page == 'travels' %}aria-current="page"{% endif %}>Travels</a></li>
+                    <li><a class="nav-link" href="{{ url_for('contact') }}" {% if active_page == 'contact' %}aria-current="page"{% endif %}>Contact</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <button id="theme-toggle" class="theme-toggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode" aria-pressed="false">🌓</button>
+                <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="primary-navigation">
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <main id="main-content" class="site-main">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>&copy; {{ current_year }} Raniendu Singh. All rights reserved.</p>
+            <ul class="footer-links">
+                <li><a href="https://github.com/raniendu" rel="noopener" target="_blank">GitHub</a></li>
+                <li><a href="https://www.linkedin.com/in/raniendu/" rel="noopener" target="_blank">LinkedIn</a></li>
+                <li><a href="mailto:raniendu.work@gmail.com">Email</a></li>
+            </ul>
+            <a class="back-to-top" href="#top">Back to top</a>
+        </div>
+    </footer>
+    <script src="{{ url_for('static', filename='js/scripts.js') }}" defer></script>
+    {% block scripts_extra %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  python:
+    name: Python apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Python versions
+        run: |
+          uv python install 3.13 3.10
+
+      - name: Sync DotDev
+        run: uv sync --project apps/dotdev --locked
+
+      - name: Test DotDev
+        run: uv run --project apps/dotdev pytest apps/dotdev/tests -q
+
+      - name: Sync Prefect
+        run: uv sync --project apps/prefect --locked
+
+      - name: Test Prefect properties
+        run: uv run --project apps/prefect pytest apps/prefect/tests/property/
+
+      - name: Sync Flow
+        run: uv sync --project apps/flow --locked
+
+      - name: Validate Airflow DAGs
+        run: uv run --project apps/flow python apps/flow/scripts/validate-dags.py
+
+      - name: Test Flow
+        run: uv run --project apps/flow pytest apps/flow/tests/
+
+  compose:
+    name: Compose config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prepare CI env file
+        run: cp .env.example .env.ci
+
+      - name: Validate local Compose
+        run: docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.ci config
+
+      - name: Validate production Compose
+        run: docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.ci config
+

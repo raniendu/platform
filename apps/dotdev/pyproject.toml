@@ -1,0 +1,43 @@
+[project]
+name = "dotDev"
+version = "0.1.0"
+description = "This repository contains the source code for my personal website."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "blinker",
+    "certifi",
+    "charset-normalizer",
+    "click",
+    "flask",
+    "gunicorn",
+    "idna",
+    "importlib-metadata",
+    "itsdangerous",
+    "jinja2",
+    "markdown",
+    "markupsafe",
+    "mkdocs",
+    "mkdocs-material",
+    "packaging",
+    "pygments",
+    "python-frontmatter",
+    "python-dotenv",
+    "requests",
+    "urllib3",
+    "werkzeug",
+    "zipp",
+]
+
+[tool.uv]
+# Development-only dependencies used for local workflows and CI
+dev-dependencies = [
+    "bandit",
+    "detect-secrets",
+    "isort>=6.1.0",
+    "mypy",
+    "pip-audit",
+    "pre-commit",
+    "pytest",
+    "ruff",
+]

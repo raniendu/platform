@@ -1,0 +1,42 @@
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python runtime and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.venv/
+venv/
+*.egg-info/
+
+# Editor and local agent state
+.idea/
+.vscode/
+.claude/
+.kiro/
+.air/
+
+# Application runtime state
+apps/flow/airflow.db
+apps/flow/logs/
+apps/flow/plugins/
+apps/prefect/.prefect/
+
+# Terraform local state
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+

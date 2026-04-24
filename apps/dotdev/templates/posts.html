@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Posts — Raniendu Singh{% endblock %}
+{% block meta_description %}Timeline of notes and posts from Raniendu Singh.{% endblock %}
+
+{% block content %}
+<section aria-labelledby="posts-heading">
+    <div class="section-header">
+        <h1 id="posts-heading">Posts</h1>
+        <p>Long-form notes, system design sketches, and travel dispatches.</p>
+    </div>
+    <div id="posts-app" hidden aria-hidden="true"></div>
+
+    {% if available_tags %}
+    <div class="posts-filter" role="group" aria-label="Filter posts by tag">
+        <button type="button" class="filter-button" data-tag="" aria-pressed="false">All</button>
+        {% for tag in available_tags %}
+        <button type="button" class="filter-button" data-tag="{{ tag }}" aria-pressed="false">#{{ tag }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if posts %}
+    <ol class="timeline" id="posts-timeline" role="list" data-selected-tag="{{ selected_tag or '' }}">
+        {% for post in posts %}
+        <li class="timeline-item" id="{{ post.slug }}" data-tags="{{ post.tags | join(' ') }}">
+            <article class="card timeline-card">
+                <header class="timeline-meta">
+                    <time datetime="{{ post.date }}">{{ post.displayDate }}</time>
+                    {% if post.tags %}
+                    <div class="tag-list">
+                        {% for tag in post.tags %}
+                        <span class="tag-chip">#{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </header>
+                <h2 class="card-title">{{ post.title }}</h2>
+                {% if post.excerpt %}
+                <p class="post-excerpt">{{ post.excerpt }}</p>
+                {% endif %}
+                <details class="post-details">
+                    <summary>Read post</summary>
+                    <div class="post-content">{{ post.content | safe }}</div>
+                </details>
+            </article>
+        </li>
+        {% endfor %}
+    </ol>
+    <p class="posts-empty" id="posts-empty-message" hidden>No posts match this tag yet.</p>
+    {% else %}
+    <p class="posts-empty">No posts yet. Drop a markdown file into the <code>posts/</code> folder to get started.</p>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/posts.js') }}" defer></script>
+{% endblock %}

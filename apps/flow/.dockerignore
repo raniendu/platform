@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.env.*
+.git/
+.pytest_cache/
+.venv/
+__pycache__/
+airflow.db
+logs/
+plugins/
+tests/
+docs/
+nginx/
+terraform/
+

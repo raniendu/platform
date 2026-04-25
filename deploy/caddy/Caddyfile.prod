@@ -6,6 +6,10 @@ raniendu.dev {
 	reverse_proxy dotdev:8501
 }
 
+www.raniendu.dev {
+	redir https://raniendu.dev{uri} permanent
+}
+
 prefect.raniendu.dev {
 	basicauth {
 		{$PREFECT_BASIC_AUTH_USER} {$PREFECT_BASIC_AUTH_HASH}
@@ -16,4 +20,3 @@ prefect.raniendu.dev {
 flow.raniendu.dev {
 	reverse_proxy airflow-webserver:8080
 }
-

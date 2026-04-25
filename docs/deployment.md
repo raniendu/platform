@@ -63,5 +63,8 @@ Before running the `Deploy` workflow:
 
 - GitHub environment `production` exists and requires approval.
 - `PLATFORM_SSH_HOST` points at the new shared Droplet.
+- `DIGITALOCEAN_ACCESS_TOKEN` is set in the GitHub environment so the workflow can add and remove its temporary SSH firewall rule.
+- `PLATFORM_FIREWALL_ID` is set as a GitHub environment variable for the DigitalOcean firewall attached to the Droplet.
 - `PLATFORM_ENV_FILE` contains the complete production `.env.production` content.
 - `/opt/platform` exists on the Droplet. Cloud-init creates it for the Terraform-managed Droplet.
+- The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.

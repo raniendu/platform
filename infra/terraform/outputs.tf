@@ -8,3 +8,7 @@ output "droplet_name" {
   value       = digitalocean_droplet.platform.name
 }
 
+output "firewall_id" {
+  description = "DigitalOcean firewall ID used by the deploy workflow for temporary runner SSH access."
+  value       = digitalocean_firewall.platform.id
+}

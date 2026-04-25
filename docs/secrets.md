@@ -4,7 +4,6 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 ## Required Names
 
-- `GOOGLE_MAPS_API_KEY`: DotDev travel map/geocoding features.
 - `PREFECT_POSTGRES_PASSWORD`: Prefect PostgreSQL password.
 - `PREFECT_BASIC_AUTH_USER`: Caddy username for Prefect UI/API.
 - `PREFECT_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash.
@@ -17,7 +16,7 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `AIRFLOW_ADMIN_USER`: Airflow admin username.
 - `AIRFLOW_ADMIN_PASSWORD`: Airflow admin password.
 - `ACME_EMAIL`: Caddy ACME registration email.
-- `DIGITALOCEAN_ACCESS_TOKEN` or `TF_VAR_do_token`: Terraform provider token.
+- `DIGITALOCEAN_ACCESS_TOKEN` or `TF_VAR_do_token`: Terraform provider token. The GitHub deploy workflow also uses `DIGITALOCEAN_ACCESS_TOKEN` to add and remove its temporary SSH firewall rule.
 - `DO_SSH_KEY_FINGERPRINTS`: SSH keys allowed on the Droplet.
 - `ALLOWED_SSH_CIDRS`: SSH source CIDRs for the Droplet firewall.
 - `PLATFORM_SSH_HOST`: Droplet host/IP used by the manual GitHub deploy workflow.
@@ -25,6 +24,7 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PLATFORM_SSH_PORT`: SSH port for deploy, usually `22`.
 - `PLATFORM_SSH_PRIVATE_KEY`: Private key authorized on the Droplet for deployment.
 - `PLATFORM_ENV_FILE`: Complete production environment file content for `/opt/platform/.env.production`.
+- `PLATFORM_FIREWALL_ID`: GitHub environment variable, not a secret. DigitalOcean firewall ID used for temporary deploy runner SSH access.
 
 ## Rotation Notes
 
@@ -39,6 +39,8 @@ Generate Caddy hashes with:
 ```bash
 caddy hash-password --plaintext 'new-password'
 ```
+
+When a Caddy bcrypt hash is stored in a Compose `--env-file`, escape dollar signs as `$$` so Compose does not treat hash segments as variable interpolation.
 
 ## Production Env File
 

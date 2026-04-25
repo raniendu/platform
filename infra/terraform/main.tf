@@ -7,10 +7,20 @@ resource "digitalocean_droplet" "platform" {
   name     = var.droplet_name
   region   = var.region
   size     = var.droplet_size
+  backups  = var.enable_backups
   ssh_keys = var.ssh_key_fingerprints
   tags     = [var.project_name, "shared-runtime"]
 
   user_data = file("${path.module}/cloud-init.yaml")
+
+  dynamic "backup_policy" {
+    for_each = var.enable_backups ? [1] : []
+    content {
+      plan    = var.backup_policy_plan
+      weekday = var.backup_policy_weekday
+      hour    = var.backup_policy_hour
+    }
+  }
 }
 
 resource "digitalocean_firewall" "platform" {
@@ -55,4 +65,3 @@ resource "digitalocean_firewall" "platform" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 }
-

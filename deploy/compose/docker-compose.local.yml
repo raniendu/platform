@@ -21,8 +21,6 @@ services:
       context: ../../apps/dotdev
       dockerfile: Dockerfile
     container_name: platform-dotdev-local
-    environment:
-      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
     ports:
       - "8501:8501"
     networks:

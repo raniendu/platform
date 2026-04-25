@@ -3,8 +3,6 @@ app.py - Flask application for personal website.
 
 This module defines the Flask web application serving pages such as home,
 posts, travels, resume, and about (with interactive travel map).
-To enable geocoding of locations, set the GOOGLE_MAPS_API_KEY environment
-variable.
 
 Usage:
     flask run
@@ -13,11 +11,10 @@ or
 """
 
 import datetime
-import importlib.util
 import json
 import os
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Any, Dict, Optional, Tuple, Union
 
 import blog
@@ -195,14 +192,6 @@ except ModuleNotFoundError:  # pragma: no cover - lightweight fallback for tests
         if _ACTIVE_APP is None:
             raise RuntimeError("No application instance registered")
         return _ACTIVE_APP.url_for(endpoint, **values)
-
-
-_googlemaps_module: Optional[ModuleType] = None
-_googlemaps_spec = importlib.util.find_spec("googlemaps")
-if _googlemaps_spec is not None:
-    _googlemaps_module = importlib.import_module("googlemaps")
-
-googlemaps = _googlemaps_module
 
 
 app = Flask(__name__)

@@ -28,8 +28,6 @@ services:
       context: ../../apps/dotdev
       dockerfile: Dockerfile
     container_name: platform-dotdev
-    environment:
-      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
     networks:
       - platform
     restart: unless-stopped

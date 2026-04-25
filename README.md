@@ -13,7 +13,7 @@ No GitHub remote or DigitalOcean resource changes are part of this local bootstr
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
 - `.github/workflows/` - CI and manual deploy workflows after GitHub repo creation.
-- `docs/` - architecture, local development, deployment, DNS, secrets, rollback, and operations runbooks.
+- `docs/` - architecture, cloud recommendation, local development, deployment, DNS, secrets, rollback, and operations runbooks.
 - `scripts/` - root helpers for uv, tests, and local Compose.
 
 ## Quick Start
@@ -75,3 +75,5 @@ docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local 
 ## Gates
 
 GitHub repo creation is blocked until the local Docker stack is built, running, and smoke-tested. DigitalOcean and Squarespace changes remain blocked by later human approval gates described in `docs/deployment.md` and `docs/dns-cutover.md`.
+
+Cloud provider architecture and cost tradeoffs are summarized in `docs/cloud-architecture-recommendation.md`.

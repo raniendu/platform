@@ -19,7 +19,6 @@
 - Install pre-commit (optional but recommended): `uvx pre-commit install` then `uvx pre-commit run --all-files` for a full check.
 - Run (prod-like): `gunicorn --bind 0.0.0.0:8501 app:app`
 - Docker (build/run): `docker build -t dotdev . && docker run -p 8501:8501 --env-file .env dotdev`
-- Env needed: set `GOOGLE_MAPS_API_KEY` for geocoding features.
 
 ## Coding Style & Naming Conventions
 - Python: PEP 8, 4‑space indentation, UTF‑8, trailing newline.
@@ -42,5 +41,4 @@
 
 ## Security & Configuration Tips
 - Secrets: never commit API keys; use `.env` for local dev and Compose will load it.
-- Example `.env` entry: `GOOGLE_MAPS_API_KEY=your_key_here`.
 - Review diffs for accidental secret/credential leakage before pushing.

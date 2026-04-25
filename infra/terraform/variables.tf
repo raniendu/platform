@@ -16,6 +16,30 @@ variable "droplet_size" {
   default     = "s-2vcpu-4gb"
 }
 
+variable "enable_backups" {
+  description = "Enable DigitalOcean Droplet backups for whole-host recovery."
+  type        = bool
+  default     = true
+}
+
+variable "backup_policy_plan" {
+  description = "DigitalOcean Droplet backup frequency plan."
+  type        = string
+  default     = "weekly"
+}
+
+variable "backup_policy_weekday" {
+  description = "Day of week for weekly DigitalOcean Droplet backups."
+  type        = string
+  default     = "SUN"
+}
+
+variable "backup_policy_hour" {
+  description = "UTC hour when the DigitalOcean Droplet backup window starts."
+  type        = number
+  default     = 4
+}
+
 variable "ssh_key_fingerprints" {
   description = "DigitalOcean SSH key fingerprints allowed to access the Droplet."
   type        = list(string)
@@ -38,4 +62,3 @@ variable "project_name" {
   type        = string
   default     = "platform"
 }
-

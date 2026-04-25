@@ -32,8 +32,6 @@ uv run flask --app app run --host 0.0.0.0 --port 5000
 
 Then open http://127.0.0.1:5000/ and visit the About, Resume, Posts, Travels, and Contact routes to confirm rendering. The Leaflet map defaults to a monochrome-friendly basemap and honours the light/dark toggle.
 
-Ensure `GOOGLE_MAPS_API_KEY` is set in the environment when using features that require Google Maps.
-
 ## Publishing Posts
 
 The Posts page reads Markdown files from the `posts/` directory and renders them into a semantic timeline with a vanilla JavaScript tag filter. Each file needs a small [YAML front matter](https://jekyllrb.com/docs/front-matter/) block:

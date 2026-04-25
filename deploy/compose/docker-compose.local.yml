@@ -122,8 +122,12 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
-        airflow db migrate
+        set -euo pipefail
+        airflow_uid="$${AIRFLOW_UID:-50000}"
+        mkdir -p /opt/airflow/logs /opt/airflow/plugins
+        chown -R "$${airflow_uid}:0" /opt/airflow/logs /opt/airflow/plugins
+        chmod -R g+rwX /opt/airflow/logs /opt/airflow/plugins
+        su airflow -s /bin/bash -c 'airflow db migrate'
     environment: &airflow-local-env
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_POSTGRES_PASSWORD:-airflow_local}@airflow-postgres/airflow
@@ -141,7 +145,7 @@ services:
     depends_on:
       airflow-postgres:
         condition: service_healthy
-    user: "${AIRFLOW_UID:-50000}:0"
+    user: "0:0"
     networks:
       - platform
 

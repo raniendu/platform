@@ -126,9 +126,15 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins /opt/airflow/config
-        echo "{\"${AIRFLOW_ADMIN_USER}\": \"${AIRFLOW_ADMIN_PASSWORD}\"}" > /opt/airflow/config/passwords.json
-        airflow db migrate
+        set -euo pipefail
+        airflow_uid="$${AIRFLOW_UID:-50000}"
+        mkdir -p /opt/airflow/logs /opt/airflow/plugins /opt/airflow/config
+        chown -R "$${airflow_uid}:0" /opt/airflow/logs /opt/airflow/plugins /opt/airflow/config
+        chmod -R g+rwX /opt/airflow/logs /opt/airflow/plugins /opt/airflow/config
+        python -c 'import json, os; path = "/opt/airflow/config/passwords.json"; open(path, "w").write(json.dumps({os.environ["AIRFLOW_ADMIN_USER"]: os.environ["AIRFLOW_ADMIN_PASSWORD"]}) + "\n")'
+        chown "$${airflow_uid}:0" /opt/airflow/config/passwords.json
+        chmod 660 /opt/airflow/config/passwords.json
+        su airflow -s /bin/bash -c 'airflow db migrate'
     environment: &airflow-prod-env
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_POSTGRES_PASSWORD}@airflow-postgres/airflow
@@ -148,7 +154,7 @@ services:
     depends_on:
       airflow-postgres:
         condition: service_healthy
-    user: "${AIRFLOW_UID:-50000}:0"
+    user: "0:0"
     networks:
       - platform
 

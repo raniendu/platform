@@ -94,7 +94,7 @@ jobs:
           ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build"
 
-      - name: Reload Caddy
+      - name: Recreate Caddy
         env:
           PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
@@ -103,7 +103,7 @@ jobs:
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
           ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
-            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec -T caddy caddy reload --config /etc/caddy/Caddyfile"
+            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-deps --force-recreate caddy"
 
       - name: Close SSH firewall for runner
         if: always()

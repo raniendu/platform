@@ -12,7 +12,7 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
 - `deploy/compose/`: local and production Docker Compose files.
 - `deploy/caddy/`: local and production Caddy routing.
 - `infra/terraform/`: DigitalOcean Droplet and firewall infrastructure.
-- `docs/`: architecture, deployment, DNS, secrets, rollback, operations, and cloud recommendation docs.
+- `docs/`: architecture, developer guide, deployment, DNS, secrets, rollback, operations, cloud recommendation, DigitalOcean cost comparison, and deprecation docs.
 - `.github/workflows/`: CI and manual production deploy workflows.
 
 ## Tooling Rules
@@ -34,8 +34,9 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
 - DigitalOcean single-Droplet Docker Compose deployment is the current production path.
 - Terraform lives in `infra/terraform`; do not run `terraform apply` without explicit user approval.
 - The production deploy workflow is manual: `.github/workflows/deploy.yml`.
-- The deploy workflow temporarily allowlists the GitHub runner `/32` in the DigitalOcean firewall, deploys over SSH, recreates Caddy, then removes the temporary rule. Do not replace this with `0.0.0.0/0` SSH access.
-- Production DNS is managed manually in Squarespace. Do not change or delete old production resources unless the user explicitly approves the specific decommissioning step.
+- The deploy workflow temporarily allowlists the GitHub runner `/32` in the DigitalOcean firewall, deploys over SSH, recreates Caddy, runs public smoke checks, then removes the temporary rule. Do not replace this with `0.0.0.0/0` SSH access.
+- Production DNS is managed manually in Squarespace. Apex/root must be an `A` record to the Droplet IP, not an `ALIAS` record to an IP address.
+- Do not change or delete old production resources unless the user explicitly approves the specific decommissioning step.
 - `www.raniendu.dev` redirects to `https://raniendu.dev{uri}` in Caddy.
 
 ## Secrets And Local Files
@@ -63,3 +64,4 @@ Before reporting completion, run the narrowest useful checks for the changed are
 - Caddy syntax for Caddyfile changes.
 - Terraform `plan` for Terraform changes, with no unapproved apply.
 - Production smoke checks after an approved deploy.
+- DigitalOcean inventory checks before cost or deprecation claims: Droplets, App Platform apps, databases, volumes, load balancers, snapshots/backups, and firewall rules.

@@ -105,6 +105,23 @@ jobs:
           ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-deps --force-recreate caddy"
 
+      - name: Smoke test public endpoints
+        run: |
+          dotdev_status="$(curl -sS -o /dev/null -w '%{http_code}' https://raniendu.dev/)"
+          www_status="$(curl -sS -o /dev/null -w '%{http_code}' https://www.raniendu.dev/)"
+          prefect_status="$(curl -sS -o /dev/null -w '%{http_code}' https://prefect.raniendu.dev/api/health)"
+          airflow_status="$(curl -sS -o /dev/null -w '%{http_code}' https://flow.raniendu.dev/)"
+
+          echo "raniendu.dev -> ${dotdev_status}"
+          echo "www.raniendu.dev -> ${www_status}"
+          echo "prefect.raniendu.dev/api/health -> ${prefect_status}"
+          echo "flow.raniendu.dev -> ${airflow_status}"
+
+          test "$dotdev_status" = "200"
+          test "$www_status" = "301"
+          test "$prefect_status" = "401"
+          test "$airflow_status" = "200"
+
       - name: Close SSH firewall for runner
         if: always()
         env:

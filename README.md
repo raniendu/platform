@@ -1,8 +1,8 @@
 # Platform
 
-Local-first monorepo for the services currently split across `dotDev`, `prefect`, and `flow`.
+Monorepo for the services previously split across `dotDev`, `prefect`, and `flow`.
 
-No GitHub remote or DigitalOcean resource changes are part of this local bootstrap. The first gate is proving the local Docker stack works.
+Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
 
 ## Layout
 
@@ -12,8 +12,8 @@ No GitHub remote or DigitalOcean resource changes are part of this local bootstr
 - `deploy/compose/` - shared local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
-- `.github/workflows/` - CI and manual deploy workflows after GitHub repo creation.
-- `docs/` - architecture, cloud recommendation, local development, deployment, DNS, secrets, rollback, and operations runbooks.
+- `.github/workflows/` - CI and manual production deploy workflows.
+- `docs/` - architecture, developer guide, cloud recommendation, local development, deployment, DNS, secrets, rollback, operations, cost comparison, and deprecation docs.
 - `scripts/` - root helpers for uv, tests, and local Compose.
 
 ## Quick Start
@@ -72,8 +72,22 @@ docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local 
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local down
 ```
 
-## Gates
+## Production
 
-GitHub repo creation is blocked until the local Docker stack is built, running, and smoke-tested. DigitalOcean and Squarespace changes remain blocked by later human approval gates described in `docs/deployment.md` and `docs/dns-cutover.md`.
+Public routes:
+
+- DotDev: `https://raniendu.dev`
+- Prefect: `https://prefect.raniendu.dev`
+- Airflow: `https://flow.raniendu.dev`
+
+Manual redeploy:
+
+```bash
+gh workflow run deploy.yml --repo raniendu/platform --ref main
+gh run watch --repo raniendu/platform --exit-status
+```
+
+The deploy workflow temporarily allowlists the GitHub runner for SSH, uploads the repo and production env file, starts production Compose, force-recreates Caddy, runs public smoke checks, and removes the temporary SSH firewall rule in an `always()` cleanup step.
 
 Cloud provider architecture and cost tradeoffs are summarized in `docs/cloud-architecture-recommendation.md`.
+Developer workflows are covered in `docs/developer-guide.md`. DigitalOcean cost comparison and old-resource deprecation are covered in `docs/digitalocean-cost-comparison.md` and `docs/deprecation-plan.md`.

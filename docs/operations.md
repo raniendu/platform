@@ -36,10 +36,20 @@ Rebuild after code changes:
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
+Preferred production redeploy path:
+
+```bash
+gh workflow run deploy.yml --repo raniendu/platform --ref main
+gh run watch --repo raniendu/platform --exit-status
+```
+
+The GitHub workflow handles temporary SSH firewall access, Caddy recreation, public smoke checks, and cleanup.
+
 ## Health Checks
 
 ```bash
 curl -I https://raniendu.dev/
+curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
 curl -I https://flow.raniendu.dev/
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
@@ -71,3 +81,4 @@ At minimum, take a DigitalOcean Droplet snapshot before the first public cutover
 - Airflow scheduler is running.
 - Human approval recorded for each old resource deletion.
 
+Detailed old-resource shutdown steps live in `docs/deprecation-plan.md`.

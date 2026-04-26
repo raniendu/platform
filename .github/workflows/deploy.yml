@@ -107,20 +107,31 @@ jobs:
 
       - name: Smoke test public endpoints
         run: |
-          dotdev_status="$(curl -sS -o /dev/null -w '%{http_code}' https://raniendu.dev/)"
-          www_status="$(curl -sS -o /dev/null -w '%{http_code}' https://www.raniendu.dev/)"
-          prefect_status="$(curl -sS -o /dev/null -w '%{http_code}' https://prefect.raniendu.dev/api/health)"
-          airflow_status="$(curl -sS -o /dev/null -w '%{http_code}' https://flow.raniendu.dev/)"
+          check_status() {
+            label="$1"
+            url="$2"
+            expected="$3"
 
-          echo "raniendu.dev -> ${dotdev_status}"
-          echo "www.raniendu.dev -> ${www_status}"
-          echo "prefect.raniendu.dev/api/health -> ${prefect_status}"
-          echo "flow.raniendu.dev -> ${airflow_status}"
+            for attempt in $(seq 1 24); do
+              status="$(curl -sS --connect-timeout 5 --max-time 15 -o /dev/null -w '%{http_code}' "$url" || true)"
 
-          test "$dotdev_status" = "200"
-          test "$www_status" = "301"
-          test "$prefect_status" = "401"
-          test "$airflow_status" = "200"
+              if [ "$status" = "$expected" ]; then
+                echo "${label} -> ${status}"
+                return 0
+              fi
+
+              echo "${label} attempt ${attempt} -> ${status:-curl failed}; expected ${expected}"
+              sleep 5
+            done
+
+            echo "::error::${label} did not return ${expected}"
+            return 1
+          }
+
+          check_status "raniendu.dev" "https://raniendu.dev/" "200"
+          check_status "www.raniendu.dev" "https://www.raniendu.dev/" "301"
+          check_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
+          check_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
 
       - name: Close SSH firewall for runner
         if: always()

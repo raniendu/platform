@@ -2,6 +2,56 @@
 
 Pricing snapshot: 2026-04-26. Prices are public USD list prices before tax, support, unusual bandwidth, and one-off snapshot storage.
 
+## Current State As Of 2026-04-27
+
+The monorepo migration is live and the old DigitalOcean resources have been removed.
+
+GitHub:
+
+- Repository: `raniendu/platform`
+- Default branch: `main`
+- Latest successful production deploy before this note: GitHub Actions run `24959751917`
+- Latest deployment commit at that time: `55d4a07d9610ce8820b49654480e756212af00a6`
+- Deploy path: `.github/workflows/deploy.yml`
+- Deploy mechanism: manual `workflow_dispatch`, SSH to the Droplet, upload repo and `PLATFORM_ENV_FILE`, run Docker Compose, force-recreate Caddy, then run public smoke checks.
+- Important deploy behavior: the smoke checks intentionally retry because Caddy and Airflow can take a few seconds to become reachable after container recreation.
+
+DigitalOcean:
+
+| Resource | Current state |
+| --- | --- |
+| Droplet `platform-shared` | active, ID `567106036`, IP `174.138.59.96`, 2 vCPU, 4 GiB RAM, 80 GiB disk, backups enabled |
+| Firewall `platform-shared-firewall` | active, ID `f08d6940-f470-47ce-8dba-ffad3ef16832`, attached to `platform-shared` |
+| Old Droplet `prefect-server` | destroyed on 2026-04-27 without snapshot |
+| Old App Platform app `dot-dev-app` | deleted on 2026-04-27 |
+| Old firewall `prefect-server-firewall` | deleted on 2026-04-27 |
+| Managed databases | none observed |
+| Volumes | none observed |
+| Load balancers | none observed |
+| Standalone snapshots | none observed |
+
+Current public smoke-check expectations:
+
+```text
+https://raniendu.dev/ -> 200
+https://www.raniendu.dev/ -> 301
+https://prefect.raniendu.dev/api/health -> 401
+https://flow.raniendu.dev/ -> 200
+```
+
+`401` for Prefect is expected because Caddy basic auth protects the route before the Prefect health endpoint is reached.
+
+Current DNS:
+
+```text
+A      @        174.138.59.96
+CNAME  www      raniendu.dev
+A      prefect  174.138.59.96
+A      flow     174.138.59.96
+```
+
+Do not reintroduce old App Platform custom domains or the old Prefect Droplet.
+
 ## Goal
 
 Reduce the consolidated platform cost while keeping the monorepo, one public runtime, GitHub Actions deploys, Caddy-managed HTTPS, Prefect, and Airflow.
@@ -12,12 +62,14 @@ Current consolidated cost:
 | --- | ---: | ---: | ---: |
 | `s-2vcpu-4gb` | $24.00 | $4.80 | $28.80 |
 
-Old infrastructure baseline from `docs/digitalocean-cost-comparison.md`:
+Pre-migration old infrastructure baseline from `docs/digitalocean-cost-comparison.md`:
 
 | Baseline | Estimated monthly cost |
 | --- | ---: |
 | Visible old Prefect Droplet plus DotDev App Platform app | $11.00 |
 | Historical old infra if Airflow 1 GiB Droplet were enabled | $17.00 |
+
+Those old resources are now gone. Use those numbers only as historical cost baselines, not as active overlap.
 
 ## Target
 
@@ -48,17 +100,77 @@ It also builds Docker images on the Droplet during deploy. Airflow plus Prefect 
 
 ## Optimization Sequence
 
+## Implementation Context For A Fresh Codex Session
+
+Start in:
+
+```bash
+cd /Users/raniendu/PycharmProjects/platform
+```
+
+Read these first:
+
+- `AGENTS.md`
+- `README.md`
+- `docs/developer-guide.md`
+- `docs/deployment.md`
+- `docs/operations.md`
+- `docs/digitalocean-cost-comparison.md`
+- this file
+
+Key files likely to change:
+
+- `.github/workflows/deploy.yml`
+- `.github/workflows/ci.yml`
+- `deploy/compose/docker-compose.prod.yml`
+- `deploy/compose/docker-compose.local.yml`
+- `infra/terraform/variables.tf`
+- `infra/terraform/terraform.tfvars.example`
+- app Dockerfiles under `apps/dotdev/`, `apps/prefect/`, and `apps/flow/`
+
+Secrets and private state:
+
+- Do not print or commit `.env.production.generated`, `.env.production.credentials`, `.env.local`, Terraform state, SSH keys, or GitHub secret values.
+- GitHub production secrets already exist for the current deploy path.
+- `PLATFORM_ENV_FILE` is the GitHub secret that becomes `/opt/platform/.env.production`.
+
+Current deploy assumptions:
+
+- Production Compose currently uses `build:` entries and builds images on the Droplet.
+- Local Compose should remain build-based for development.
+- Caddy has named volumes for certificates.
+- Airflow and Prefect each currently have their own Postgres container and volume.
+
+Before implementing any cost change:
+
+```bash
+git status --short --branch
+gh run list --repo raniendu/platform --limit 5
+doctl compute droplet get 567106036
+doctl compute firewall get f08d6940-f470-47ce-8dba-ffad3ef16832
+curl -sS -o /dev/null -w 'raniendu.dev %{http_code}\n' https://raniendu.dev/
+curl -sS -o /dev/null -w 'www.raniendu.dev %{http_code}\n' https://www.raniendu.dev/
+curl -sS -o /dev/null -w 'prefect.raniendu.dev/api/health %{http_code}\n' https://prefect.raniendu.dev/api/health
+curl -sS -o /dev/null -w 'flow.raniendu.dev %{http_code}\n' https://flow.raniendu.dev/
+```
+
+Expected route statuses: `200`, `301`, `401`, `200`.
+
 ### Phase 1: Measure Current Runtime
 
 Goal: distinguish steady-state memory from deploy/build memory.
 
-Commands:
+Preferred way to gather host metrics is through the existing deploy SSH credentials in GitHub Actions. If running locally, SSH access may not be available unless the correct key is loaded and the firewall allows your current IP.
+
+Commands on the Droplet:
 
 ```bash
+cd /opt/platform
 docker stats --no-stream
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
 free -h
 df -h
+docker system df
 ```
 
 Record:
@@ -67,6 +179,13 @@ Record:
 - memory during a GitHub deploy,
 - disk usage under `/opt/platform`,
 - whether Airflow scheduler and Prefect worker remain healthy after deploy.
+
+Useful measurement implementation:
+
+- Add a temporary or manually dispatched GitHub Actions diagnostics workflow that SSHes to the Droplet and runs the commands above.
+- Do not print `.env.production`.
+- Keep the diagnostics workflow read-only.
+- Remove or keep it manual-only after collecting the baseline.
 
 Do not resize until this baseline is captured.
 
@@ -78,9 +197,33 @@ Approach:
 
 1. Add a GitHub Actions build job that builds DotDev, Prefect, and Airflow images.
 2. Push images to GitHub Container Registry.
-3. Replace production Compose `build:` entries with pinned image references.
+3. Replace production Compose `build:` entries with image references.
 4. Keep local Compose build-based.
 5. Update deploy to pull images and run `docker compose up -d` without building.
+
+Suggested image names:
+
+```text
+ghcr.io/raniendu/platform/dotdev:<git-sha>
+ghcr.io/raniendu/platform/prefect:<git-sha>
+ghcr.io/raniendu/platform/airflow:<git-sha>
+```
+
+Suggested production env variables:
+
+```text
+DOTDEV_IMAGE=ghcr.io/raniendu/platform/dotdev:<git-sha>
+PREFECT_IMAGE=ghcr.io/raniendu/platform/prefect:<git-sha>
+AIRFLOW_IMAGE=ghcr.io/raniendu/platform/airflow:<git-sha>
+```
+
+Production Compose can then use:
+
+```yaml
+image: ${DOTDEV_IMAGE}
+```
+
+for DotDev and equivalent variables for Prefect and Airflow services. Use the same Prefect image for `prefect-server` and `prefect-worker`; use the same Airflow image for `airflow-init`, `airflow-webserver`, and `airflow-scheduler`.
 
 Expected benefit:
 
@@ -100,6 +243,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 ```
 
 Expected public statuses: `200`, `401`, `200`.
+
+Do not resize in the same commit as this change. First prove a normal deploy works with remote-built images on the current 4 GiB Droplet.
 
 ### Phase 3: Consolidate Postgres Containers
 
@@ -133,6 +278,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 
 Expected public statuses: `401`, `200`.
 
+Do not combine this phase with Droplet resizing. This phase touches data volumes and should have its own backup, deploy, verification, and rollback window.
+
 ### Phase 4: Tune Airflow For Personal-Scale Runtime
 
 Goal: avoid paying for unused scheduler and worker headroom.
@@ -147,6 +294,8 @@ AIRFLOW__SCHEDULER__PARSING_PROCESSES=1
 AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=60
 AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL=120
 ```
+
+These can be added to the shared Airflow environment block in `deploy/compose/docker-compose.prod.yml` and mirrored locally only if local behavior should match production.
 
 Expected benefit:
 
@@ -183,6 +332,12 @@ Plan:
 3. Reboot if required by the resize operation.
 4. Run a production deploy.
 5. Watch container health and public endpoints.
+
+Terraform follow-up:
+
+- After resizing through DigitalOcean, update `infra/terraform/variables.tf` default and any local `terraform.tfvars` value from `s-2vcpu-4gb` to `s-1vcpu-2gb`.
+- Run `terraform plan` and verify it does not try to recreate the Droplet unexpectedly.
+- Do not run `terraform apply` without explicit approval.
 
 Verification:
 
@@ -237,8 +392,8 @@ Backups:
 
 Old resource deprecation:
 
-- Destroying `prefect-server` and `dot-dev-app` saves about $11/month.
-- Follow `docs/deprecation-plan.md`; do not delete resources without explicit approval.
+- Completed on 2026-04-27: `prefect-server`, `dot-dev-app`, and `prefect-server-firewall` were removed.
+- There is no longer old-resource overlap for this stack in DigitalOcean inventory.
 
 Airflow alternatives:
 

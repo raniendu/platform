@@ -90,4 +90,4 @@ gh run watch --repo raniendu/platform --exit-status
 The deploy workflow temporarily allowlists the GitHub runner for SSH, uploads the repo and production env file, starts production Compose, force-recreates Caddy, runs public smoke checks, and removes the temporary SSH firewall rule in an `always()` cleanup step.
 
 Cloud provider architecture and cost tradeoffs are summarized in `docs/cloud-architecture-recommendation.md`.
-Developer workflows are covered in `docs/developer-guide.md`. DigitalOcean cost comparison and old-resource deprecation are covered in `docs/digitalocean-cost-comparison.md` and `docs/deprecation-plan.md`.
+Developer workflows are covered in `docs/developer-guide.md`. DigitalOcean cost comparison, cost optimization, and old-resource deprecation are covered in `docs/digitalocean-cost-comparison.md`, `docs/digitalocean-cost-optimization-plan.md`, and `docs/deprecation-plan.md`.

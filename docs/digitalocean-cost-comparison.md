@@ -37,6 +37,8 @@ The immediate cost risk is overlap. Keeping the old Prefect Droplet and old DotD
 
 After deprecating old resources, the steady-state DigitalOcean bill for this platform should be about $28.80/month at current list prices. Without backups it would be $24.00/month, but backups are intentionally enabled for rollback.
 
+The first optimization target is `s-1vcpu-2gb`, which would reduce the consolidated platform to about $14.40/month with weekly backups. The detailed sequence is in `docs/digitalocean-cost-optimization-plan.md`.
+
 ## Cost Notes
 
 - DigitalOcean bills Droplets while powered off because compute capacity remains reserved. Destroying, not powering off, is required to stop Droplet charges.

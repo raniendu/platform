@@ -16,15 +16,15 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `AIRFLOW_ADMIN_USER`: Airflow admin username.
 - `AIRFLOW_ADMIN_PASSWORD`: Airflow admin password.
 - `ACME_EMAIL`: Caddy ACME registration email.
-- `DIGITALOCEAN_ACCESS_TOKEN` or `TF_VAR_do_token`: Terraform provider token. The GitHub deploy workflow also uses `DIGITALOCEAN_ACCESS_TOKEN` to add and remove its temporary SSH firewall rule.
-- `DO_SSH_KEY_FINGERPRINTS`: SSH keys allowed on the Droplet.
-- `ALLOWED_SSH_CIDRS`: SSH source CIDRs for the Droplet firewall.
-- `PLATFORM_SSH_HOST`: Droplet host/IP used by the manual GitHub deploy workflow.
+- `DIGITALOCEAN_ACCESS_TOKEN`: Terraform provider token. The GitHub deploy workflow also uses it to inspect DigitalOcean resources and add/remove the temporary SSH firewall rule.
+- `DO_SSH_KEY_FINGERPRINTS`: GitHub environment variable or secret containing a Terraform list of SSH key fingerprints allowed on the Droplet, for example `["aa:bb:cc"]`.
+- `ALLOWED_SSH_CIDRS`: GitHub environment variable or secret containing a Terraform list of stable SSH source CIDRs for the Droplet firewall, for example `["203.0.113.10/32"]` or `[]`.
 - `PLATFORM_SSH_USER`: SSH user for deploy, usually `root` for the initial Droplet.
 - `PLATFORM_SSH_PORT`: SSH port for deploy, usually `22`.
 - `PLATFORM_SSH_PRIVATE_KEY`: Private key authorized on the Droplet for deployment.
 - `PLATFORM_ENV_FILE`: Complete production environment file content for `/opt/platform/.env.production`.
-- `PLATFORM_FIREWALL_ID`: GitHub environment variable, not a secret. DigitalOcean firewall ID used for temporary deploy runner SSH access.
+
+`PLATFORM_SSH_HOST` and `PLATFORM_FIREWALL_ID` are no longer required. The deploy workflow reads the Droplet IP and firewall ID from Terraform outputs.
 
 ## Rotation Notes
 

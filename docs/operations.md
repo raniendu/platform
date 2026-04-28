@@ -30,10 +30,11 @@ Restart one service:
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production restart prefect-worker
 ```
 
-Rebuild after code changes:
+Pull and restart the current production images:
 
 ```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
 Preferred production redeploy path:
@@ -43,7 +44,7 @@ gh workflow run deploy.yml --repo raniendu/platform --ref main
 gh run watch --repo raniendu/platform --exit-status
 ```
 
-The GitHub workflow handles temporary SSH firewall access, Caddy recreation, public smoke checks, and cleanup.
+The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, runs public smoke checks, and cleans up temporary access.
 
 ## Health Checks
 

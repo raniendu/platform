@@ -63,3 +63,26 @@ jobs:
 
       - name: Validate production Compose
         run: docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.ci config
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check infra/terraform
+
+      - name: Initialize Terraform
+        run: terraform -chdir=infra/terraform init -backend=false -input=false
+
+      - name: Validate Terraform
+        run: terraform -chdir=infra/terraform validate

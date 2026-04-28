@@ -3,15 +3,25 @@ provider "digitalocean" {
 }
 
 resource "digitalocean_droplet" "platform" {
-  image    = "ubuntu-24-04-x64"
-  name     = var.droplet_name
-  region   = var.region
-  size     = var.droplet_size
-  backups  = var.enable_backups
-  ssh_keys = var.ssh_key_fingerprints
-  tags     = [var.project_name, "shared-runtime"]
+  image       = "ubuntu-24-04-x64"
+  name        = var.droplet_name
+  region      = var.region
+  size        = var.droplet_size
+  resize_disk = false
+  backups     = var.enable_backups
+  ssh_keys    = var.ssh_key_fingerprints
+  tags        = [var.project_name, "shared-runtime"]
 
   user_data = file("${path.module}/cloud-init.yaml")
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      image,
+      ssh_keys,
+      user_data,
+    ]
+  }
 
   dynamic "backup_policy" {
     for_each = var.enable_backups ? [1] : []

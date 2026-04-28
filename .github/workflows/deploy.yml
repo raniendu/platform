@@ -7,25 +7,272 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+env:
+  IMAGE_PREFIX: ghcr.io/raniendu/platform
+  TF_WORKING_DIR: infra/terraform
+
 jobs:
-  deploy:
-    name: Deploy to shared Droplet
+  build-images:
+    name: Build and push production images
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: production
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      dotdev_image: ${{ steps.image_refs.outputs.dotdev_image }}
+      prefect_image: ${{ steps.image_refs.outputs.prefect_image }}
+      airflow_image: ${{ steps.image_refs.outputs.airflow_image }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+
+      - name: Set image refs
+        id: image_refs
+        run: |
+          echo "dotdev_image=${IMAGE_PREFIX}/dotdev:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "prefect_image=${IMAGE_PREFIX}/prefect:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "airflow_image=${IMAGE_PREFIX}/airflow:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push DotDev image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/dotdev
+          file: apps/dotdev/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.dotdev_image }}
+          cache-from: type=gha,scope=dotdev
+          cache-to: type=gha,mode=max,scope=dotdev
+
+      - name: Build and push Prefect image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/prefect
+          file: apps/prefect/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.prefect_image }}
+          cache-from: type=gha,scope=prefect
+          cache-to: type=gha,mode=max,scope=prefect
+
+      - name: Build and push Airflow image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/flow
+          file: apps/flow/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.airflow_image }}
+          cache-from: type=gha,scope=airflow
+          cache-to: type=gha,mode=max,scope=airflow
+
+  deploy:
+    name: Deploy to shared Droplet
+    needs: build-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Set up doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
-      - name: Open SSH firewall for runner
+      - name: Validate Terraform variables
         env:
-          PLATFORM_FIREWALL_ID: ${{ vars.PLATFORM_FIREWALL_ID }}
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
+          TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
+        run: |
+          test -n "$TF_VAR_do_token"
+          test -n "$TF_VAR_ssh_key_fingerprints"
+          case "$TF_VAR_ssh_key_fingerprints" in
+            \[*\]) ;;
+            *)
+              echo "::error::DO_SSH_KEY_FINGERPRINTS must be a Terraform list, for example [\"aa:bb:cc\"]"
+              exit 1
+              ;;
+          esac
+          case "$TF_VAR_allowed_ssh_cidrs" in
+            \[*\]) ;;
+            *)
+              echo "::error::ALLOWED_SSH_CIDRS must be a Terraform list, for example [\"203.0.113.10/32\"] or []"
+              exit 1
+              ;;
+          esac
+
+      - name: Initialize Terraform
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
+          TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
+        run: terraform -chdir="$TF_WORKING_DIR" init -input=false
+
+      - name: Adopt existing DigitalOcean resources
+        id: adopt
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
+          TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
+          DROPLET_NAME: platform-shared
+        run: |
+          set -euo pipefail
+
+          get_ids_by_name() {
+            resource="$1"
+            name="$2"
+
+            case "$resource" in
+              droplet)
+                doctl compute droplet list --format ID,Name --no-header |
+                  awk -v expected="$name" '$2 == expected {print $1}'
+                ;;
+              firewall)
+                doctl compute firewall list --format ID,Name --no-header |
+                  awk -v expected="$name" '$2 == expected {print $1}'
+                ;;
+              *)
+                echo "::error::Unsupported resource type: $resource"
+                exit 1
+                ;;
+            esac
+          }
+
+          import_if_needed() {
+            address="$1"
+            id="$2"
+
+            if terraform -chdir="$TF_WORKING_DIR" state show "$address" >/dev/null 2>&1; then
+              state_id="$(terraform -chdir="$TF_WORKING_DIR" state show -no-color "$address" | awk -F' = ' '$1 ~ /^ *id$/ {print $2; exit}')"
+              if [ "$state_id" != "$id" ]; then
+                echo "::error::Terraform state has $address id $state_id, but DigitalOcean has $id"
+                exit 1
+              fi
+              return 0
+            fi
+
+            terraform -chdir="$TF_WORKING_DIR" import -input=false "$address" "$id"
+          }
+
+          firewall_name="${DROPLET_NAME}-firewall"
+          mapfile -t droplet_ids < <(get_ids_by_name droplet "$DROPLET_NAME")
+          mapfile -t firewall_ids < <(get_ids_by_name firewall "$firewall_name")
+
+          if [ "${#droplet_ids[@]}" -gt 1 ]; then
+            echo "::error::Found multiple DigitalOcean Droplets named ${DROPLET_NAME}; refusing to apply."
+            printf '%s\n' "${droplet_ids[@]}"
+            exit 1
+          fi
+
+          if [ "${#firewall_ids[@]}" -gt 1 ]; then
+            echo "::error::Found multiple DigitalOcean Firewalls named ${firewall_name}; refusing to apply."
+            printf '%s\n' "${firewall_ids[@]}"
+            exit 1
+          fi
+
+          existing_droplet_id=""
+          if [ "${#droplet_ids[@]}" -eq 1 ]; then
+            existing_droplet_id="${droplet_ids[0]}"
+            import_if_needed digitalocean_droplet.platform "$existing_droplet_id"
+          fi
+
+          if [ "${#firewall_ids[@]}" -eq 1 ]; then
+            import_if_needed digitalocean_firewall.platform "${firewall_ids[0]}"
+          fi
+
+          echo "existing_droplet_id=${existing_droplet_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Plan infrastructure
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
+          TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
+        run: |
+          set +e
+          terraform -chdir="$TF_WORKING_DIR" plan -input=false -out=tfplan -detailed-exitcode
+          exit_code="$?"
+          set -e
+
+          if [ "$exit_code" -eq 1 ]; then
+            exit 1
+          fi
+
+          terraform -chdir="$TF_WORKING_DIR" show -json tfplan > "$TF_WORKING_DIR/tfplan.json"
+
+      - name: Guard against duplicate Droplet creation
+        env:
+          EXISTING_DROPLET_ID: ${{ steps.adopt.outputs.existing_droplet_id }}
+        run: |
+          set -euo pipefail
+
+          droplet_create_count="$(jq '[.resource_changes[]? | select(.type == "digitalocean_droplet") | select(.change.actions | index("create"))] | length' "$TF_WORKING_DIR/tfplan.json")"
+          droplet_delete_count="$(jq '[.resource_changes[]? | select(.type == "digitalocean_droplet") | select(.change.actions | index("delete"))] | length' "$TF_WORKING_DIR/tfplan.json")"
+
+          if [ "$droplet_delete_count" != "0" ]; then
+            echo "::error::Terraform plan would delete or replace a Droplet; refusing to apply."
+            jq -r '.resource_changes[]? | select(.type == "digitalocean_droplet") | "\(.address): \(.change.actions | join(","))"' "$TF_WORKING_DIR/tfplan.json"
+            exit 1
+          fi
+
+          if [ -n "$EXISTING_DROPLET_ID" ] && [ "$droplet_create_count" != "0" ]; then
+            echo "::error::Droplet ${EXISTING_DROPLET_ID} already exists, but Terraform would create another Droplet; refusing to apply."
+            jq -r '.resource_changes[]? | select(.type == "digitalocean_droplet") | "\(.address): \(.change.actions | join(","))"' "$TF_WORKING_DIR/tfplan.json"
+            exit 1
+          fi
+
+          if [ -z "$EXISTING_DROPLET_ID" ] && [ "$droplet_create_count" -gt 1 ]; then
+            echo "::error::Terraform would create more than one Droplet; refusing to apply."
+            jq -r '.resource_changes[]? | select(.type == "digitalocean_droplet") | "\(.address): \(.change.actions | join(","))"' "$TF_WORKING_DIR/tfplan.json"
+            exit 1
+          fi
+
+      - name: Apply infrastructure
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
+          TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
+        run: terraform -chdir="$TF_WORKING_DIR" apply -input=false -auto-approve tfplan
+
+      - name: Export infrastructure outputs
+        run: |
+          droplet_ip="$(terraform -chdir="$TF_WORKING_DIR" output -raw droplet_ip)"
+          firewall_id="$(terraform -chdir="$TF_WORKING_DIR" output -raw firewall_id)"
+
+          test -n "$droplet_ip"
+          test -n "$firewall_id"
+
+          echo "PLATFORM_SSH_HOST=${droplet_ip}" >> "$GITHUB_ENV"
+          echo "PLATFORM_FIREWALL_ID=${firewall_id}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Open SSH firewall for runner
         run: |
           test -n "$PLATFORM_FIREWALL_ID"
           runner_ip="$(curl -fsS https://api.ipify.org)"
@@ -40,7 +287,6 @@ jobs:
       - name: Configure SSH
         env:
           PLATFORM_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_SSH_PRIVATE_KEY }}
-          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
         run: |
           test -n "$PLATFORM_SSH_PRIVATE_KEY"
@@ -49,11 +295,41 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "$PLATFORM_SSH_PRIVATE_KEY" > ~/.ssh/platform_key
           chmod 600 ~/.ssh/platform_key
-          ssh-keyscan -p "${PLATFORM_SSH_PORT:-22}" "$PLATFORM_SSH_HOST" >> ~/.ssh/known_hosts
+          for attempt in $(seq 1 30); do
+            if ssh-keyscan -p "${PLATFORM_SSH_PORT:-22}" "$PLATFORM_SSH_HOST" >> ~/.ssh/known_hosts; then
+              exit 0
+            fi
+            echo "Waiting for SSH host key, attempt ${attempt}"
+            sleep 10
+          done
+          echo "::error::SSH host key scan failed for ${PLATFORM_SSH_HOST}"
+          exit 1
+
+      - name: Wait for host bootstrap
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+
+          for attempt in $(seq 1 30); do
+            if ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
+              -o ConnectTimeout=10 \
+              -o StrictHostKeyChecking=yes \
+              "${ssh_user}@${PLATFORM_SSH_HOST}" \
+              "cloud-init status --wait >/dev/null 2>&1 || true; docker version >/dev/null 2>&1 && test -d /opt/platform"; then
+              exit 0
+            fi
+            echo "Waiting for Droplet bootstrap, attempt ${attempt}"
+            sleep 10
+          done
+
+          echo "::error::Droplet bootstrap did not finish in time."
+          exit 1
 
       - name: Upload repository
         env:
-          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
         run: |
@@ -72,38 +348,73 @@ jobs:
       - name: Upload production environment
         env:
           PLATFORM_ENV_FILE: ${{ secrets.PLATFORM_ENV_FILE }}
-          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+          DOTDEV_IMAGE: ${{ needs.build-images.outputs.dotdev_image }}
+          PREFECT_IMAGE: ${{ needs.build-images.outputs.prefect_image }}
+          AIRFLOW_IMAGE: ${{ needs.build-images.outputs.airflow_image }}
         run: |
           test -n "$PLATFORM_ENV_FILE"
+          test -n "$DOTDEV_IMAGE"
+          test -n "$PREFECT_IMAGE"
+          test -n "$AIRFLOW_IMAGE"
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
-          printf '%s\n' "$PLATFORM_ENV_FILE" | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
+          {
+            printf '%s\n' "$PLATFORM_ENV_FILE"
+            printf 'DOTDEV_IMAGE=%s\n' "$DOTDEV_IMAGE"
+            printf 'PREFECT_IMAGE=%s\n' "$PREFECT_IMAGE"
+            printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
+          } | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
             "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cat > /opt/platform/.env.production && chmod 600 /opt/platform/.env.production"
 
-      - name: Start production Compose
+      - name: Upload GHCR credentials
         env:
-          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
         run: |
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
+          remote_docker_config="/tmp/platform-ghcr-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "REMOTE_DOCKER_CONFIG=${remote_docker_config}" >> "$GITHUB_ENV"
           ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
-            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build"
+            "mkdir -p '${remote_docker_config}' && chmod 700 '${remote_docker_config}'"
+          scp -i ~/.ssh/platform_key -P "${ssh_port}" ~/.docker/config.json \
+            "${ssh_user}@${PLATFORM_SSH_HOST}:${remote_docker_config}/config.json"
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "chmod 600 '${remote_docker_config}/config.json'"
+
+      - name: Start production Compose
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          test -n "$REMOTE_DOCKER_CONFIG"
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" bash -se <<EOF
+          cd /opt/platform
+          trap 'rm -rf "${REMOTE_DOCKER_CONFIG}"' EXIT
+          docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull \
+            dotdev \
+            prefect-server \
+            prefect-worker \
+            airflow-init \
+            airflow-webserver \
+            airflow-scheduler
+          docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
+          EOF
 
       - name: Recreate Caddy
         env:
-          PLATFORM_SSH_HOST: ${{ secrets.PLATFORM_SSH_HOST }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
         run: |
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
           ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
-            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-deps --force-recreate caddy"
+            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build --no-deps --force-recreate caddy"
 
       - name: Smoke test public endpoints
         run: |
@@ -133,10 +444,24 @@ jobs:
           check_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
           check_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
 
-      - name: Close SSH firewall for runner
+      - name: Remove remote GHCR credentials
         if: always()
         env:
-          PLATFORM_FIREWALL_ID: ${{ vars.PLATFORM_FIREWALL_ID }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          if [ -z "${REMOTE_DOCKER_CONFIG:-}" ]; then
+            echo "No remote GHCR credentials to remove."
+            exit 0
+          fi
+
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "rm -rf '${REMOTE_DOCKER_CONFIG}'" || true
+
+      - name: Close SSH firewall for runner
+        if: always()
         run: |
           if [ -z "${PLATFORM_FIREWALL_ID:-}" ] || [ -z "${RUNNER_SSH_CIDR:-}" ]; then
             echo "No temporary SSH firewall rule recorded; skipping cleanup."

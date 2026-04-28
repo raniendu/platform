@@ -104,7 +104,7 @@ gh run watch --repo raniendu/platform --exit-status
 The deploy workflow:
 
 1. Builds DotDev, Prefect, and Airflow images in GitHub Actions and pushes them to GHCR with the current commit SHA tag.
-2. After the GitHub `production` environment approval, adopts exactly one existing `platform-shared` Droplet/firewall into Terraform state, or creates one Droplet if none exists.
+2. After the GitHub `production` environment approval, reads DigitalOcean inventory and adopts exactly one existing `platform-shared` Droplet/firewall into Terraform state, or creates one Droplet if none exists.
 3. Refuses to apply if Terraform would delete/replace a Droplet, create a second Droplet, or if duplicate matching Droplets already exist.
 4. Applies `infra/terraform`.
 5. Temporarily allowlists the GitHub runner `/32` in the Terraform-managed DigitalOcean firewall.

@@ -176,8 +176,14 @@ jobs:
           }
 
           firewall_name="${DROPLET_NAME}-firewall"
-          mapfile -t droplet_ids < <(get_ids_by_name droplet "$DROPLET_NAME")
-          mapfile -t firewall_ids < <(get_ids_by_name firewall "$firewall_name")
+          droplet_ids_file="$(mktemp)"
+          firewall_ids_file="$(mktemp)"
+          trap 'rm -f "$droplet_ids_file" "$firewall_ids_file"' EXIT
+
+          get_ids_by_name droplet "$DROPLET_NAME" > "$droplet_ids_file"
+          get_ids_by_name firewall "$firewall_name" > "$firewall_ids_file"
+          mapfile -t droplet_ids < "$droplet_ids_file"
+          mapfile -t firewall_ids < "$firewall_ids_file"
 
           if [ "${#droplet_ids[@]}" -gt 1 ]; then
             echo "::error::Found multiple DigitalOcean Droplets named ${DROPLET_NAME}; refusing to apply."

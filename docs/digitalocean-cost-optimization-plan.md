@@ -343,7 +343,7 @@ Terraform follow-up:
 
 - Terraform now sets `resize_disk = false` on the Droplet so the size change uses CPU/RAM-only resize semantics.
 - `infra/terraform/variables.tf`, `infra/terraform/terraform.tfvars.example`, and `.env.example` now target `s-1vcpu-2gb`.
-- The deploy workflow imports an existing `platform-shared` Droplet before applying, refuses duplicate matching Droplets, refuses Droplet delete/replace plans, and refuses creating a new Droplet when one already exists.
+- The deploy workflow imports an existing `platform-shared` Droplet before applying, fails if DigitalOcean inventory cannot be read, refuses duplicate matching Droplets, refuses Droplet delete/replace plans, and refuses creating a new Droplet when one already exists.
 - Production Terraform apply runs behind the GitHub `production` environment approval.
 
 Verification:

@@ -37,7 +37,7 @@ CI/deploy workflows are under `.github/workflows/`.
 Expected deploy workflow:
 
 1. Build DotDev, Prefect, and Airflow images in GitHub Actions and push them to GHCR with the current commit SHA tag.
-2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`.
+2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`; the deploy stops if inventory cannot be read.
 3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, or allow Terraform to create one Droplet if none exists.
 4. Plan and apply Terraform from `infra/terraform`; the guard refuses any Droplet delete/replace and refuses creating a second Droplet when one already exists.
 5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
@@ -86,7 +86,7 @@ Before running the `Deploy` workflow:
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
-If Terraform creates a replacement environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks.
+If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks.
 
 ## Manual Redeploy
 

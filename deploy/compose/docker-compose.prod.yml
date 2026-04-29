@@ -24,9 +24,7 @@ services:
     restart: unless-stopped
 
   dotdev:
-    build:
-      context: ../../apps/dotdev
-      dockerfile: Dockerfile
+    image: ${DOTDEV_IMAGE:?DOTDEV_IMAGE is required}
     container_name: platform-dotdev
     networks:
       - platform
@@ -52,9 +50,7 @@ services:
     restart: unless-stopped
 
   prefect-server:
-    build:
-      context: ../../apps/prefect
-      dockerfile: Dockerfile
+    image: ${PREFECT_IMAGE:?PREFECT_IMAGE is required}
     container_name: platform-prefect-server
     command: prefect server start --host 0.0.0.0
     environment:
@@ -78,9 +74,7 @@ services:
     restart: unless-stopped
 
   prefect-worker:
-    build:
-      context: ../../apps/prefect
-      dockerfile: Dockerfile
+    image: ${PREFECT_IMAGE:?PREFECT_IMAGE is required}
     container_name: platform-prefect-worker
     command: /bin/bash /app/docker/prefect/start-worker.sh
     environment:
@@ -118,9 +112,7 @@ services:
     restart: unless-stopped
 
   airflow-init:
-    build:
-      context: ../../apps/flow
-      dockerfile: Dockerfile
+    image: ${AIRFLOW_IMAGE:?AIRFLOW_IMAGE is required}
     container_name: platform-airflow-init
     entrypoint: /bin/bash
     command:
@@ -141,6 +133,12 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__PARALLELISM: "2"
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "2"
+      AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "1"
+      AIRFLOW__SCHEDULER__PARSING_PROCESSES: "1"
+      AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: "60"
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "120"
       AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER}
       AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: ${AIRFLOW_ADMIN_USER}:admin
@@ -161,9 +159,7 @@ services:
       - platform
 
   airflow-webserver:
-    build:
-      context: ../../apps/flow
-      dockerfile: Dockerfile
+    image: ${AIRFLOW_IMAGE:?AIRFLOW_IMAGE is required}
     container_name: platform-airflow-webserver
     command: api-server
     environment: *airflow-prod-env
@@ -183,9 +179,7 @@ services:
     restart: unless-stopped
 
   airflow-scheduler:
-    build:
-      context: ../../apps/flow
-      dockerfile: Dockerfile
+    image: ${AIRFLOW_IMAGE:?AIRFLOW_IMAGE is required}
     container_name: platform-airflow-scheduler
     command: scheduler
     environment: *airflow-prod-env

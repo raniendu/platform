@@ -1,6 +1,6 @@
 # Deployment
 
-Production deploys are manual GitHub Actions runs that update the shared DigitalOcean Droplet at `/opt/platform`.
+Production deploys are manual GitHub Actions runs that apply the shared DigitalOcean infrastructure and then update the Droplet at `/opt/platform`.
 
 Current production routes:
 
@@ -32,19 +32,23 @@ After approval, create the GitHub repo manually or with `gh`, then add the remot
 CI/deploy workflows are under `.github/workflows/`.
 
 - `ci.yml`: runs per-app `uv sync`, targeted tests, Airflow DAG validation, and Compose config validation.
-- `deploy.yml`: manual `workflow_dispatch` deploy to the shared Droplet.
+- `deploy.yml`: manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
 
 Expected deploy workflow:
 
-1. Add the current GitHub runner `/32` to the DigitalOcean firewall for SSH.
-2. Upload repository files to `/opt/platform`.
-3. Upload the production env file to `/opt/platform/.env.production`.
-4. Run `docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build`.
-5. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
-6. Smoke test the public endpoints.
-7. Remove the temporary GitHub runner SSH firewall rule in an `always()` cleanup step.
+1. Build DotDev, Prefect, and Airflow images in GitHub Actions and push them to GHCR with the current commit SHA tag.
+2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`; the deploy stops if inventory cannot be read.
+3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, or allow Terraform to create one Droplet if none exists.
+4. Plan and apply Terraform from `infra/terraform`; the guard refuses any Droplet delete/replace and refuses creating a second Droplet when one already exists.
+5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
+6. Upload repository files to `/opt/platform`.
+7. Upload the production env file to `/opt/platform/.env.production`, appending the SHA-pinned image references for the deploy.
+8. Upload temporary GHCR credentials, pull images on the Droplet, and run production Compose with `up -d --no-build`.
+9. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
+10. Smoke test the public endpoints.
+11. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
 
-GitHub secrets are listed in `docs/secrets.md`. Do not run `Deploy` until Terraform has created the Droplet and production secrets are configured.
+GitHub secrets are listed in `docs/secrets.md`. Do not run `Deploy` until production secrets are configured.
 
 ## Gate 4: Terraform Apply
 
@@ -56,14 +60,15 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Show the plan and get explicit approval before `terraform apply`. The initial Droplet size is `s-2vcpu-4gb`.
+Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. The target Droplet size is `s-1vcpu-2gb`.
 
 ## Production Host Bootstrap
 
-Cloud-init installs Docker and creates `/opt/platform`. After the Droplet exists, deployment should copy this repository to `/opt/platform`, create a root-only production env file, and start production Compose.
+Cloud-init installs Docker and creates `/opt/platform`. After the Droplet exists, deployment should copy this repository to `/opt/platform`, create a root-only production env file, pull the SHA-pinned GHCR images, and start production Compose.
 
 ```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
 Public verification waits until Squarespace DNS cutover is complete.
@@ -73,12 +78,15 @@ Public verification waits until Squarespace DNS cutover is complete.
 Before running the `Deploy` workflow:
 
 - GitHub environment `production` exists and requires approval.
-- `PLATFORM_SSH_HOST` points at the new shared Droplet.
 - `DIGITALOCEAN_ACCESS_TOKEN` is set in the GitHub environment so the workflow can add and remove its temporary SSH firewall rule.
-- `PLATFORM_FIREWALL_ID` is set as a GitHub environment variable for the DigitalOcean firewall attached to the Droplet.
+- `DO_SSH_KEY_FINGERPRINTS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["aa:bb:cc"]`.
+- `ALLOWED_SSH_CIDRS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["203.0.113.10/32"]` or `[]`.
 - `PLATFORM_ENV_FILE` contains the complete production `.env.production` content.
-- `/opt/platform` exists on the Droplet. Cloud-init creates it for the Terraform-managed Droplet.
+- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, and `AIRFLOW_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
+- Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
+
+If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks.
 
 ## Manual Redeploy
 

@@ -94,7 +94,7 @@ docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.product
 
 ## Production Deploys
 
-Production deploys are manual GitHub Actions runs:
+Production deploys are manual GitHub Actions runs. The workflow applies Terraform first, then deploys the app stack:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main
@@ -103,13 +103,17 @@ gh run watch --repo raniendu/platform --exit-status
 
 The deploy workflow:
 
-1. Temporarily allowlists the GitHub runner `/32` in the DigitalOcean firewall.
-2. Uploads the repository to `/opt/platform`.
-3. Uploads `PLATFORM_ENV_FILE` to `/opt/platform/.env.production`.
-4. Runs production Docker Compose with `up -d --build`.
-5. Force-recreates Caddy so Caddyfile updates are picked up.
-6. Runs public smoke checks.
-7. Removes the temporary SSH firewall rule in an `always()` cleanup step.
+1. Builds DotDev, Prefect, and Airflow images in GitHub Actions and pushes them to GHCR with the current commit SHA tag.
+2. After the GitHub `production` environment approval, reads DigitalOcean inventory and adopts exactly one existing `platform-shared` Droplet/firewall into Terraform state, or creates one Droplet if none exists.
+3. Refuses to apply if Terraform would delete/replace a Droplet, create a second Droplet, or if duplicate matching Droplets already exist.
+4. Applies `infra/terraform`.
+5. Temporarily allowlists the GitHub runner `/32` in the Terraform-managed DigitalOcean firewall.
+6. Uploads the repository to `/opt/platform`.
+7. Uploads `PLATFORM_ENV_FILE` to `/opt/platform/.env.production` and appends the SHA-pinned image refs.
+8. Uploads temporary GHCR credentials, pulls images on the Droplet, and runs production Docker Compose with `up -d --no-build`.
+9. Force-recreates Caddy so Caddyfile updates are picked up.
+10. Runs public smoke checks.
+11. Removes temporary GHCR credentials and the SSH firewall rule in `always()` cleanup steps.
 
 Expected smoke results:
 
@@ -164,7 +168,7 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Only run `terraform apply` after explicit approval. Do not widen SSH access to `0.0.0.0/0`; the deploy workflow handles temporary GitHub runner access.
+Normal production applies run through `deploy.yml`, which first imports the existing named Droplet/firewall and then applies the plan. Do not widen SSH access to `0.0.0.0/0`; the deploy workflow handles temporary GitHub runner access.
 
 ## Secrets
 

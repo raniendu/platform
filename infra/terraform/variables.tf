@@ -11,9 +11,9 @@ variable "region" {
 }
 
 variable "droplet_size" {
-  description = "Initial shared Droplet size."
+  description = "Shared Droplet size."
   type        = string
-  default     = "s-2vcpu-4gb"
+  default     = "s-1vcpu-2gb"
 }
 
 variable "enable_backups" {

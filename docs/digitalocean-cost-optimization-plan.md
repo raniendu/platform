@@ -13,7 +13,7 @@ GitHub:
 - Latest successful production deploy before this note: GitHub Actions run `24959751917`
 - Latest deployment commit at that time: `55d4a07d9610ce8820b49654480e756212af00a6`
 - Deploy path: `.github/workflows/deploy.yml`
-- Deploy mechanism: manual `workflow_dispatch`, SSH to the Droplet, upload repo and `PLATFORM_ENV_FILE`, run Docker Compose, force-recreate Caddy, then run public smoke checks.
+- Deploy mechanism: manual `workflow_dispatch`, Terraform adopt/plan/apply for the shared Droplet and firewall, SSH to the Droplet, upload repo and `PLATFORM_ENV_FILE`, run Docker Compose, force-recreate Caddy, then run public smoke checks.
 - Important deploy behavior: the smoke checks intentionally retry because Caddy and Airflow can take a few seconds to become reachable after container recreation.
 
 DigitalOcean:
@@ -136,7 +136,7 @@ Secrets and private state:
 
 Current deploy assumptions:
 
-- Production Compose currently uses `build:` entries and builds images on the Droplet.
+- Production Compose uses SHA-pinned GHCR image references supplied by the deploy workflow; local Compose remains build-based for development.
 - Local Compose should remain build-based for development.
 - Caddy has named volumes for certificates.
 - Airflow and Prefect each currently have their own Postgres container and volume.
@@ -192,6 +192,8 @@ Do not resize until this baseline is captured.
 ### Phase 2: Move Image Builds Off The Droplet
 
 Goal: make the Droplet pull images instead of building them.
+
+Status in this repo: implemented in the production deploy path. GitHub Actions builds DotDev, Prefect, and Airflow images, pushes SHA-tagged images to GHCR, appends those image refs to `.env.production` during deploy, and runs production Compose with `up -d --no-build`.
 
 Approach:
 
@@ -284,6 +286,8 @@ Do not combine this phase with Droplet resizing. This phase touches data volumes
 
 Goal: avoid paying for unused scheduler and worker headroom.
 
+Status in this repo: implemented for production Compose with the conservative settings below.
+
 Candidate settings:
 
 ```text
@@ -311,6 +315,8 @@ Risk:
 
 Goal: reduce steady-state cost to about $14.40/month with weekly backups.
 
+Status in this repo: wired into the guarded production deploy workflow. The next approved `deploy.yml` run will adopt the existing `platform-shared` Droplet, refuse duplicate/replacement Droplet plans, and apply the `s-1vcpu-2gb` target.
+
 Preconditions:
 
 - Phase 1 baseline captured.
@@ -335,9 +341,10 @@ Plan:
 
 Terraform follow-up:
 
-- After resizing through DigitalOcean, update `infra/terraform/variables.tf` default and any local `terraform.tfvars` value from `s-2vcpu-4gb` to `s-1vcpu-2gb`.
-- Run `terraform plan` and verify it does not try to recreate the Droplet unexpectedly.
-- Do not run `terraform apply` without explicit approval.
+- Terraform now sets `resize_disk = false` on the Droplet so the size change uses CPU/RAM-only resize semantics.
+- `infra/terraform/variables.tf`, `infra/terraform/terraform.tfvars.example`, and `.env.example` now target `s-1vcpu-2gb`.
+- The deploy workflow imports an existing `platform-shared` Droplet before applying, fails if DigitalOcean inventory cannot be read, refuses duplicate matching Droplets, refuses Droplet delete/replace plans, and refuses creating a new Droplet when one already exists.
+- Production Terraform apply runs behind the GitHub `production` environment approval.
 
 Verification:
 

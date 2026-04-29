@@ -110,10 +110,12 @@ The deploy workflow:
 5. Temporarily allowlists the GitHub runner `/32` in the Terraform-managed DigitalOcean firewall.
 6. Uploads the repository to `/opt/platform`.
 7. Uploads `PLATFORM_ENV_FILE` to `/opt/platform/.env.production` and appends the SHA-pinned image refs.
-8. Uploads temporary GHCR credentials, pulls images on the Droplet, and runs production Docker Compose with `up -d --no-build`.
-9. Force-recreates Caddy so Caddyfile updates are picked up.
-10. Runs public smoke checks.
-11. Removes temporary GHCR credentials and the SSH firewall rule in `always()` cleanup steps.
+8. Uploads temporary GHCR credentials and pulls images on the Droplet.
+9. Runs the one-time Postgres consolidation when the host still has separate Prefect and Airflow Postgres containers.
+10. Runs production Docker Compose with `up -d --no-build`.
+11. Force-recreates Caddy so Caddyfile updates are picked up.
+12. Runs public smoke checks, then stops legacy Postgres containers after a successful migration.
+13. Removes temporary GHCR credentials and the SSH firewall rule in `always()` cleanup steps.
 
 Expected smoke results:
 

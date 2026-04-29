@@ -7,7 +7,7 @@ Pricing snapshot: 2026-04-24. Prices are public USD list prices, before tax, sup
 Use a single DigitalOcean Basic Droplet running the existing Docker Compose stack:
 
 - Caddy terminates HTTPS and routes `raniendu.dev`, `prefect.raniendu.dev`, and `flow.raniendu.dev`.
-- DotDev, Prefect Server, Prefect worker, Airflow webserver, Airflow scheduler, and the two PostgreSQL containers run on the same host.
+- DotDev, Prefect Server, Prefect worker, Airflow webserver, Airflow scheduler, and one shared PostgreSQL container run on the same host.
 - GitHub Actions deploys by SSH to `/opt/platform`.
 - Terraform creates the Droplet, firewall, SSH key attachment, and outputs the public IP for DNS.
 - Start with `s-2vcpu-4gb`; resize to the 8 GiB Droplet only if Airflow or local Postgres memory pressure shows up in metrics.
@@ -42,16 +42,16 @@ Docker Compose network
   |-- dotdev
   |-- prefect-server
   |-- prefect-worker
-  |-- prefect-postgres volume
+  |-- platform-postgres
   |-- airflow-webserver
   |-- airflow-scheduler
-  |-- airflow-postgres volume
+  |-- shared postgres volume
   |-- airflow logs/config/plugin volumes
 ```
 
 Operational choices:
 
-- Keep PostgreSQL local in containers at launch. Managed databases add cost and are unnecessary for this personal platform unless restore time or database isolation becomes more important than monthly spend.
+- Keep PostgreSQL local in one container. Managed databases add cost and are unnecessary for this personal platform unless restore time or database isolation becomes more important than monthly spend.
 - Enable weekly Droplet backups immediately. Add logical `pg_dump` backups later if the data becomes important enough to need app-level restore instead of whole-host restore.
 - Keep only Caddy public. Prefect is additionally protected with Caddy basic auth. Airflow relies on its own login and should still be treated as an admin surface.
 - Keep old live resources in place until the new endpoints are verified after DNS cutover.

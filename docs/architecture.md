@@ -22,7 +22,7 @@ Local Compose starts:
 - `airflow-webserver`
 - `airflow-scheduler`
 
-Production Compose keeps the same shape and adds durable Caddy certificate volumes. Prefect and Airflow each use separate PostgreSQL containers and volumes to avoid cross-service database coupling.
+Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. This reduces steady-state memory before the smaller-Droplet migration.
 
 ## Networking
 
@@ -60,11 +60,9 @@ Production volumes:
 
 - `caddy-data`
 - `caddy-config`
-- `prefect-postgres-data`
-- `airflow-postgres-data`
+- `postgres-data`
 - `airflow-logs`
 - `airflow-plugins`
 - `airflow-config`
 
-Historical Prefect runs and blocks are not migrated. Airflow DAGs are mounted from `apps/flow/dags`.
-
+Legacy production volumes `prefect-postgres-data` and `airflow-postgres-data` are retained after the first consolidation deploy until rollback is no longer needed. Airflow DAGs are mounted from `apps/flow/dags`.

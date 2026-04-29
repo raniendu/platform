@@ -73,7 +73,7 @@ Those old resources are now gone. Use those numbers only as historical cost base
 
 ## Target
 
-Primary target: `s-1vcpu-2gb`.
+Migration target: `s-1vcpu-2gb`. The existing `s-2vcpu-4gb` Droplet cannot be resized there in place because its disk is already larger than the target plan's disk.
 
 | Droplet size | Base cost | Weekly backups | Total | Assessment |
 | --- | ---: | ---: | ---: | --- |
@@ -81,7 +81,7 @@ Primary target: `s-1vcpu-2gb`.
 | `s-1vcpu-1gb` | $6.00 | $1.20 | $7.20 | Beats the visible old $11 baseline, but high risk unless runtime memory is reduced first. |
 | `s-2vcpu-2gb` | $18.00 | $3.60 | $21.60 | Safer CPU headroom, but still above the old Airflow-included baseline. |
 
-Recommendation: optimize first, resize to `s-1vcpu-2gb`, observe for at least one week, then decide whether a controlled `s-1vcpu-1gb` experiment is worth the operational risk.
+Recommendation: optimize first, consolidate Postgres, then migrate to a new `s-1vcpu-2gb` Droplet. Observe for at least one week before deciding whether a controlled `s-1vcpu-1gb` experiment is worth the operational risk.
 
 ## Why Not Resize Immediately To 1 GiB
 
@@ -252,6 +252,8 @@ Do not resize in the same commit as this change. First prove a normal deploy wor
 
 Goal: save memory without moving to a managed database.
 
+Status in this repo: implemented in the production deploy path. Production Compose now defines one `platform-postgres` container with separate `prefect` and `airflow` roles/databases. The deploy workflow runs a one-time dump/restore migration before starting the new app containers and stops legacy Postgres containers only after public smoke checks pass.
+
 Approach:
 
 1. Run one Postgres container.
@@ -311,11 +313,11 @@ Risk:
 - DAGs run with less parallelism.
 - schedule latency can increase slightly, which is acceptable for personal-scale workflows.
 
-### Phase 5: Resize To `s-1vcpu-2gb`
+### Phase 5: Migrate To A New `s-1vcpu-2gb` Droplet
 
 Goal: reduce steady-state cost to about $14.40/month with weekly backups.
 
-Status in this repo: wired into the guarded production deploy workflow. The next approved `deploy.yml` run will adopt the existing `platform-shared` Droplet, refuse duplicate/replacement Droplet plans, and apply the `s-1vcpu-2gb` target.
+Status: not safe as an in-place resize for the current Droplet. The existing `platform-shared` Droplet has an 80 GiB disk. DigitalOcean rejected both `resize_disk = false` and `resize_disk = true` attempts to move it to `s-1vcpu-2gb` because that target size has a smaller 50 GiB disk. Reaching `s-1vcpu-2gb` requires a new smaller-disk Droplet and a controlled migration.
 
 Preconditions:
 
@@ -324,27 +326,32 @@ Preconditions:
 - Latest GitHub CI passed.
 - Latest GitHub deploy passed.
 - Public smoke checks pass.
+- Postgres consolidation has deployed successfully and has been accepted.
 - A fresh Droplet backup or snapshot exists.
 
 Plan:
 
-1. Confirm the target size is available:
+1. Confirm the target size and disk difference:
 
    ```bash
    doctl compute size list | rg 's-1vcpu-2gb|s-2vcpu-4gb'
    ```
 
-2. Resize with CPU/RAM-only semantics when possible. Do not intentionally grow disk unless needed.
-3. Reboot if required by the resize operation.
-4. Run a production deploy.
-5. Watch container health and public endpoints.
+2. Open a separate migration PR/workflow for the new Droplet, following `docs/smaller-droplet-migration.md`. Do not make the normal `deploy.yml` create a second Droplet.
+3. Create a new `s-1vcpu-2gb` Droplet from GitHub Actions behind a typed manual confirmation.
+4. Deploy the current stack to the new Droplet and restore consolidated Postgres dumps.
+5. Verify service health on the new host before DNS cutover.
+6. Update Squarespace DNS to the new Droplet IP.
+7. Run public smoke checks.
+8. Decommission the old `s-2vcpu-4gb` Droplet only after explicit approval.
 
 Terraform follow-up:
 
 - Terraform now sets `resize_disk = false` on the Droplet so the size change uses CPU/RAM-only resize semantics.
-- `infra/terraform/variables.tf`, `infra/terraform/terraform.tfvars.example`, and `.env.example` now target `s-1vcpu-2gb`.
+- `infra/terraform/variables.tf`, `infra/terraform/terraform.tfvars.example`, and `.env.example` keep routine deploys on `s-2vcpu-4gb` so Postgres consolidation can deploy before the new-Droplet migration.
 - The deploy workflow imports an existing `platform-shared` Droplet before applying, fails if DigitalOcean inventory cannot be read, refuses duplicate matching Droplets, refuses Droplet delete/replace plans, and refuses creating a new Droplet when one already exists.
 - Production Terraform apply runs behind the GitHub `production` environment approval.
+- Because the existing disk cannot shrink in place, the normal deploy workflow remains intentionally single-Droplet-safe; a new-Droplet migration must be separate from routine deploys.
 
 Verification:
 
@@ -362,8 +369,9 @@ Expected public statuses: `200`, `301`, `401`, `200`.
 
 Rollback:
 
-- resize back to `s-2vcpu-4gb`,
-- rerun the deploy workflow,
+- before DNS cutover, keep using the old `s-2vcpu-4gb` Droplet,
+- after DNS cutover, point Squarespace DNS back to the old Droplet IP if it has not been decommissioned,
+- rerun the deploy workflow on the chosen host,
 - verify the same smoke checks.
 
 ### Phase 6: Optional `s-1vcpu-1gb` Experiment
@@ -418,4 +426,4 @@ Airflow alternatives:
 
 ## Recommendation
 
-Implement Phase 1 and Phase 2 first, then resize to `s-1vcpu-2gb`. This should cut consolidated monthly cost from $28.80 to $14.40 while preserving the monolithic architecture. Treat `s-1vcpu-1gb` as a later experiment, not the default target.
+Implement Phase 1 and Phase 2 first, consolidate Postgres, then migrate to a new `s-1vcpu-2gb` Droplet. This should cut consolidated monthly cost from $28.80 to $14.40 while preserving the monolithic architecture. Treat `s-1vcpu-1gb` as a later experiment, not the default target.

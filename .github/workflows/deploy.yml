@@ -364,6 +364,16 @@ jobs:
           test -n "$DOTDEV_IMAGE"
           test -n "$PREFECT_IMAGE"
           test -n "$AIRFLOW_IMAGE"
+          require_env_key() {
+            key="$1"
+            if ! printf '%s\n' "$PLATFORM_ENV_FILE" | grep -Eq "^${key}="; then
+              echo "::error::PLATFORM_ENV_FILE must include ${key}"
+              exit 1
+            fi
+          }
+          require_env_key PLATFORM_POSTGRES_PASSWORD
+          require_env_key PREFECT_POSTGRES_PASSWORD
+          require_env_key AIRFLOW_POSTGRES_PASSWORD
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
           {
@@ -403,12 +413,14 @@ jobs:
           cd /opt/platform
           trap 'rm -rf "${REMOTE_DOCKER_CONFIG}"' EXIT
           docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull \
+            postgres \
             dotdev \
             prefect-server \
             prefect-worker \
             airflow-init \
             airflow-webserver \
             airflow-scheduler
+          bash deploy/scripts/consolidate-postgres.sh deploy/compose/docker-compose.prod.yml .env.production
           docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
           EOF
 
@@ -449,6 +461,16 @@ jobs:
           check_status "www.raniendu.dev" "https://www.raniendu.dev/" "301"
           check_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
           check_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
+
+      - name: Stop legacy Postgres containers after migration
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "docker rm -f platform-prefect-postgres platform-airflow-postgres >/dev/null 2>&1 || true" || true
 
       - name: Remove remote GHCR credentials
         if: always()

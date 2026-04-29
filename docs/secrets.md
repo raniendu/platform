@@ -5,6 +5,7 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 ## Required Names
 
 - `PREFECT_POSTGRES_PASSWORD`: Prefect PostgreSQL password.
+- `PLATFORM_POSTGRES_PASSWORD`: Shared production PostgreSQL superuser password for the consolidated Postgres container.
 - `PREFECT_BASIC_AUTH_USER`: Caddy username for Prefect UI/API.
 - `PREFECT_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash.
 - `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications.
@@ -30,7 +31,7 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 Rotate app API keys at the provider first, then update `.env.production` and restart only the affected service where possible.
 
-Rotate database passwords during a maintenance window. Update the relevant Postgres user password and Compose env file together.
+Rotate database passwords during a maintenance window. Production uses one Postgres container with separate `prefect` and `airflow` roles/databases, so update the Postgres role password and Compose env file together. Rotate `PLATFORM_POSTGRES_PASSWORD` separately from the app database role passwords.
 
 Rotate Airflow `FERNET_KEY` using Airflow's documented key rotation process; replacing it blindly can make encrypted connection values unreadable.
 

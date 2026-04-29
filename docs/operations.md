@@ -66,10 +66,11 @@ curl https://prefect.raniendu.dev/api/health
 
 Back up named volumes before risky deploys:
 
-- `prefect-postgres-data`
-- `airflow-postgres-data`
+- `postgres-data`
 - `caddy-data`
 - `caddy-config`
+
+The first production deploy after Postgres consolidation writes logical dump backups under `/var/backups/platform/postgres-consolidation/` before restoring into the shared `platform-postgres` container. Keep the legacy `prefect-postgres-data` and `airflow-postgres-data` volumes until the consolidated database has been verified and accepted.
 
 At minimum, take a DigitalOcean Droplet snapshot before the first public cutover and before database-affecting changes.
 

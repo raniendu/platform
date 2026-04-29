@@ -140,7 +140,7 @@ After old infrastructure is deleted:
 - Remove unused old GitHub secrets from old repos.
 - Disable old deploy workflows.
 - Keep `raniendu/platform` production secrets unchanged.
-- Keep `DIGITALOCEAN_ACCESS_TOKEN`, `DO_SSH_KEY_FINGERPRINTS`, `ALLOWED_SSH_CIDRS`, `PLATFORM_ENV_FILE`, `PLATFORM_SSH_PORT`, `PLATFORM_SSH_PRIVATE_KEY`, and `PLATFORM_SSH_USER` for the deploy workflow. `PLATFORM_SSH_HOST` and `PLATFORM_FIREWALL_ID` are now Terraform outputs.
+- Keep `DIGITALOCEAN_ACCESS_TOKEN`, `DO_SSH_KEY_FINGERPRINTS`, `ALLOWED_SSH_CIDRS`, `PLATFORM_ENV_FILE`, `PLATFORM_SSH_PORT`, `PLATFORM_SSH_PRIVATE_KEY`, and `PLATFORM_SSH_USER` for the deploy workflow. `PLATFORM_ENV_FILE` must include `PLATFORM_POSTGRES_PASSWORD` after the Postgres consolidation. `PLATFORM_SSH_HOST` and `PLATFORM_FIREWALL_ID` are now Terraform outputs.
 
 ## Final Verification
 

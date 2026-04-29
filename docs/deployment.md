@@ -43,10 +43,12 @@ Expected deploy workflow:
 5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
 6. Upload repository files to `/opt/platform`.
 7. Upload the production env file to `/opt/platform/.env.production`, appending the SHA-pinned image references for the deploy.
-8. Upload temporary GHCR credentials, pull images on the Droplet, and run production Compose with `up -d --no-build`.
-9. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
-10. Smoke test the public endpoints.
-11. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
+8. Upload temporary GHCR credentials and pull images on the Droplet.
+9. Run the one-time Postgres consolidation if the host still has separate Prefect and Airflow Postgres containers.
+10. Run production Compose with `up -d --no-build`.
+11. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
+12. Smoke test the public endpoints, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
+13. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
 
 GitHub secrets are listed in `docs/secrets.md`. Do not run `Deploy` until production secrets are configured.
 
@@ -60,7 +62,7 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. The target Droplet size is `s-1vcpu-2gb`.
+Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Routine deploys keep the current `s-2vcpu-4gb` Droplet size; the smaller `s-1vcpu-2gb` target requires the separate migration path in `docs/smaller-droplet-migration.md`.
 
 ## Production Host Bootstrap
 
@@ -82,6 +84,7 @@ Before running the `Deploy` workflow:
 - `DO_SSH_KEY_FINGERPRINTS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["aa:bb:cc"]`.
 - `ALLOWED_SSH_CIDRS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["203.0.113.10/32"]` or `[]`.
 - `PLATFORM_ENV_FILE` contains the complete production `.env.production` content.
+- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, and `AIRFLOW_POSTGRES_PASSWORD`; the deploy workflow validates these keys before uploading the file.
 - The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, and `AIRFLOW_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
@@ -105,3 +108,17 @@ The workflow is expected to report these smoke statuses:
 - `flow.raniendu.dev` -> `200`
 
 `401` for Prefect is expected because Caddy basic auth is protecting the route before the API health endpoint is reached.
+
+## Postgres Consolidation
+
+Production now uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. Local development still uses separate local Postgres containers.
+
+On the first deploy to an existing host, `deploy/scripts/consolidate-postgres.sh`:
+
+1. Stops Prefect and Airflow application containers to avoid writes during dumps.
+2. Dumps `platform-prefect-postgres` and `platform-airflow-postgres`.
+3. Starts `platform-postgres`, whose init script creates the `prefect` and `airflow` roles/databases.
+4. Restores both dumps into the shared Postgres container.
+5. Writes a marker at `/var/lib/platform/postgres-consolidated`.
+
+The dump backups remain on the host under `/var/backups/platform/postgres-consolidation/`. Legacy Postgres containers are stopped only after public smoke checks pass; their Docker volumes are left in place for rollback until the migration has been manually accepted.

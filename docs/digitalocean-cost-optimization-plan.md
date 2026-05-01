@@ -339,7 +339,7 @@ Plan:
 
 2. Run the dedicated `Migrate Smaller Droplet` workflow with `phase=stage` and typed confirmation `stage-platform-shared-to-s-1vcpu-2gb`. Do not make the normal `deploy.yml` create a second Droplet.
 3. Let the workflow create or reuse exactly one `platform-shared-small` Droplet at `s-1vcpu-2gb`.
-4. Let the workflow deploy the current stack, restore consolidated Postgres dumps, copy Caddy certificate/config volumes, start the 2 GiB host in phases to avoid parallel Airflow/Prefect startup pressure, and verify the new host with `curl --resolve`.
+4. Let the workflow deploy the current stack, restore consolidated Postgres dumps under the correct application roles, copy Caddy certificate/config volumes, start the 2 GiB host in phases to avoid parallel Airflow/Prefect startup pressure, and verify the new host with `curl --resolve`.
 5. Update Squarespace DNS to the new Droplet IP printed in the workflow summary.
 6. Run `phase=promote` with typed confirmation `promote-platform-shared-small-to-platform-shared` after public smoke checks resolve to the new IP.
 7. Observe the promoted small Droplet.

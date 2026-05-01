@@ -31,3 +31,27 @@ def test_stage_quiesces_reused_staging_services_before_database_restore() -> Non
 
     assert 'stop_new_runtime_stack "$NEW_IP"' in body
     assert body.index("stop_new_runtime_stack") < body.index("restore_database")
+
+
+def test_restore_database_restores_objects_as_application_owner() -> None:
+    script = MIGRATION_SCRIPT.read_text()
+    body = _function_body(script, "restore_database")
+
+    assert "CREATE DATABASE ${db} OWNER ${owner}" in body
+    assert "pg_restore -U postgres --no-owner --role=${owner} -d ${db}" in body
+
+
+def test_airflow_init_exit_code_is_checked_after_compose_run() -> None:
+    script = MIGRATION_SCRIPT.read_text()
+    body = _function_body(script, "start_new_stack")
+
+    assert 'require_container_exit_success "$host" platform-airflow-init' in body
+    assert body.index("airflow-init") < body.index("require_container_exit_success")
+
+
+def test_container_health_failure_prints_container_logs_before_error() -> None:
+    script = MIGRATION_SCRIPT.read_text()
+    body = _function_body(script, "wait_container_health")
+
+    assert 'show_container_logs "$host" "$container"' in body
+    assert body.index("show_container_logs") < body.index('error "${container} did not become healthy')

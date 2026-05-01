@@ -10,15 +10,15 @@ Use a single DigitalOcean Basic Droplet running the existing Docker Compose stac
 - DotDev, Prefect Server, Prefect worker, Airflow webserver, Airflow scheduler, and one shared PostgreSQL container run on the same host.
 - GitHub Actions deploys by SSH to `/opt/platform`.
 - Terraform creates the Droplet, firewall, SSH key attachment, and outputs the public IP for DNS.
-- Start with `s-2vcpu-4gb`; resize to the 8 GiB Droplet only if Airflow or local Postgres memory pressure shows up in metrics.
+- After Postgres consolidation, migrate to `s-1vcpu-2gb`; resize upward only if Airflow, Prefect, or local Postgres memory pressure shows up in metrics.
 
 Estimated monthly cost:
 
 | Item | Monthly cost |
 | --- | ---: |
-| DigitalOcean Basic Droplet, 2 vCPU / 4 GiB / 80 GiB SSD | $24.00 |
-| Weekly Droplet backups, percentage plan | $4.80 |
-| Total | $28.80 |
+| DigitalOcean Basic Droplet, 1 vCPU / 2 GiB / 50 GiB SSD | $12.00 |
+| Weekly Droplet backups, percentage plan | $2.40 |
+| Total | $14.40 |
 
 This is the best practical option for the current monorepo because it is the cheapest DigitalOcean architecture, preserves Docker Compose, avoids managed database minimums, avoids Airflow service rewrites, and keeps deployment simple. AWS Lightsail can be a close cost competitor if snapshot storage stays small, but the expected monthly difference is only a few dollars and does not justify moving away from the DigitalOcean/Terraform path already built unless there is a separate reason to standardize on AWS.
 
@@ -60,7 +60,8 @@ Operational choices:
 
 | Option | Shape | Estimate | Assessment |
 | --- | --- | ---: | --- |
-| Single 4 GiB Droplet | All services in one Compose stack | $28.80/mo with weekly backups | Recommended. Cheapest simple DigitalOcean option. |
+| Single 2 GiB Droplet | All services in one Compose stack after Postgres consolidation | $14.40/mo with weekly backups | Recommended target. Cheapest simple DigitalOcean option that preserves the current architecture. |
+| Single 4 GiB Droplet | All services in one Compose stack | $28.80/mo with weekly backups | Safe fallback if the 2 GiB host shows sustained memory pressure. |
 | Two Droplets | 2 GiB web/Prefect Droplet plus 4 GiB Airflow Droplet | $43.20/mo with weekly backups | Useful only if Airflow needs isolation. Less monolithic and more operations. |
 | Single 8 GiB Droplet | Same as recommended, more headroom | $57.60/mo with weekly backups | Good upgrade path, not the starting point. |
 | App Platform for DotDev/Prefect plus Airflow Droplet | DotDev service, Prefect service/worker, Postgres, Airflow Droplet | Roughly $60.80-$68.80/mo minimum | Easier web deploys, but more expensive and less monolithic. Development database is not a production-grade backup story. |
@@ -114,12 +115,13 @@ Google Cloud:
 
 | Rank | Provider/option | Approximate monthly cost | Monolithic fit | Recommendation |
 | ---: | --- | ---: | --- | --- |
-| 1 | AWS Lightsail 4 GiB VPS | $25-$28 | Strong | Cost competitor, but migration effort is not worth the tiny savings by itself. |
-| 2 | DigitalOcean 4 GiB Droplet | $28.80 | Strong | Recommended. Best balance of cost, simplicity, and current repo alignment. |
-| 3 | Google Compute Engine `e2-medium` | $37-$41 | Strong | Viable but not cheaper. |
-| 4 | DigitalOcean two-Droplet split | $43.20 | Medium | Use only if Airflow isolation becomes necessary. |
-| 5 | DigitalOcean App Platform plus Airflow Droplet | $60.80-$68.80+ | Medium | More managed, more expensive, less monolithic. |
-| 6 | AWS/GCP managed Airflow paths | $300-$450+ | Weak | Reject for cost. |
+| 1 | DigitalOcean 2 GiB Droplet | $14.40 | Strong | Recommended target after Postgres consolidation. |
+| 2 | AWS Lightsail 4 GiB VPS | $25-$28 | Strong | Cost competitor, but migration effort is not worth it unless standardizing on AWS has separate value. |
+| 3 | DigitalOcean 4 GiB Droplet | $28.80 | Strong | Safe fallback if the 2 GiB host is too tight. |
+| 4 | Google Compute Engine `e2-medium` | $37-$41 | Strong | Viable but not cheaper. |
+| 5 | DigitalOcean two-Droplet split | $43.20 | Medium | Use only if Airflow isolation becomes necessary. |
+| 6 | DigitalOcean App Platform plus Airflow Droplet | $60.80-$68.80+ | Medium | More managed, more expensive, less monolithic. |
+| 7 | AWS/GCP managed Airflow paths | $300-$450+ | Weak | Reject for cost. |
 
 ## Decision
 

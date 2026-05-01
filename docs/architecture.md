@@ -22,7 +22,7 @@ Local Compose starts:
 - `airflow-webserver`
 - `airflow-scheduler`
 
-Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. This reduces steady-state memory before the smaller-Droplet migration.
+Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. This lower-memory shape is what allows the smaller `s-1vcpu-2gb` Droplet migration.
 
 ## Networking
 

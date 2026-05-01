@@ -18,6 +18,7 @@ resource "digitalocean_droplet" "platform" {
     prevent_destroy = true
     ignore_changes = [
       image,
+      size,
       ssh_keys,
       user_data,
     ]
@@ -36,6 +37,12 @@ resource "digitalocean_droplet" "platform" {
 resource "digitalocean_firewall" "platform" {
   name        = "${var.droplet_name}-firewall"
   droplet_ids = [digitalocean_droplet.platform.id]
+
+  lifecycle {
+    ignore_changes = [
+      droplet_ids,
+    ]
+  }
 
   inbound_rule {
     protocol         = "tcp"

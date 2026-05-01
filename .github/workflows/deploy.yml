@@ -136,6 +136,7 @@ jobs:
           TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
           TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
           DROPLET_NAME: platform-shared
+          MIGRATION_DROPLET_NAME: platform-shared-small
         run: |
           set -euo pipefail
 
@@ -177,13 +178,22 @@ jobs:
 
           firewall_name="${DROPLET_NAME}-firewall"
           droplet_ids_file="$(mktemp)"
+          migration_droplet_ids_file="$(mktemp)"
           firewall_ids_file="$(mktemp)"
-          trap 'rm -f "$droplet_ids_file" "$firewall_ids_file"' EXIT
+          trap 'rm -f "$droplet_ids_file" "$migration_droplet_ids_file" "$firewall_ids_file"' EXIT
 
           get_ids_by_name droplet "$DROPLET_NAME" > "$droplet_ids_file"
+          get_ids_by_name droplet "$MIGRATION_DROPLET_NAME" > "$migration_droplet_ids_file"
           get_ids_by_name firewall "$firewall_name" > "$firewall_ids_file"
           mapfile -t droplet_ids < "$droplet_ids_file"
+          mapfile -t migration_droplet_ids < "$migration_droplet_ids_file"
           mapfile -t firewall_ids < "$firewall_ids_file"
+
+          if [ "${#migration_droplet_ids[@]}" -gt 0 ]; then
+            echo "::error::Found smaller-Droplet migration host ${MIGRATION_DROPLET_NAME}; refusing routine deploy until migration promote or rollback completes."
+            printf '%s\n' "${migration_droplet_ids[@]}"
+            exit 1
+          fi
 
           if [ "${#droplet_ids[@]}" -gt 1 ]; then
             echo "::error::Found multiple DigitalOcean Droplets named ${DROPLET_NAME}; refusing to apply."

@@ -42,6 +42,7 @@ Observed with `doctl` on 2026-04-27:
 | Scenario | Components | Estimated monthly cost |
 | --- | --- | ---: |
 | Current consolidated platform only | `platform-shared` Basic Droplet at $24.00 plus weekly backups at 20% | $28.80 |
+| Target consolidated platform after smaller-Droplet migration | `platform-shared` Basic Droplet at $12.00 plus weekly backups at 20% | $14.40 |
 | Still-overlapped current state | Consolidated platform plus old `prefect-server` plus old `dot-dev-app` | $39.80 |
 | Visible old infra only | Old Prefect Droplet plus old DotDev App Platform app | $11.00 |
 | Historical old infra if Airflow were enabled | Old Prefect Droplet, old DotDev App Platform app, old Airflow 1 GiB Droplet | $17.00 |
@@ -52,9 +53,9 @@ The consolidated Droplet is not cheaper than the currently visible old Prefect a
 
 The immediate cost risk was overlap. That overlap was removed on 2026-04-27 when the old Prefect Droplet, old DotDev App Platform app, and orphaned old Prefect firewall were deleted.
 
-After deprecating old resources, the steady-state DigitalOcean bill for this platform should be about $28.80/month at current list prices. Without backups it would be $24.00/month, but backups are intentionally enabled for rollback.
+After deprecating old resources, the current steady-state DigitalOcean bill for this platform is about $28.80/month at current list prices. Without backups it would be $24.00/month, but backups are intentionally enabled for rollback.
 
-The first optimization target is `s-1vcpu-2gb`, which would reduce the consolidated platform to about $14.40/month with weekly backups. The detailed sequence is in `docs/digitalocean-cost-optimization-plan.md`.
+The next optimization target is `s-1vcpu-2gb`, which reduces the consolidated platform to about $14.40/month with weekly backups after the retired 4 GiB Droplet is decommissioned. The detailed sequence is in `docs/digitalocean-cost-optimization-plan.md` and `docs/smaller-droplet-migration.md`.
 
 ## Cost Notes
 

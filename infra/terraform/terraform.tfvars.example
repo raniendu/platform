@@ -1,5 +1,5 @@
 region                = "nyc3"
-droplet_size          = "s-2vcpu-4gb"
+droplet_size          = "s-1vcpu-2gb"
 enable_backups        = true
 backup_policy_plan    = "weekly"
 backup_policy_weekday = "SUN"

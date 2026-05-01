@@ -4,37 +4,94 @@ The current `platform-shared` Droplet cannot be resized in place to `s-1vcpu-2gb
 
 All DigitalOcean write operations for this migration must run from GitHub Actions after review and approval. Local `doctl` usage is read-only.
 
+The migration workflow is `.github/workflows/migrate-smaller-droplet.yml`. It creates a temporary replacement Droplet named `platform-shared-small`, migrates data, waits for manual DNS cutover, promotes the small Droplet back to the canonical `platform-shared` name, and only deletes the old Droplet in a separate typed-confirmation phase.
+
 ## Preconditions
 
 - Postgres consolidation has deployed successfully.
 - Public smoke checks pass on the current Droplet.
 - `PLATFORM_ENV_FILE` contains `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, and `AIRFLOW_POSTGRES_PASSWORD`.
 - The current Droplet has a fresh backup or snapshot.
-- A migration PR has been reviewed. Do not make routine `deploy.yml` create a second Droplet.
+- The migration PR has been reviewed and merged. Do not make routine `deploy.yml` create a second Droplet.
+- The GitHub `production` environment still requires human approval.
 
-## Required Migration Shape
+## Workflow Phases
 
-Use a dedicated manual workflow or one-off PR, not the normal deploy workflow:
+Use the dedicated manual workflow, not the normal deploy workflow:
 
-1. Require a typed confirmation input, for example `migrate-platform-shared-to-s-1vcpu-2gb`.
-2. Create a new `s-1vcpu-2gb` Droplet from GitHub Actions.
-3. Bootstrap Docker with the existing cloud-init script.
-4. Temporarily allowlist the GitHub runner `/32` on both the old and new Droplet firewalls.
-5. Stop application writers on the old Droplet and dump the consolidated `prefect` and `airflow` databases from `platform-postgres`.
-6. Upload the repository and production env file to the new Droplet.
-7. Start `platform-postgres` on the new Droplet and restore both database dumps.
-8. Start the production Compose stack on the new Droplet.
-9. Verify container health over SSH before DNS cutover.
-10. Update Squarespace DNS manually to the new Droplet IP.
-11. Run public smoke checks.
-12. Keep the old Droplet until explicit post-cutover approval to decommission it.
+### 1. Stage
+
+Run `Migrate Smaller Droplet` with:
+
+- `phase`: `stage`
+- `confirmation`: `stage-platform-shared-to-s-1vcpu-2gb`
+- `retired_droplet_name`: blank
+
+The stage phase:
+
+1. Fails unless it is running inside GitHub Actions.
+2. Creates `platform-shared-small` as `s-1vcpu-2gb`, or reuses exactly one existing Droplet with that name.
+3. Attaches the new Droplet to `platform-shared-firewall`.
+4. Temporarily allowlists the GitHub runner `/32` for SSH.
+5. Builds SHA-pinned production images and pushes them to GHCR.
+6. Uploads the repository and `PLATFORM_ENV_FILE` to the new Droplet.
+7. Stops old Prefect/Airflow writers on `platform-shared` to avoid post-dump divergence.
+8. Dumps the consolidated `prefect` and `airflow` databases from `platform-postgres`.
+9. Copies Caddy certificate/config volumes so HTTPS can be smoke-tested before DNS cutover.
+10. Restores Postgres dumps on the new Droplet.
+11. Starts production Compose on the new Droplet.
+12. Runs container health checks and `curl --resolve` public-route smoke checks against the new IP.
+13. Leaves old Prefect/Airflow writers stopped after success.
+
+The workflow summary prints the new Droplet IP. Use that IP for the Squarespace A records.
+
+### 2. DNS Cutover
+
+Manually update Squarespace A records to the staged Droplet IP:
+
+- `raniendu.dev`
+- `prefect.raniendu.dev`
+- `flow.raniendu.dev`
+
+Keep `www.raniendu.dev` pointed according to the existing redirect setup.
+
+### 3. Promote
+
+After DNS resolves to the new Droplet and public smoke checks pass, run `Migrate Smaller Droplet` with:
+
+- `phase`: `promote`
+- `confirmation`: `promote-platform-shared-small-to-platform-shared`
+- `retired_droplet_name`: blank
+
+The promote phase verifies that the old writer containers are still stopped, verifies that `https://raniendu.dev/` reaches the staged Droplet IP, runs public smoke checks, renames the old Droplet to `platform-shared-retired-<run-id>`, and renames `platform-shared-small` to `platform-shared`. This restores the canonical name that routine deploys adopt.
+
+### 4. Decommission
+
+After the small Droplet has been accepted in production, run `Migrate Smaller Droplet` with:
+
+- `phase`: `decommission_retired`
+- `confirmation`: `decommission-<retired-droplet-name>`
+- `retired_droplet_name`: `<retired-droplet-name>` from the promote workflow summary
+
+The decommission phase verifies the canonical `platform-shared` Droplet is `s-1vcpu-2gb`, runs public smoke checks, detaches the retired Droplet from the firewall, then deletes the retired Droplet. This is the step that reduces steady-state Droplet cost.
+
+## Routine Deploy Safety
+
+The normal `Deploy` workflow refuses to run while a Droplet named `platform-shared-small` exists. Finish `promote` or run `rollback_stage` before using routine deploys again.
+
+Terraform's desired size is now `s-1vcpu-2gb`, but the Droplet resource ignores `size` drift. That prevents routine deploys from trying the impossible in-place disk shrink on the existing 80 GiB Droplet while still creating a small Droplet if a brand-new environment is ever bootstrapped from empty inventory.
 
 ## Rollback
 
-Before decommissioning the old Droplet, rollback is DNS-only:
+Before `promote`, rollback is DNS-first:
 
-1. Point Squarespace DNS records back to the old Droplet IP.
-2. Run the production deploy workflow against the old Droplet state.
+1. Point Squarespace DNS records back to the old Droplet IP shown in the stage summary.
+2. Run `Migrate Smaller Droplet` with:
+   - `phase`: `rollback_stage`
+   - `confirmation`: `rollback-platform-shared-small`
+   - `retired_droplet_name`: blank
 3. Verify public smoke checks: `200`, `301`, `401`, `200`.
+
+After `promote` but before `decommission_retired`, the old Droplet still exists as `platform-shared-retired-<run-id>`, but rollback is no longer DNS-only because the canonical resource names have changed. Prefer validating the staged host before `promote`.
 
 After the old Droplet is decommissioned, rollback requires restoring from the latest backup or snapshot.

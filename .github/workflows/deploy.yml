@@ -2,6 +2,12 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      allow_migration_staging_host:
+        description: Allow deploy while platform-shared-small exists for migration recovery.
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: production-deploy
@@ -137,6 +143,7 @@ jobs:
           TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
           DROPLET_NAME: platform-shared
           MIGRATION_DROPLET_NAME: platform-shared-small
+          ALLOW_MIGRATION_STAGING_HOST: ${{ inputs.allow_migration_staging_host && 'true' || 'false' }}
         run: |
           set -euo pipefail
 
@@ -189,10 +196,20 @@ jobs:
           mapfile -t migration_droplet_ids < "$migration_droplet_ids_file"
           mapfile -t firewall_ids < "$firewall_ids_file"
 
-          if [ "${#migration_droplet_ids[@]}" -gt 0 ]; then
+          if [ "${#migration_droplet_ids[@]}" -gt 1 ]; then
+            echo "::error::Found multiple smaller-Droplet migration hosts named ${MIGRATION_DROPLET_NAME}; refusing deploy."
+            printf '%s\n' "${migration_droplet_ids[@]}"
+            exit 1
+          fi
+
+          if [ "${#migration_droplet_ids[@]}" -eq 1 ] && [ "$ALLOW_MIGRATION_STAGING_HOST" != "true" ]; then
             echo "::error::Found smaller-Droplet migration host ${MIGRATION_DROPLET_NAME}; refusing routine deploy until migration promote or rollback completes."
             printf '%s\n' "${migration_droplet_ids[@]}"
             exit 1
+          fi
+
+          if [ "${#migration_droplet_ids[@]}" -eq 1 ]; then
+            echo "::warning::Found ${MIGRATION_DROPLET_NAME}; continuing because allow_migration_staging_host=true."
           fi
 
           if [ "${#droplet_ids[@]}" -gt 1 ]; then

@@ -18,6 +18,8 @@ resource "digitalocean_droplet" "platform" {
     prevent_destroy = true
     ignore_changes = [
       image,
+      public_networking,
+      resize_disk,
       size,
       ssh_keys,
       user_data,

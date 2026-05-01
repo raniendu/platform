@@ -105,7 +105,7 @@ The deploy workflow:
 
 1. Builds DotDev, Prefect, and Airflow images in GitHub Actions and pushes them to GHCR with the current commit SHA tag.
 2. After the GitHub `production` environment approval, reads DigitalOcean inventory and adopts exactly one existing `platform-shared` Droplet/firewall into Terraform state, or creates one Droplet if none exists.
-3. Refuses to apply if Terraform would delete/replace a Droplet, create a second Droplet, or if duplicate matching Droplets already exist.
+3. Refuses to apply if Terraform would delete/replace a Droplet, create a second Droplet, if duplicate matching Droplets already exist, or if the smaller-Droplet staging host `platform-shared-small` exists.
 4. Applies `infra/terraform`.
 5. Temporarily allowlists the GitHub runner `/32` in the Terraform-managed DigitalOcean firewall.
 6. Uploads the repository to `/opt/platform`.
@@ -127,6 +127,8 @@ flow.raniendu.dev -> 200
 ```
 
 The Prefect `401` is expected because Caddy basic auth protects the route.
+
+Use `migrate-smaller-droplet.yml`, not `deploy.yml`, for the `s-1vcpu-2gb` migration. That workflow stages `platform-shared-small`, waits for manual DNS cutover, promotes it back to canonical `platform-shared`, and deletes the retired 4 GiB Droplet only in a separate typed-confirmation phase.
 
 ## Production Checks
 

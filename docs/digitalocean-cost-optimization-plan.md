@@ -317,7 +317,7 @@ Risk:
 
 Goal: reduce steady-state cost to about $14.40/month with weekly backups.
 
-Status: not safe as an in-place resize for the current Droplet. The existing `platform-shared` Droplet has an 80 GiB disk. DigitalOcean rejected both `resize_disk = false` and `resize_disk = true` attempts to move it to `s-1vcpu-2gb` because that target size has a smaller 50 GiB disk. Reaching `s-1vcpu-2gb` requires a new smaller-disk Droplet and a controlled migration.
+Status: implemented as a reviewed GitHub Actions migration path, not as an in-place resize. The existing `platform-shared` Droplet has an 80 GiB disk. DigitalOcean rejected both `resize_disk = false` and `resize_disk = true` attempts to move it to `s-1vcpu-2gb` because that target size has a smaller 50 GiB disk. Reaching `s-1vcpu-2gb` requires a new smaller-disk Droplet and a controlled migration.
 
 Preconditions:
 
@@ -337,21 +337,23 @@ Plan:
    doctl compute size list | rg 's-1vcpu-2gb|s-2vcpu-4gb'
    ```
 
-2. Open a separate migration PR/workflow for the new Droplet, following `docs/smaller-droplet-migration.md`. Do not make the normal `deploy.yml` create a second Droplet.
-3. Create a new `s-1vcpu-2gb` Droplet from GitHub Actions behind a typed manual confirmation.
-4. Deploy the current stack to the new Droplet and restore consolidated Postgres dumps.
-5. Verify service health on the new host before DNS cutover.
-6. Update Squarespace DNS to the new Droplet IP.
-7. Run public smoke checks.
-8. Decommission the old `s-2vcpu-4gb` Droplet only after explicit approval.
+2. Run the dedicated `Migrate Smaller Droplet` workflow with `phase=stage` and typed confirmation `stage-platform-shared-to-s-1vcpu-2gb`. Do not make the normal `deploy.yml` create a second Droplet.
+3. Let the workflow create or reuse exactly one `platform-shared-small` Droplet at `s-1vcpu-2gb`.
+4. Let the workflow deploy the current stack, restore consolidated Postgres dumps, copy Caddy certificate/config volumes, and verify the new host with `curl --resolve`.
+5. Update Squarespace DNS to the new Droplet IP printed in the workflow summary.
+6. Run `phase=promote` with typed confirmation `promote-platform-shared-small-to-platform-shared` after public smoke checks resolve to the new IP.
+7. Observe the promoted small Droplet.
+8. Run `phase=decommission_retired` with confirmation `decommission-<retired-droplet-name>` only after explicit approval. This is the step that removes the old `s-2vcpu-4gb` Droplet cost.
 
 Terraform follow-up:
 
-- Terraform now sets `resize_disk = false` on the Droplet so the size change uses CPU/RAM-only resize semantics.
-- `infra/terraform/variables.tf`, `infra/terraform/terraform.tfvars.example`, and `.env.example` keep routine deploys on `s-2vcpu-4gb` so Postgres consolidation can deploy before the new-Droplet migration.
-- The deploy workflow imports an existing `platform-shared` Droplet before applying, fails if DigitalOcean inventory cannot be read, refuses duplicate matching Droplets, refuses Droplet delete/replace plans, and refuses creating a new Droplet when one already exists.
+- Terraform now sets `resize_disk = false` and `prevent_destroy = true` on the Droplet.
+- `infra/terraform/variables.tf`, `infra/terraform/terraform.tfvars.example`, and `.env.example` set the desired steady-state target to `s-1vcpu-2gb`.
+- The Droplet resource ignores `size` drift so routine deploys do not try to shrink the current 80 GiB Droplet in place.
+- The firewall resource ignores `droplet_ids` drift so the migration can temporarily attach both old and new Droplets to the same firewall while the old host remains available for rollback.
+- The deploy workflow imports an existing `platform-shared` Droplet before applying, fails if DigitalOcean inventory cannot be read, refuses duplicate matching Droplets, refuses Droplet delete/replace plans, refuses creating a new Droplet when one already exists, and refuses routine deploys while `platform-shared-small` exists.
 - Production Terraform apply runs behind the GitHub `production` environment approval.
-- Because the existing disk cannot shrink in place, the normal deploy workflow remains intentionally single-Droplet-safe; a new-Droplet migration must be separate from routine deploys.
+- Because the existing disk cannot shrink in place, the normal deploy workflow remains intentionally single-Droplet-safe; the new-Droplet migration is separate from routine deploys.
 
 Verification:
 

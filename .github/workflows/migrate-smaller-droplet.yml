@@ -1,0 +1,133 @@
+name: Migrate Smaller Droplet
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Migration phase to run.
+        required: true
+        type: choice
+        options:
+          - stage
+          - promote
+          - rollback_stage
+          - decommission_retired
+      confirmation:
+        description: Typed confirmation for the selected phase.
+        required: true
+        type: string
+      retired_droplet_name:
+        description: Retired Droplet name, required only for decommission_retired.
+        required: false
+        type: string
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  AIRFLOW_IMAGE_NAME: airflow
+  DOTDEV_IMAGE_NAME: dotdev
+  FIREWALL_NAME: platform-shared-firewall
+  IMAGE_PREFIX: ghcr.io/raniendu/platform
+  NEW_DROPLET_NAME: platform-shared-small
+  OLD_DROPLET_NAME: platform-shared
+  PREFECT_IMAGE_NAME: prefect
+  TARGET_DROPLET_SIZE: s-1vcpu-2gb
+  TARGET_REGION: nyc3
+  TF_WORKING_DIR: infra/terraform
+
+jobs:
+  migration:
+    name: Smaller Droplet migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: inputs.phase == 'stage'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: inputs.phase == 'stage'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push DotDev image
+        if: inputs.phase == 'stage'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/dotdev
+          file: apps/dotdev/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.DOTDEV_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha,scope=dotdev
+          cache-to: type=gha,mode=max,scope=dotdev
+
+      - name: Build and push Prefect image
+        if: inputs.phase == 'stage'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/prefect
+          file: apps/prefect/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.PREFECT_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha,scope=prefect
+          cache-to: type=gha,mode=max,scope=prefect
+
+      - name: Build and push Airflow image
+        if: inputs.phase == 'stage'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/flow
+          file: apps/flow/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.AIRFLOW_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha,scope=airflow
+          cache-to: type=gha,mode=max,scope=airflow
+
+      - name: Configure SSH
+        if: inputs.phase == 'stage' || inputs.phase == 'promote' || inputs.phase == 'rollback_stage'
+        env:
+          PLATFORM_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_SSH_PRIVATE_KEY }}
+        run: |
+          test -n "$PLATFORM_SSH_PRIVATE_KEY"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PLATFORM_SSH_PRIVATE_KEY" > ~/.ssh/platform_key
+          chmod 600 ~/.ssh/platform_key
+
+      - name: Run smaller Droplet migration phase
+        env:
+          AIRFLOW_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.AIRFLOW_IMAGE_NAME }}:${{ github.sha }}
+          DOTDEV_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.DOTDEV_IMAGE_NAME }}:${{ github.sha }}
+          FIREWALL_NAME: ${{ env.FIREWALL_NAME }}
+          MIGRATION_CONFIRMATION: ${{ inputs.confirmation }}
+          MIGRATION_PHASE: ${{ inputs.phase }}
+          NEW_DROPLET_NAME: ${{ env.NEW_DROPLET_NAME }}
+          OLD_DROPLET_NAME: ${{ env.OLD_DROPLET_NAME }}
+          PLATFORM_ENV_FILE: ${{ secrets.PLATFORM_ENV_FILE }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+          PREFECT_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.PREFECT_IMAGE_NAME }}:${{ github.sha }}
+          RETIRED_DROPLET_NAME: ${{ inputs.retired_droplet_name }}
+          TARGET_DROPLET_SIZE: ${{ env.TARGET_DROPLET_SIZE }}
+          TARGET_REGION: ${{ env.TARGET_REGION }}
+          TF_VAR_ssh_key_fingerprints: ${{ vars.DO_SSH_KEY_FINGERPRINTS || secrets.DO_SSH_KEY_FINGERPRINTS }}
+          TF_WORKING_DIR: ${{ env.TF_WORKING_DIR }}
+        run: bash deploy/scripts/migrate-smaller-droplet.sh

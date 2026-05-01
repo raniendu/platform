@@ -33,12 +33,13 @@ CI/deploy workflows are under `.github/workflows/`.
 
 - `ci.yml`: runs per-app `uv sync`, targeted tests, Airflow DAG validation, and Compose config validation.
 - `deploy.yml`: manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
+- `migrate-smaller-droplet.yml`: manual, typed-confirmation migration from the current 80 GiB `s-2vcpu-4gb` Droplet to a new 50 GiB `s-1vcpu-2gb` Droplet.
 
 Expected deploy workflow:
 
 1. Build DotDev, Prefect, and Airflow images in GitHub Actions and push them to GHCR with the current commit SHA tag.
 2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`; the deploy stops if inventory cannot be read.
-3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, or allow Terraform to create one Droplet if none exists.
+3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, fail if the smaller-Droplet staging host `platform-shared-small` exists, or allow Terraform to create one Droplet if none exists.
 4. Plan and apply Terraform from `infra/terraform`; the guard refuses any Droplet delete/replace and refuses creating a second Droplet when one already exists.
 5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
 6. Upload repository files to `/opt/platform`.
@@ -62,7 +63,7 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Routine deploys keep the current `s-2vcpu-4gb` Droplet size; the smaller `s-1vcpu-2gb` target requires the separate migration path in `docs/smaller-droplet-migration.md`.
+Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Terraform's desired size is `s-1vcpu-2gb`, but the Droplet resource ignores size drift so routine deploys do not retry the impossible in-place disk shrink on the existing 80 GiB Droplet. The smaller host is reached through the separate migration path in `docs/smaller-droplet-migration.md`.
 
 ## Production Host Bootstrap
 
@@ -90,6 +91,19 @@ Before running the `Deploy` workflow:
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
 If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks.
+
+## Smaller Droplet Migration
+
+Run `Migrate Smaller Droplet`, not `Deploy`, to move production to the lower-cost host. The workflow has four manual phases:
+
+| Phase | Typed confirmation | Purpose |
+| --- | --- | --- |
+| `stage` | `stage-platform-shared-to-s-1vcpu-2gb` | Create or reuse one `platform-shared-small` Droplet, migrate Postgres and Caddy data, deploy the stack, and smoke-test the new IP with `curl --resolve`. |
+| `promote` | `promote-platform-shared-small-to-platform-shared` | After Squarespace DNS points at the new IP, verify public smoke checks and rename the small Droplet back to canonical `platform-shared`. |
+| `rollback_stage` | `rollback-platform-shared-small` | Stop staged writers and restart the old canonical stack if the cutover is abandoned before promotion. |
+| `decommission_retired` | `decommission-<retired-droplet-name>` | After acceptance, delete the retired old Droplet. This is the cost-reduction step. |
+
+Routine deploys refuse to run while `platform-shared-small` exists, because that name means the migration is staged but not promoted or rolled back.
 
 ## Manual Redeploy
 

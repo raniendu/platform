@@ -46,6 +46,8 @@ gh run watch --repo raniendu/platform --exit-status
 
 The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, runs public smoke checks, and cleans up temporary access.
 
+Use the `Migrate Smaller Droplet` GitHub workflow for the `s-1vcpu-2gb` migration. Do not use local `doctl` for write operations. The workflow stages `platform-shared-small`, requires manual DNS cutover, promotes the small Droplet back to `platform-shared`, and deletes the retired 4 GiB Droplet only after a separate typed confirmation.
+
 ## Health Checks
 
 ```bash
@@ -81,6 +83,7 @@ At minimum, take a DigitalOcean Droplet snapshot before the first public cutover
 - Caddy certificates issued successfully.
 - Prefect worker is polling the expected work pool.
 - Airflow scheduler is running.
+- `Migrate Smaller Droplet` `promote` has renamed the accepted small Droplet to `platform-shared`.
 - Human approval recorded for each old resource deletion.
 
 Detailed old-resource shutdown steps live in `docs/deprecation-plan.md`.

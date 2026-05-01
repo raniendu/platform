@@ -105,6 +105,8 @@ Run `Migrate Smaller Droplet`, not `Deploy`, to move production to the lower-cos
 
 Routine deploys refuse to run while `platform-shared-small` exists, because that name means the migration is staged but not promoted or rolled back.
 
+If a failed stage created `platform-shared-small` before Postgres consolidation was deployed, run `Deploy` with `allow_migration_staging_host=true` to deploy consolidation to the old canonical Droplet. Use this only for migration recovery; routine deploys should keep the default `false`.
+
 ## Manual Redeploy
 
 From this repository:

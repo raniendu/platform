@@ -35,13 +35,14 @@ The stage phase:
 4. Temporarily allowlists the GitHub runner `/32` for SSH.
 5. Builds SHA-pinned production images and pushes them to GHCR.
 6. Uploads the repository and `PLATFORM_ENV_FILE` to the new Droplet.
-7. Stops old Prefect/Airflow writers on `platform-shared` to avoid post-dump divergence.
-8. Dumps the consolidated `prefect` and `airflow` databases from `platform-postgres`.
-9. Copies Caddy certificate/config volumes so HTTPS can be smoke-tested before DNS cutover.
-10. Restores Postgres dumps on the new Droplet.
-11. Starts production Compose on the new Droplet.
-12. Runs container health checks and `curl --resolve` public-route smoke checks against the new IP.
-13. Leaves old Prefect/Airflow writers stopped after success.
+7. Verifies the old Droplet already has the consolidated `platform-postgres` container.
+8. Stops old Prefect/Airflow writers on `platform-shared` to avoid post-dump divergence.
+9. Dumps the consolidated `prefect` and `airflow` databases from `platform-postgres`.
+10. Copies Caddy certificate/config volumes so HTTPS can be smoke-tested before DNS cutover.
+11. Restores Postgres dumps on the new Droplet.
+12. Starts production Compose on the new Droplet.
+13. Runs container health checks and `curl --resolve` public-route smoke checks against the new IP.
+14. Leaves old Prefect/Airflow writers stopped after success.
 
 The workflow summary prints the new Droplet IP. Use that IP for the Squarespace A records.
 
@@ -78,6 +79,8 @@ The decommission phase verifies the canonical `platform-shared` Droplet is `s-1v
 ## Routine Deploy Safety
 
 The normal `Deploy` workflow refuses to run while a Droplet named `platform-shared-small` exists. Finish `promote` or run `rollback_stage` before using routine deploys again.
+
+For migration recovery only, `Deploy` has an `allow_migration_staging_host` input. Use it when a failed stage created `platform-shared-small` before Postgres consolidation reached the old Droplet, so consolidation can be deployed before retrying `stage`.
 
 Terraform's desired size is now `s-1vcpu-2gb`, but the Droplet resource ignores `size` drift. That prevents routine deploys from trying the impossible in-place disk shrink on the existing 80 GiB Droplet while still creating a small Droplet if a brand-new environment is ever bootstrapped from empty inventory.
 

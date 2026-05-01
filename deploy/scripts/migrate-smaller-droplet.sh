@@ -321,6 +321,14 @@ ensure_old_writers_stopped() {
   fi
 }
 
+ensure_old_postgres_consolidated() {
+  local host="$1"
+
+  if ! ssh_host "$host" "docker inspect platform-postgres >/dev/null 2>&1"; then
+    error "Old Droplet does not have platform-postgres. Run Deploy with Postgres consolidation before staging the smaller Droplet."
+  fi
+}
+
 dump_database() {
   local host="$1"
   local db="$2"
@@ -522,6 +530,7 @@ phase_stage() {
   upload_production_env "$NEW_IP"
   upload_ghcr_credentials "$NEW_IP"
 
+  ensure_old_postgres_consolidated "$OLD_IP"
   stop_old_writers "$OLD_IP"
   dump_database "$OLD_IP" prefect "${TMP_DIR}/prefect.dump"
   dump_database "$OLD_IP" airflow "${TMP_DIR}/airflow.dump"

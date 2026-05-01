@@ -40,9 +40,9 @@ The stage phase:
 9. Stops old Prefect/Airflow writers on `platform-shared` to avoid post-dump divergence.
 10. Dumps the consolidated `prefect` and `airflow` databases from `platform-postgres`.
 11. Copies Caddy certificate/config volumes so HTTPS can be smoke-tested before DNS cutover.
-12. Restores Postgres dumps on the new Droplet.
+12. Restores Postgres dumps on the new Droplet with each database's objects restored as its application role (`prefect` or `airflow`), so the services can run migrations and health checks without table-permission failures.
 13. Starts the staged Compose stack in phases: DotDev first, then the one-shot Airflow database init, then Prefect/Airflow runtime services and Caddy. This avoids a high-memory parallel startup on the 2 GiB Droplet.
-14. Prints the last `platform-airflow-init` logs if Airflow init fails, then restarts the old production stack during cleanup.
+14. Checks the `platform-airflow-init` exit code explicitly and prints the last logs if Airflow init fails, then restarts the old production stack during cleanup.
 15. Runs container health checks and `curl --resolve` public-route smoke checks against the new IP.
 16. Leaves old Prefect/Airflow writers stopped after success.
 

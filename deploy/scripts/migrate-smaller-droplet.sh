@@ -382,6 +382,18 @@ show_container_logs() {
   ssh_host "$host" "docker logs --tail 200 '${container}' 2>&1" || true
 }
 
+require_container_exit_success() {
+  local host="$1"
+  local container="$2"
+  local exit_code
+
+  exit_code="$(ssh_host "$host" "docker inspect -f '{{.State.ExitCode}}' '${container}' 2>/dev/null || printf 'missing'")"
+  if [ "$exit_code" != "0" ]; then
+    show_container_logs "$host" "$container"
+    error "${container} exited with code ${exit_code}"
+  fi
+}
+
 restore_database() {
   local host="$1"
   local db="$2"
@@ -395,7 +407,7 @@ docker cp /tmp/${db}.dump platform-postgres:/tmp/${db}.dump
 docker exec platform-postgres psql -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${db}';"
 docker exec platform-postgres psql -v ON_ERROR_STOP=1 -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${db} WITH (FORCE);"
 docker exec platform-postgres psql -v ON_ERROR_STOP=1 -U postgres -d postgres -c "CREATE DATABASE ${db} OWNER ${owner};"
-docker exec platform-postgres pg_restore -U postgres --no-owner -d ${db} /tmp/${db}.dump
+docker exec platform-postgres pg_restore -U postgres --no-owner --role=${owner} -d ${db} /tmp/${db}.dump
 docker exec platform-postgres rm -f /tmp/${db}.dump
 rm -f /tmp/${db}.dump
 EOF
@@ -409,6 +421,7 @@ start_new_stack() {
     show_container_logs "$host" platform-airflow-init
     return 1
   fi
+  require_container_exit_success "$host" platform-airflow-init
   ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build prefect-server"
   wait_container_health "$host" platform-prefect-server
   ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build prefect-worker airflow-webserver airflow-scheduler caddy"
@@ -428,6 +441,7 @@ wait_container_health() {
     sleep 10
   done
 
+  show_container_logs "$host" "$container"
   error "${container} did not become healthy on ${host}"
 }
 

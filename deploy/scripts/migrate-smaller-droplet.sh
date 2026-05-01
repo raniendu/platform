@@ -297,6 +297,12 @@ remove_remote_ghcr_credentials() {
   fi
 }
 
+stop_new_runtime_stack() {
+  local host="$1"
+
+  ssh_host "$host" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop caddy dotdev prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init || true"
+}
+
 stop_old_writers() {
   local host="$1"
 
@@ -368,6 +374,14 @@ start_new_postgres() {
   wait_container_health "$host" platform-postgres
 }
 
+show_container_logs() {
+  local host="$1"
+  local container="$2"
+
+  log "Last logs for ${container} on ${host}:"
+  ssh_host "$host" "docker logs --tail 200 '${container}' 2>&1" || true
+}
+
 restore_database() {
   local host="$1"
   local db="$2"
@@ -390,7 +404,14 @@ EOF
 start_new_stack() {
   local host="$1"
 
-  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build"
+  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build dotdev"
+  if ! ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up --no-build --force-recreate airflow-init"; then
+    show_container_logs "$host" platform-airflow-init
+    return 1
+  fi
+  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build prefect-server"
+  wait_container_health "$host" platform-prefect-server
+  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build prefect-worker airflow-webserver airflow-scheduler caddy"
 }
 
 wait_container_health() {
@@ -529,6 +550,7 @@ phase_stage() {
   upload_repository "$NEW_IP"
   upload_production_env "$NEW_IP"
   upload_ghcr_credentials "$NEW_IP"
+  stop_new_runtime_stack "$NEW_IP"
 
   ensure_old_postgres_consolidated "$OLD_IP"
   stop_old_writers "$OLD_IP"

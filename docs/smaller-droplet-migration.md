@@ -35,14 +35,16 @@ The stage phase:
 4. Temporarily allowlists the GitHub runner `/32` for SSH.
 5. Builds SHA-pinned production images and pushes them to GHCR.
 6. Uploads the repository and `PLATFORM_ENV_FILE` to the new Droplet.
-7. Verifies the old Droplet already has the consolidated `platform-postgres` container.
-8. Stops old Prefect/Airflow writers on `platform-shared` to avoid post-dump divergence.
-9. Dumps the consolidated `prefect` and `airflow` databases from `platform-postgres`.
-10. Copies Caddy certificate/config volumes so HTTPS can be smoke-tested before DNS cutover.
-11. Restores Postgres dumps on the new Droplet.
-12. Starts production Compose on the new Droplet.
-13. Runs container health checks and `curl --resolve` public-route smoke checks against the new IP.
-14. Leaves old Prefect/Airflow writers stopped after success.
+7. Stops any runtime containers already present on a reused staging Droplet before restoring databases.
+8. Verifies the old Droplet already has the consolidated `platform-postgres` container.
+9. Stops old Prefect/Airflow writers on `platform-shared` to avoid post-dump divergence.
+10. Dumps the consolidated `prefect` and `airflow` databases from `platform-postgres`.
+11. Copies Caddy certificate/config volumes so HTTPS can be smoke-tested before DNS cutover.
+12. Restores Postgres dumps on the new Droplet.
+13. Starts the staged Compose stack in phases: DotDev first, then the one-shot Airflow database init, then Prefect/Airflow runtime services and Caddy. This avoids a high-memory parallel startup on the 2 GiB Droplet.
+14. Prints the last `platform-airflow-init` logs if Airflow init fails, then restarts the old production stack during cleanup.
+15. Runs container health checks and `curl --resolve` public-route smoke checks against the new IP.
+16. Leaves old Prefect/Airflow writers stopped after success.
 
 The workflow summary prints the new Droplet IP. Use that IP for the Squarespace A records.
 

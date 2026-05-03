@@ -1839,7 +1839,7 @@ wheels = [
 ]
 
 [[package]]
-name = "prefect-digitalocean-deployment"
+name = "prefect-platform"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

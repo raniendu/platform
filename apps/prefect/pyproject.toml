@@ -1,5 +1,5 @@
 [project]
-name = "prefect"
+name = "prefect-platform"
 version = "0.1.0"
 description = "Prefect Open Source deployment on Digital Ocean for workflow orchestration"
 readme = "README.md"

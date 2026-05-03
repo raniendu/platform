@@ -76,6 +76,33 @@ Register local deployments:
 PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect python apps/prefect/scripts/deploy-flows.py
 ```
 
+## Daily Brief Verification Model
+
+The `daily-brief` flow uses a grounded pipeline with a strict verification gate.
+
+### Verification Features
+- **No URL, no headline**: news candidates without a valid `source_url` are rejected.
+- Every verified news item must include `headline`, `summary`, `source_url`, `publisher_name`, `published_timestamp`, and `evidence_snippet`.
+- Candidates are verified before rendering; rejected candidates are excluded from user-facing output.
+- If no verified items remain in a section, the flow renders a safe fallback (for example, `No verified updates available.`).
+
+### Regional & Market Updates
+- **Regional News**: Includes top headlines from **India** and technology updates from **Redmond, WA**.
+- **Dynamic Markets**:
+    - **Morning Brief (PST)**: Focuses on Indian markets (**Nifty 50**, **Sensex**).
+    - **Afternoon Brief (PST)**: Focuses on US markets (**S&P 500**, **Nasdaq**).
+- **Market Sourcing**: Facts are fetched from a structured source (Yahoo Finance chart API) and rendered directly.
+- **LLM Summarization**: Uses Gemini 3 Flash to rewrite the rendered brief for readability while strictly adhering to the verified facts.
+
+### Safe provider extension checklist
+
+When adding a new news or market provider:
+
+1. Return structured candidate records with source metadata and evidence snippets.
+2. Route candidates through `verify_news_candidates` before rendering.
+3. Keep deterministic checks (required fields, URL validity, evidence support) in front of any LLM step.
+4. Ensure fallbacks are preserved when no verified records pass validation.
+
 ## Tests
 
 ```bash
@@ -84,12 +111,11 @@ uv run --project apps/prefect pytest apps/prefect/tests/integration/
 uv run --project apps/prefect pytest apps/prefect/tests/
 ```
 
-The daily brief verification pipeline rejects ungrounded news items. When changing providers or rendering, keep these invariants covered:
+Verification-focused tests for the daily brief:
 
-- no URL, no headline;
-- every verified news item includes source metadata and evidence;
-- rejected candidates are excluded from user-facing output;
-- empty verified sections render a safe fallback.
+```bash
+uv run --project apps/prefect pytest apps/prefect/tests/property/test_daily_brief_behavior.py
+```
 
 ## Production Deployment
 

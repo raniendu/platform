@@ -1,5 +1,5 @@
 [project]
-name = "airflow"
+name = "flow"
 version = "0.1.0"
 description = "Apache Airflow deployment infrastructure for Digital Ocean"
 readme = "README.md"

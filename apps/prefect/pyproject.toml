@@ -1,7 +1,7 @@
 [project]
-name = "prefect-digitalocean-deployment"
+name = "prefect"
 version = "0.1.0"
-description = "Prefect project for- [x] Refine news to include India and Redmond, WA\n- [x] Add stock market update for Afternoon brief (US)\n- [x] Add stock market update for Morning brief (India)"
+description = "Prefect Open Source deployment on Digital Ocean for workflow orchestration"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

@@ -150,13 +150,25 @@ If DAGs are not visible:
 
 Airflow is pinned in `apps/flow/Dockerfile` and `apps/flow/pyproject.toml`.
 
-When adding dependencies:
+### Adding Python Dependencies
 
-```bash
-uv add --project apps/flow package-name
-uv lock --project apps/flow
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local build airflow-init airflow-webserver airflow-scheduler
-```
+1. Edit `pyproject.toml`:
+   ```toml
+   dependencies = [
+       "apache-airflow==3.1.7",
+       "pandas>=2.0.0",  # Add new dependency
+   ]
+   ```
+
+2. Update lock file:
+   ```bash
+   uv lock --project apps/flow
+   ```
+
+3. Rebuild containers:
+   ```bash
+   docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local build airflow-init airflow-webserver airflow-scheduler
+   ```
 
 Then rerun validation and tests.
 

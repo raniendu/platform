@@ -1,5 +1,8 @@
+# syntax=docker/dockerfile:1.7
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 LABEL authors="raniendu"
+
+ENV UV_LINK_MODE=copy
 
 # Set the working directory in the container
 WORKDIR /app
@@ -8,7 +11,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Create a virtualenv and install only runtime deps (no dev)
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Ensure the environment uses the project virtualenv
 ENV PATH="/app/.venv/bin:$PATH"

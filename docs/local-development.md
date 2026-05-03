@@ -18,7 +18,7 @@ Keep `.env.local` untracked. Empty API keys are acceptable for local container s
 
 ## Python Environments
 
-Each app keeps its own `pyproject.toml` and `uv.lock`.
+Each app keeps its own `pyproject.toml`, `uv.lock`, and virtual environment. This avoids forcing the Flask site, Prefect flows, and Airflow image into one shared Python resolution.
 
 ```bash
 uv sync --project apps/dotdev
@@ -26,10 +26,16 @@ uv sync --project apps/prefect
 uv sync --project apps/flow
 ```
 
-The root helper runs all three:
+The root helper runs all app environment syncs:
 
 ```bash
 ./scripts/sync-apps.sh
+```
+
+The helper forwards normal `uv sync` flags, so this checks lockfile consistency without updating locks:
+
+```bash
+./scripts/sync-apps.sh --locked
 ```
 
 ## Tests
@@ -46,6 +52,16 @@ The root helper runs the same targeted checks:
 ```bash
 ./scripts/test-apps.sh
 ```
+
+## Pre-Commit
+
+Install the repository hooks from the root:
+
+```bash
+uv run --project apps/dotdev --locked pre-commit install --config .pre-commit-config.yaml
+```
+
+The root pre-commit config runs Black and isort against Python files in each app using that app's own `uv` project.
 
 ## Docker
 

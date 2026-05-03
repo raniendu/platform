@@ -21,6 +21,7 @@ dev = [
     "black>=26.1.0",
     "isort>=8.0.0",
     "mypy>=1.19.1",
+    "pre-commit>=4.5.0",
     "hypothesis>=6.151.9",
 ]
 

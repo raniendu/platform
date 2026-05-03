@@ -1,0 +1,44 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dotdev-isort
+        name: DotDev isort
+        entry: env -u VIRTUAL_ENV uv run --project apps/dotdev --locked isort
+        language: system
+        types: [python]
+        files: ^apps/dotdev/
+
+      - id: dotdev-black
+        name: DotDev black
+        entry: env -u VIRTUAL_ENV uv run --project apps/dotdev --locked black
+        language: system
+        types: [python]
+        files: ^apps/dotdev/
+
+      - id: prefect-isort
+        name: Prefect isort
+        entry: env -u VIRTUAL_ENV uv run --project apps/prefect --locked isort
+        language: system
+        types: [python]
+        files: ^apps/prefect/
+
+      - id: prefect-black
+        name: Prefect black
+        entry: env -u VIRTUAL_ENV uv run --project apps/prefect --locked black
+        language: system
+        types: [python]
+        files: ^apps/prefect/
+
+      - id: flow-isort
+        name: Flow isort
+        entry: env -u VIRTUAL_ENV uv run --project apps/flow --locked isort
+        language: system
+        types: [python]
+        files: ^apps/flow/
+
+      - id: flow-black
+        name: Flow black
+        entry: env -u VIRTUAL_ENV uv run --project apps/flow --locked black
+        language: system
+        types: [python]
+        files: ^apps/flow/

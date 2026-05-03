@@ -21,8 +21,7 @@ import blog
 
 try:  # pragma: no cover - prefer real Flask when available
     # fmt: off
-    from flask import (Flask, abort, jsonify, redirect, render_template,
-                       request, url_for)
+    from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 
     # fmt: on
 except ModuleNotFoundError:  # pragma: no cover - lightweight fallback for tests

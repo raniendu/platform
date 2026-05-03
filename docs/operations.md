@@ -46,7 +46,7 @@ gh run watch --repo raniendu/platform --exit-status
 
 The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, runs public smoke checks, and cleans up temporary access.
 
-Use the `Migrate Smaller Droplet` GitHub workflow for the `s-1vcpu-2gb` migration. Do not use local `doctl` for write operations. The workflow stages `platform-shared-small`, requires manual DNS cutover, promotes the small Droplet back to `platform-shared`, and deletes the retired 4 GiB Droplet only after a separate typed confirmation.
+The `s-1vcpu-2gb` migration is complete. Use `Deploy` for routine releases. Keep `Migrate Smaller Droplet` as the audited pattern for future new-Droplet migrations; do not use local `doctl` for write operations.
 
 ## Health Checks
 
@@ -72,7 +72,7 @@ Back up named volumes before risky deploys:
 - `caddy-data`
 - `caddy-config`
 
-The first production deploy after Postgres consolidation writes logical dump backups under `/var/backups/platform/postgres-consolidation/` before restoring into the shared `platform-postgres` container. Keep the legacy `prefect-postgres-data` and `airflow-postgres-data` volumes until the consolidated database has been verified and accepted.
+The first production deploy after Postgres consolidation wrote logical dump backups under `/var/backups/platform/postgres-consolidation/` before restoring into the shared `platform-postgres` container. Legacy Prefect/Airflow Postgres containers were stopped after smoke checks; keep backup/restore decisions tied to explicit maintenance windows.
 
 At minimum, take a DigitalOcean Droplet snapshot before the first public cutover and before database-affecting changes.
 
@@ -83,7 +83,6 @@ At minimum, take a DigitalOcean Droplet snapshot before the first public cutover
 - Caddy certificates issued successfully.
 - Prefect worker is polling the expected work pool.
 - Airflow scheduler is running.
-- `Migrate Smaller Droplet` `promote` has renamed the accepted small Droplet to `platform-shared`.
 - Human approval recorded for each old resource deletion.
 
 Detailed old-resource shutdown steps live in `docs/deprecation-plan.md`.

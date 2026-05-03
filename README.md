@@ -4,6 +4,8 @@ Monorepo for the services previously split across `dotDev`, `prefect`, and `flow
 
 Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
 
+Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2gb`, with weekly Droplet backups enabled. The steady-state DigitalOcean estimate is about `$14.40/month` before taxes and unusual bandwidth.
+
 ## Layout
 
 - `apps/dotdev/` - Flask personal site, Python 3.13.
@@ -88,6 +90,8 @@ gh run watch --repo raniendu/platform --exit-status
 ```
 
 The deploy workflow temporarily allowlists the GitHub runner for SSH, uploads the repo and production env file, starts production Compose, force-recreates Caddy, runs public smoke checks, and removes the temporary SSH firewall rule in an `always()` cleanup step.
+
+Do not use local DigitalOcean CLI commands for infrastructure writes. Local `doctl` is read-only; reviewed PRs and GitHub Actions are the production write path.
 
 Cloud provider architecture and cost tradeoffs are summarized in `docs/cloud-architecture-recommendation.md`.
 Developer workflows are covered in `docs/developer-guide.md`. DigitalOcean cost comparison, cost optimization, and old-resource deprecation are covered in `docs/digitalocean-cost-comparison.md`, `docs/digitalocean-cost-optimization-plan.md`, and `docs/deprecation-plan.md`.

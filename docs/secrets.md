@@ -27,6 +27,8 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 `PLATFORM_SSH_HOST` and `PLATFORM_FIREWALL_ID` are no longer required. The deploy workflow reads the Droplet IP and firewall ID from Terraform outputs. The smaller-Droplet migration workflow discovers both the canonical and staged Droplet IPs from DigitalOcean inventory.
 
+DigitalOcean write access should be used by GitHub Actions workflows only. Local `doctl` is for read-only inventory and verification.
+
 ## Rotation Notes
 
 Rotate app API keys at the provider first, then update `.env.production` and restart only the affected service where possible.

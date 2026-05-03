@@ -7,7 +7,7 @@ This guide covers day-to-day development for the `platform` monorepo.
 - `uv`
 - Docker Desktop
 - GitHub CLI, authenticated as an account with access to `raniendu/platform`
-- `doctl`, authenticated for read-only checks and approved infrastructure operations
+- `doctl`, authenticated for read-only inventory checks only
 - Terraform, only for changes under `infra/terraform`
 
 Do not commit `.env.local`, `.env.production.generated`, `.env.production.credentials`, Terraform state, SSH keys, or copied secret values.
@@ -128,7 +128,7 @@ flow.raniendu.dev -> 200
 
 The Prefect `401` is expected because Caddy basic auth protects the route.
 
-Use `migrate-smaller-droplet.yml`, not `deploy.yml`, for the `s-1vcpu-2gb` migration. That workflow stages `platform-shared-small`, waits for manual DNS cutover, promotes it back to canonical `platform-shared`, and deletes the retired 4 GiB Droplet only in a separate typed-confirmation phase.
+The `s-1vcpu-2gb` migration completed on 2026-05-02. Use `deploy.yml` for routine production releases. Keep `migrate-smaller-droplet.yml` only for future new-Droplet migrations or recovery; it stages `platform-shared-small`, waits for manual DNS cutover, promotes it back to canonical `platform-shared`, and deletes the retired Droplet only in a separate typed-confirmation phase.
 
 ## Production Checks
 
@@ -172,7 +172,7 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Normal production applies run through `deploy.yml`, which first imports the existing named Droplet/firewall and then applies the plan. Do not widen SSH access to `0.0.0.0/0`; the deploy workflow handles temporary GitHub runner access.
+Normal production applies run through `deploy.yml`, which first imports the existing named Droplet/firewall and then applies the plan. Do not run local DigitalOcean write operations for infra changes; reviewed PRs and GitHub Actions are the write path. Do not widen SSH access to `0.0.0.0/0`; the deploy workflow handles temporary GitHub runner access.
 
 ## Secrets
 

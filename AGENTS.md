@@ -32,7 +32,9 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
 ## Deployment And Infrastructure
 
 - DigitalOcean single-Droplet Docker Compose deployment is the current production path.
-- Terraform lives in `infra/terraform`; do not run `terraform apply` without explicit user approval.
+- Current production host is `platform-shared` at `174.138.71.121`, size `s-1vcpu-2gb`.
+- Terraform lives in `infra/terraform`; do not run local `terraform apply` for production infrastructure.
+- Local `doctl` usage is read-only only. DigitalOcean write operations must run through reviewed PRs and GitHub Actions.
 - The production deploy workflow is manual: `.github/workflows/deploy.yml`.
 - The deploy workflow temporarily allowlists the GitHub runner `/32` in the DigitalOcean firewall, deploys over SSH, recreates Caddy, runs public smoke checks, then removes the temporary rule. Do not replace this with `0.0.0.0/0` SSH access.
 - Production DNS is managed manually in Squarespace. Apex/root must be an `A` record to the Droplet IP, not an `ALIAS` record to an IP address.

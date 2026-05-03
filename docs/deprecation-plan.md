@@ -1,12 +1,14 @@
-# Old Infrastructure Deprecation Plan
+# Old Infrastructure Deprecation Record
 
-This plan removes old DigitalOcean resources after the consolidated platform has proven stable. Do not delete anything without explicit approval for that resource.
+This document is now a completion record. The old DigitalOcean and App Platform resources for the pre-monorepo deployment have been removed.
 
 ## Current Replacement
 
 The consolidated platform is:
 
-- Droplet: `platform-shared` at `174.138.59.96`
+- Droplet: `platform-shared`
+- IP: `174.138.71.121`
+- Size: `s-1vcpu-2gb`
 - Firewall: `platform-shared-firewall`
 - Public routes:
   - `https://raniendu.dev`
@@ -14,149 +16,48 @@ The consolidated platform is:
   - `https://prefect.raniendu.dev`
   - `https://flow.raniendu.dev`
 
-## Preconditions
+## Completed Decommissioning
 
-Complete these before deleting old infrastructure:
+| Resource | Final state |
+| --- | --- |
+| Old Droplet `prefect-server` | destroyed on 2026-04-27 without snapshot |
+| Old App Platform app `dot-dev-app` | deleted on 2026-04-27 |
+| Old firewall `prefect-server-firewall` | deleted on 2026-04-27 |
+| Retired 4 GiB `platform-shared` Droplet | deleted on 2026-05-02 by `Migrate Smaller Droplet` run `25257362975` |
+| Managed databases | none observed |
+| Volumes | none observed |
+| Load balancers | none observed |
+| Standalone snapshots | none observed |
 
-1. Latest GitHub `Deploy` workflow completed successfully.
-2. Public smoke checks pass:
+## Current Verification
 
-   ```bash
-   curl -sS -o /dev/null -w '%{http_code}\n' https://raniendu.dev/
-   curl -sS -o /dev/null -w '%{http_code}\n' https://www.raniendu.dev/
-   curl -sS -o /dev/null -w '%{http_code}\n' https://prefect.raniendu.dev/api/health
-   curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
-   ```
-
-   Expected: `200`, `301`, `401`, `200`.
-
-3. Squarespace DNS points only to the consolidated Droplet for `@`, `prefect`, and `flow`, with `www` as a CNAME to `raniendu.dev`.
-4. Run at least one scheduled Prefect flow and confirm the worker handles it.
-5. Confirm Airflow scheduler is running and visible in the UI.
-6. Keep the new Droplet weekly backup enabled.
-7. Decide whether to preserve old runtime data. The migration intentionally starts Prefect fresh and does not rely on old Airflow runtime state.
-
-## Resource Inventory
-
-Observed old resources:
-
-| Resource | Current state | Decommission action |
-| --- | --- | --- |
-| Droplet `prefect-server` | active | Snapshot if rollback data is desired, then destroy |
-| App Platform `dot-dev-app` | active | Remove old custom domains if still attached, then destroy the app |
-| Old Airflow Terraform stack | no active Droplet observed | Confirm `terraform plan` with `infra_enabled=false`, then archive state/repo notes |
-
-No old DigitalOcean managed databases, volumes, load balancers, or snapshots were observed.
-
-## Step 1: Freeze Old Deploy Paths
-
-Before deleting resources, stop old repos from silently redeploying:
-
-- Disable or archive old deploy workflows in `dotDev`, `prefect`, and `flow`.
-- Remove App Platform auto-deploy from `dot-dev-app` if deletion is delayed.
-- Leave old repos readable for history, but make the `platform` repo the source of truth.
-
-## Step 2: Deprecate DotDev App Platform
-
-Target: `dot-dev-app`.
-
-Checks:
+Expected public smoke checks:
 
 ```bash
-doctl apps list
-curl -I https://raniendu.dev/
-curl -I https://www.raniendu.dev/
-```
-
-Plan:
-
-1. Confirm `raniendu.dev` and `www.raniendu.dev` resolve to `174.138.59.96`.
-2. Export or screenshot the App Platform spec if a record is wanted.
-3. Remove custom domains from the old app if deletion is delayed.
-4. After explicit approval, destroy `dot-dev-app`.
-5. Re-run public smoke checks against the consolidated platform.
-
-Rollback:
-
-- Recreate the app from the old `dotDev` repo and point DNS back only if the consolidated DotDev route fails and cannot be fixed quickly.
-
-## Step 3: Deprecate Old Prefect Droplet
-
-Target: `prefect-server`.
-
-Checks:
-
-```bash
-doctl compute droplet list
-curl -I https://prefect.raniendu.dev/
-```
-
-Plan:
-
-1. Confirm `prefect.raniendu.dev` resolves to `174.138.59.96`.
-2. Confirm the new Prefect worker is polling the expected pool and a scheduled run completes.
-3. If old run history or logs matter, take a manual snapshot before deletion. If not, skip the snapshot to avoid creating another billable artifact.
-4. After explicit approval, destroy the old `prefect-server` Droplet.
-5. Delete old Prefect firewall resources if any remain attached only to that Droplet.
-6. Re-run Prefect public and worker checks.
-
-Rollback:
-
-- If a snapshot was taken, recreate the old Droplet from the snapshot and repoint DNS to its IP.
-- If no snapshot was taken, rollback is through the old repo plus fresh Terraform apply.
-
-## Step 4: Retire Old Airflow Terraform State
-
-Target: old `flow` Terraform stack.
-
-Checks:
-
-```bash
-cd /Users/raniendu/PycharmProjects/flow/terraform
-terraform init
-terraform plan
-```
-
-Expected state:
-
-- `infra_enabled = false`
-- no active `airflow-server` Droplet in `doctl compute droplet list`
-- no `flow.raniendu.dev` DNS dependency in DigitalOcean DNS
-
-Plan:
-
-1. Confirm the old state has no managed resources or shows a destroy plan only for resources already replaced.
-2. If Terraform still tracks old resources, show the plan and get explicit approval before applying.
-3. Archive the old Terraform state location and note that `platform/infra/terraform` is now authoritative for shared runtime infrastructure.
-
-Rollback:
-
-- Re-enable the old `flow` Terraform stack only if the consolidated Airflow service cannot be recovered and the user approves a temporary split.
-
-## Step 5: Clean GitHub And Secrets
-
-After old infrastructure is deleted:
-
-- Remove unused old GitHub secrets from old repos.
-- Disable old deploy workflows.
-- Keep `raniendu/platform` production secrets unchanged.
-- Keep `DIGITALOCEAN_ACCESS_TOKEN`, `DO_SSH_KEY_FINGERPRINTS`, `ALLOWED_SSH_CIDRS`, `PLATFORM_ENV_FILE`, `PLATFORM_SSH_PORT`, `PLATFORM_SSH_PRIVATE_KEY`, and `PLATFORM_SSH_USER` for the deploy workflow. `PLATFORM_ENV_FILE` must include `PLATFORM_POSTGRES_PASSWORD` after the Postgres consolidation. `PLATFORM_SSH_HOST` and `PLATFORM_FIREWALL_ID` are now Terraform outputs.
-
-## Final Verification
-
-Run:
-
-```bash
-gh run list --repo raniendu/platform --limit 5
-doctl compute droplet list
-doctl apps list
-doctl databases list
-doctl compute volume list
-doctl compute load-balancer list
 curl -sS -o /dev/null -w '%{http_code}\n' https://raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://www.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://prefect.raniendu.dev/api/health
 curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 ```
 
-Expected result: only the consolidated platform resources remain for these services, and the public route statuses are `200`, `301`, `401`, `200`.
+Expected: `200`, `301`, `401`, `200`.
+
+`401` for Prefect is expected because Caddy basic auth protects the route before the Prefect health endpoint is reached.
+
+Read-only inventory checks should show only the shared runtime resources for this stack:
+
+```bash
+doctl compute droplet list
+doctl apps list
+doctl databases list
+doctl compute volume list
+doctl compute load-balancer list
+doctl compute snapshot list
+```
+
+## Rules Going Forward
+
+- `raniendu/platform` is the source of truth for production deployment.
+- Do not reintroduce standalone DotDev App Platform, standalone Prefect Droplet, or standalone Airflow Terraform instructions.
+- Do not run local DigitalOcean write operations for infra changes. Use reviewed PRs and GitHub Actions.
+- Keep `DIGITALOCEAN_ACCESS_TOKEN`, `DO_SSH_KEY_FINGERPRINTS`, `ALLOWED_SSH_CIDRS`, `PLATFORM_ENV_FILE`, `PLATFORM_SSH_PORT`, `PLATFORM_SSH_PRIVATE_KEY`, and `PLATFORM_SSH_USER` for the shared deploy workflow.

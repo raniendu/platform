@@ -1,88 +1,49 @@
-# AGENTS Guide: Airflow on DigitalOcean
+# Airflow App Agent Guide
 
-## Purpose and Scope
+## Scope
 
-This repository manages Apache Airflow deployment and its DigitalOcean infrastructure using Terraform and GitHub Actions.
+This guide applies inside `apps/flow/`. The root `AGENTS.md` remains authoritative for shared monorepo, deployment, infrastructure, and secret-handling rules.
 
-Infrastructure boundary for this repo:
+## Project Shape
 
-- Terraform-managed Airflow droplet, firewall, and optional DNS record
-- CI/CD deployment pipeline that applies Terraform and deploys app code
+- `dags/`: Airflow DAG definitions.
+- `scripts/validate-dags.py`: DAG import validation.
+- `tests/`: Airflow DAG and behavior tests.
+- `Dockerfile`: Airflow image source used by the shared platform workflows.
 
-Out of scope:
+There is no standalone Airflow Terraform state, `infra_enabled` toggle, or independent production Droplet in this app directory.
 
-- Unrelated DigitalOcean services/resources not managed by this Terraform state
+## Commands
 
-## Canonical Infra Toggle
-
-Use `terraform/deployment.auto.tfvars` as the single source of truth:
-
-```hcl
-infra_enabled = false
-```
-
-- `false`: pause infrastructure (Terraform destroys managed resources)
-- `true`: provision/reprovision managed resources
-
-## Safe Pause Procedure
-
-1. Confirm `terraform/deployment.auto.tfvars` has `infra_enabled = false`.
-2. Commit and push to `main`.
-3. Verify GitHub Actions `Deploy to Digital Ocean` workflow:
-   - Terraform apply runs successfully.
-   - Deploy job is skipped.
-4. Verify Airflow resources are removed from DigitalOcean.
-
-## Safe Resume Procedure
-
-1. Set `infra_enabled = true` in `terraform/deployment.auto.tfvars`.
-2. Commit and push to `main`.
-3. Verify workflow:
-   - Terraform apply creates resources.
-   - Deploy job runs.
-4. Verify a new droplet IP is produced and Airflow is reachable.
-
-## Resource Safety Rules
-
-Only destroy resources tracked by this repository's Terraform state.
-
-- Preferred destructive path: `terraform apply` with `infra_enabled=false`
-- Avoid ad hoc manual deletions when Terraform can perform the change
-- Never delete shared/unrelated resources
-
-Known non-target resources that must not be touched:
-
-- Droplet: `prefect-server`
-- DigitalOcean App Platform apps (for example `babamuskbot`, `dot-dev-app`)
-
-## Verification Commands and Checks
-
-Before pause/resume apply:
+Run from the repository root:
 
 ```bash
-cd terraform
-terraform state list
-terraform plan
+uv sync --project apps/flow
+uv run --project apps/flow python apps/flow/scripts/validate-dags.py
+uv run --project apps/flow pytest apps/flow/tests/
 ```
 
-After pause:
+Local platform stack:
 
 ```bash
-cd terraform
-terraform output
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local logs -f airflow-webserver
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local logs -f airflow-scheduler
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local down
 ```
 
-Expected: no active droplet outputs (`droplet_ip` empty), deploy job skipped in CI.
+## Development Rules
 
-Use DigitalOcean dashboard/API to confirm:
+- Keep DAG files under `dags/`.
+- Validate DAG imports before reporting completion.
+- Keep DAG imports lightweight; avoid expensive work at module import time.
+- Do not hardcode credentials in DAGs. Use Airflow Variables, Connections, or environment-backed settings.
+- Production Airflow runs with constrained parallelism for the 2 GiB Droplet, so avoid DAG designs that assume high local concurrency.
 
-- `airflow-server` is removed when paused
-- unrelated resources remain unchanged
+## Deployment Boundary
 
-## Documentation Maintenance Rule
+Production Airflow runs in the shared platform stack on `platform-shared`, behind Caddy at `https://flow.raniendu.dev`.
 
-Any infrastructure workflow change must update all of:
+Do not add standalone DigitalOcean deployment instructions here. Production deploys use the root `.github/workflows/deploy.yml` workflow after review and environment approval.
 
-- `README.md`
-- `terraform/README.md`
-- `AGENTS.md`
+Local DigitalOcean CLI usage is read-only only. Infrastructure writes must go through reviewed PRs and GitHub Actions.

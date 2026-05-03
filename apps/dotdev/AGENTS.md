@@ -1,44 +1,52 @@
-# Repository Guidelines
+# DotDev App Agent Guide
 
-## Project Structure & Module Organization
+## Scope
+
+This guide applies inside `apps/dotdev/`. The root `AGENTS.md` remains authoritative for shared monorepo, deployment, infrastructure, and secret-handling rules.
+
+## Project Shape
+
 - `app.py`: Flask app entrypoint and route handlers.
 - `templates/`: Jinja2 HTML templates.
-- `static/`: CSS, JS, images, and documents.
-- `posts/`: Markdown sources for the Posts timeline (YAML front matter required).
-- `pyproject.toml`: Project metadata and Python dependencies (managed by uv).
-- `Dockerfile`, `docker-compose.yml`: Container build/run configs.
-- `tests/`: Add pytest files here (`test_*.py`).
-- `.env`: Local environment variables (not committed).
+- `static/`: CSS, JavaScript, images, documents, and other assets.
+- `posts/`: Markdown sources for the Posts timeline.
+- `tests/`: pytest tests.
+- `Dockerfile`: image source used by the shared platform workflows.
 
-## Build, Test, and Development Commands (uv)
-- Python: 3.9
-- Install uv (one-time): see https://docs.astral.sh/uv/getting-started/.
-- Setup: `uv sync` (creates and manages `.venv` from `pyproject.toml`).
-- Run (dev): `uv run flask --app app run` or `uv run python app.py`.
-- Test: `uv run pytest -q`.
-- Install pre-commit (optional but recommended): `uvx pre-commit install` then `uvx pre-commit run --all-files` for a full check.
-- Run (prod-like): `gunicorn --bind 0.0.0.0:8501 app:app`
-- Docker (build/run): `docker build -t dotdev . && docker run -p 8501:8501 --env-file .env dotdev`
+There is no standalone App Platform deployment for this app anymore.
 
-## Coding Style & Naming Conventions
-- Python: PEP 8, 4‑space indentation, UTF‑8, trailing newline.
-- Naming: `snake_case` for functions/vars, `PascalCase` for classes, module filenames in `snake_case.py`.
-- Templates: Keep page templates in `templates/` and static assets in `static/`; prefer small, reusable partials.
-- Posts: Author entries as Markdown under `posts/` with `title`, `date`, and `tags` in front matter so the React client can render timelines, archives, and the word cloud.
-- Formatting: CI runs `uvx black --check .` and `uvx isort --check-only .`; fix locally with `uvx black .` and `uvx isort .` or install the git hook via `uvx pre-commit install`.
+## Commands
 
-## Testing Guidelines
-- Framework: pytest with Flask’s test client.
-- Location: `tests/` with files named `test_*.py` and functions `test_*`.
-- Example: create a client and assert route responses (e.g., `GET /` returns 200).
-- Run: `pytest -q` (add pytest to your dev environment).
+Run from the repository root:
 
-## Commit & Pull Request Guidelines
-- Style: Conventional Commits (seen in history) — e.g., `docs: update README with local run steps`, `chore(deps): bump requests`.
-- Messages: Imperative mood, concise subject; optional scope in parentheses.
-- PRs: include a clear summary, linked issues, screenshots for UI changes, and notes on config/env changes.
-- Checks: ensure app starts locally (or via Docker) and pages render without errors.
+```bash
+uv sync --project apps/dotdev
+uv run --project apps/dotdev pytest apps/dotdev/tests -q
+```
 
-## Security & Configuration Tips
-- Secrets: never commit API keys; use `.env` for local dev and Compose will load it.
-- Review diffs for accidental secret/credential leakage before pushing.
+Local app-only run:
+
+```bash
+uv run --project apps/dotdev flask --app app run --host 0.0.0.0 --port 5000
+```
+
+Shared local platform:
+
+```bash
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local logs -f dotdev
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local down
+```
+
+## Development Rules
+
+- Python runtime is 3.13 for this app.
+- Keep templates in `templates/` and static assets in `static/`.
+- Posts must include YAML front matter with `title`, `date`, and `tags`.
+- Run the DotDev test suite after route, post-rendering, or template changes.
+
+## Deployment Boundary
+
+Production DotDev runs in the shared platform stack on `platform-shared`, behind Caddy at `https://raniendu.dev`.
+
+Do not add standalone App Platform instructions here. Production deploys use the root `.github/workflows/deploy.yml` workflow after review and environment approval.

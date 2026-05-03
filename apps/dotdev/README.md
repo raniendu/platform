@@ -1,4 +1,6 @@
-This repository contains the Flask-based source for my personal site. The current build ships a monochrome design system, sticky navigation with a light/dark toggle, a Leaflet powered travels map, and a client-side contact form.
+This directory contains the Flask-based source for the DotDev personal site inside the `platform` monorepo. The current build ships a monochrome design system, sticky navigation with a light/dark toggle, a Leaflet powered travels map, and a client-side contact form.
+
+Production is no longer a standalone App Platform app. DotDev runs in the shared platform stack on the `platform-shared` Droplet, behind Caddy at `https://raniendu.dev`.
 
 ## Structure
 
@@ -7,13 +9,35 @@ This repository contains the Flask-based source for my personal site. The curren
 - `static/` – CSS, JavaScript, icons, and documents.
 - `posts/` – Markdown sources for the Posts timeline (one file per entry).
 - `pyproject.toml` – Project metadata and Python dependencies (managed by uv).
-- `Dockerfile`, `docker-compose.yml` – Containerization and deployment configuration.
+- `Dockerfile` – image source used by the shared platform workflows.
+- `tests/` – Flask route and rendering tests.
 
 ## Running Locally
 
 Requires Python 3.13.
 
-### With Docker
+### Shared Local Platform
+
+From the repository root:
+
+```bash
+cp .env.example .env.local
+uv sync --project apps/dotdev
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build
+```
+
+Open:
+
+- `http://dotdev.localhost`
+- `http://localhost:8501`
+
+Stop the stack:
+
+```bash
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local down
+```
+
+### App-Only Docker
 
 ```bash
 docker build . -t dotdev
@@ -65,7 +89,26 @@ Repeat the `screenshot` command for `/about`, `/resume`, `/posts`, `/travels`, a
 
 ## Development Checks
 
-- Format code: `uvx black .`
-- Sort imports: `uvx isort .`
-- Run tests: `uv run pytest -q`
-- Install Git hooks (once): `uvx pre-commit install`; run `uvx pre-commit run --all-files` to format everything
+- Sync dependencies: `uv sync --project apps/dotdev`
+- Run tests: `uv run --project apps/dotdev pytest apps/dotdev/tests -q`
+- Format code from this directory when needed: `uvx black .`
+- Sort imports from this directory when needed: `uvx isort .`
+- Install Git hooks from the repository root if configured: `uvx pre-commit install`
+
+## Production Deployment
+
+Production deployment is manual from the root workflow, not automatic on every push:
+
+```bash
+gh workflow run deploy.yml --repo raniendu/platform --ref main
+gh run watch --repo raniendu/platform --exit-status
+```
+
+Use the root docs for production work:
+
+- `docs/deployment.md`
+- `docs/secrets.md`
+- `docs/operations.md`
+- `docs/rollback.md`
+
+Do not add standalone App Platform instructions here. Infrastructure writes must go through reviewed PRs and GitHub Actions; local DigitalOcean CLI usage is read-only only.

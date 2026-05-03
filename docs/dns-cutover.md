@@ -29,10 +29,10 @@ If Squarespace uses host labels:
 Expected Squarespace record shape:
 
 ```text
-A      @        174.138.59.96
+A      @        174.138.71.121
 CNAME  www      raniendu.dev
-A      prefect  174.138.59.96
-A      flow     174.138.59.96
+A      prefect  174.138.71.121
+A      flow     174.138.71.121
 ```
 
 Do not use an `ALIAS` record when the target is an IP address. The root/apex record must be type `A`.
@@ -52,4 +52,4 @@ curl -I https://prefect.raniendu.dev/
 curl -I https://flow.raniendu.dev/
 ```
 
-Keep old services live until all public endpoints are verified.
+For routine disaster recovery, keep the previous host live until all public endpoints are verified on the replacement. As of the completed May 2026 migration, the old 4 GiB Droplet has already been decommissioned.

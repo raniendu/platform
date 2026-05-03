@@ -2,6 +2,14 @@
 
 Production deploys are manual GitHub Actions runs that apply the shared DigitalOcean infrastructure and then update the Droplet at `/opt/platform`.
 
+Current production host:
+
+- Droplet: `platform-shared`
+- IP: `174.138.71.121`
+- Size: `s-1vcpu-2gb`
+- Firewall: `platform-shared-firewall`
+- Estimated steady-state cost with weekly backups: about `$14.40/month`
+
 Current production routes:
 
 - `https://raniendu.dev` -> DotDev
@@ -33,7 +41,7 @@ CI/deploy workflows are under `.github/workflows/`.
 
 - `ci.yml`: runs per-app `uv sync`, targeted tests, Airflow DAG validation, and Compose config validation.
 - `deploy.yml`: manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
-- `migrate-smaller-droplet.yml`: manual, typed-confirmation migration from the current 80 GiB `s-2vcpu-4gb` Droplet to a new 50 GiB `s-1vcpu-2gb` Droplet.
+- `migrate-smaller-droplet.yml`: manual, typed-confirmation migration workflow used for the completed May 2026 move from the old 80 GiB `s-2vcpu-4gb` Droplet to the current 50 GiB `s-1vcpu-2gb` Droplet. Keep it as a migration/recovery runbook, not as the routine deploy path.
 
 Expected deploy workflow:
 
@@ -63,7 +71,7 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Terraform's desired size is `s-1vcpu-2gb`, but the Droplet resource ignores size drift so routine deploys do not retry the impossible in-place disk shrink on the existing 80 GiB Droplet. The smaller host is reached through the separate migration path in `docs/smaller-droplet-migration.md`.
+Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Terraform's desired size is `s-1vcpu-2gb`. The Droplet resource still protects against destructive replacement and imports the existing `platform-shared` Droplet before applying so a missing GitHub-side state file does not create a duplicate Droplet.
 
 ## Production Host Bootstrap
 
@@ -94,7 +102,11 @@ If Terraform creates a new environment because no `platform-shared` Droplet exis
 
 ## Smaller Droplet Migration
 
-Run `Migrate Smaller Droplet`, not `Deploy`, to move production to the lower-cost host. The workflow has four manual phases:
+The smaller-Droplet migration completed on 2026-05-02. Production now runs on `platform-shared` at `174.138.71.121` with size `s-1vcpu-2gb`, and the retired 4 GiB Droplet was deleted by the `decommission_retired` phase.
+
+Keep this workflow documented because it is the audited pattern for future new-Droplet migrations. Use `Deploy`, not `Migrate Smaller Droplet`, for routine production releases.
+
+The workflow has four manual phases:
 
 | Phase | Typed confirmation | Purpose |
 | --- | --- | --- |
@@ -103,7 +115,7 @@ Run `Migrate Smaller Droplet`, not `Deploy`, to move production to the lower-cos
 | `rollback_stage` | `rollback-platform-shared-small` | Stop staged writers and restart the old canonical stack if the cutover is abandoned before promotion. |
 | `decommission_retired` | `decommission-<retired-droplet-name>` | After acceptance, delete the retired old Droplet. This is the cost-reduction step. |
 
-Routine deploys refuse to run while `platform-shared-small` exists, because that name means the migration is staged but not promoted or rolled back.
+Routine deploys refuse to run while `platform-shared-small` exists, because that name means a future migration is staged but not promoted or rolled back.
 
 If a failed stage created `platform-shared-small` before Postgres consolidation was deployed, run `Deploy` with `allow_migration_staging_host=true` to deploy consolidation to the old canonical Droplet. Use this only for migration recovery; routine deploys should keep the default `false`.
 
@@ -137,4 +149,4 @@ On the first deploy to an existing host, `deploy/scripts/consolidate-postgres.sh
 4. Restores both dumps into the shared Postgres container.
 5. Writes a marker at `/var/lib/platform/postgres-consolidated`.
 
-The dump backups remain on the host under `/var/backups/platform/postgres-consolidation/`. Legacy Postgres containers are stopped only after public smoke checks pass; their Docker volumes are left in place for rollback until the migration has been manually accepted.
+The dump backups remain on the host under `/var/backups/platform/postgres-consolidation/` when the consolidation path runs. The smaller-Droplet migration has been accepted and the old 4 GiB host was decommissioned, so rollback now depends on Droplet backups/snapshots or app-level database backups rather than the old legacy Postgres containers.

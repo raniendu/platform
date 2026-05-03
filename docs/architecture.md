@@ -2,6 +2,13 @@
 
 ## Services
 
+Current production host:
+
+- DigitalOcean Droplet `platform-shared`
+- IP `174.138.71.121`
+- size `s-1vcpu-2gb`
+- weekly Droplet backups enabled
+
 The platform runs three application services behind Caddy:
 
 - DotDev: Flask site built from `apps/dotdev/Dockerfile`, listening on port `8501`.
@@ -65,4 +72,4 @@ Production volumes:
 - `airflow-plugins`
 - `airflow-config`
 
-Legacy production volumes `prefect-postgres-data` and `airflow-postgres-data` are retained after the first consolidation deploy until rollback is no longer needed. Airflow DAGs are mounted from `apps/flow/dags`.
+The old separate production Postgres volumes, `prefect-postgres-data` and `airflow-postgres-data`, are not part of the current steady-state stack after the accepted Postgres consolidation and smaller-Droplet migration. Airflow DAGs are mounted from `apps/flow/dags`.

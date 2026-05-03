@@ -17,18 +17,21 @@ from pydantic import BaseModel, Field, model_validator
 
 class Environment(str, Enum):
     """Supported deployment environments."""
+
     LOCAL = "local"
     PRODUCTION = "production"
 
 
 class PrefectConfig(BaseModel):
     """Prefect server configuration."""
+
     api_url: str = Field(description="Prefect API URL")
     ui_url: str = Field(description="Prefect UI URL")
 
 
 class DatabaseConfig(BaseModel):
     """PostgreSQL database configuration."""
+
     host: str = Field(default="postgres", description="Database host")
     port: int = Field(default=5432, description="Database port")
     name: str = Field(default="prefect", description="Database name")
@@ -44,19 +47,18 @@ class DatabaseConfig(BaseModel):
 class EnvironmentConfig(BaseModel):
     """
     Main environment configuration model.
-    
+
     Supports both local and production environments with appropriate defaults.
     Sensitive values are loaded from environment variables.
     """
+
     environment: Environment = Field(
-        default=Environment.LOCAL,
-        description="Current deployment environment"
+        default=Environment.LOCAL, description="Current deployment environment"
     )
     prefect: PrefectConfig = Field(description="Prefect server configuration")
     database: DatabaseConfig = Field(description="Database configuration")
     domain: Optional[str] = Field(
-        default=None,
-        description="Domain name for production deployment"
+        default=None, description="Domain name for production deployment"
     )
 
     @model_validator(mode="before")
@@ -67,21 +69,21 @@ class EnvironmentConfig(BaseModel):
             env = data.get("environment", Environment.LOCAL)
             if isinstance(env, str):
                 env = Environment(env)
-            
+
             # Set prefect defaults if not provided
             if "prefect" not in data:
                 if env == Environment.LOCAL:
                     data["prefect"] = {
                         "api_url": "http://localhost:4200/api",
-                        "ui_url": "http://localhost:4200"
+                        "ui_url": "http://localhost:4200",
                     }
                 else:
                     domain = data.get("domain", "prefect.raniendu.dev")
                     data["prefect"] = {
                         "api_url": f"https://{domain}/api",
-                        "ui_url": f"https://{domain}"
+                        "ui_url": f"https://{domain}",
                     }
-            
+
             # Set database defaults if not provided
             if "database" not in data:
                 data["database"] = {
@@ -89,9 +91,9 @@ class EnvironmentConfig(BaseModel):
                     "port": 5432,
                     "name": "prefect",
                     "user": "prefect",
-                    "password": os.environ.get("POSTGRES_PASSWORD", "prefect_local")
+                    "password": os.environ.get("POSTGRES_PASSWORD", "prefect_local"),
                 }
-        
+
         return data
 
     def to_env_vars(self) -> dict[str, str]:
@@ -106,17 +108,17 @@ class EnvironmentConfig(BaseModel):
 def detect_environment() -> Environment:
     """
     Detect the current environment from environment variables.
-    
+
     Checks ENVIRONMENT or PREFECT_ENVIRONMENT variables.
     Defaults to LOCAL if not set.
     """
     env_value = os.environ.get("ENVIRONMENT") or os.environ.get("PREFECT_ENVIRONMENT")
-    
+
     if env_value:
         env_value = env_value.lower()
         if env_value in ("production", "prod"):
             return Environment.PRODUCTION
-    
+
     return Environment.LOCAL
 
 
@@ -126,32 +128,32 @@ def get_config(
 ) -> EnvironmentConfig:
     """
     Load configuration for the specified or detected environment.
-    
+
     Args:
         environment: Override environment detection. If None, auto-detects.
         domain: Domain name for production. Defaults to prefect.raniendu.dev.
-    
+
     Returns:
         EnvironmentConfig with appropriate settings for the environment.
-    
+
     Requirements: 8.1, 8.2, 8.3, 8.4
     """
     if environment is None:
         environment = detect_environment()
-    
+
     # Load sensitive values from environment
     postgres_password = os.environ.get("POSTGRES_PASSWORD", "prefect_local")
-    
+
     # Set domain for production
     if environment == Environment.PRODUCTION:
         domain = domain or os.environ.get("PREFECT_DOMAIN", "prefect.raniendu.dev")
-    
+
     config_data = {
         "environment": environment,
         "domain": domain,
         "database": {
             "password": postgres_password,
-        }
+        },
     }
-    
+
     return EnvironmentConfig(**config_data)

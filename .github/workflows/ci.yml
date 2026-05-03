@@ -8,43 +8,59 @@ on:
 
 jobs:
   python:
-    name: Python apps
+    name: Python app (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: DotDev
+            app: dotdev
+            project: apps/dotdev
+            python-version: "3.13"
+          - name: Prefect
+            app: prefect
+            project: apps/prefect
+            python-version: "3.10"
+          - name: Flow
+            app: flow
+            project: apps/flow
+            python-version: "3.10"
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            ${{ matrix.project }}/pyproject.toml
+            ${{ matrix.project }}/uv.lock
 
-      - name: Install Python versions
-        run: |
-          uv python install 3.13 3.10
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
 
-      - name: Sync DotDev
-        run: uv sync --project apps/dotdev --locked
+      - name: Sync dependencies
+        run: uv sync --project ${{ matrix.project }} --locked
 
       - name: Test DotDev
-        run: uv run --project apps/dotdev pytest apps/dotdev/tests -q
-
-      - name: Sync Prefect
-        run: uv sync --project apps/prefect --locked
+        if: matrix.app == 'dotdev'
+        run: uv run --project apps/dotdev --locked pytest apps/dotdev/tests -q
 
       - name: Test Prefect properties
-        run: uv run --project apps/prefect pytest apps/prefect/tests/property/
-
-      - name: Sync Flow
-        run: uv sync --project apps/flow --locked
+        if: matrix.app == 'prefect'
+        run: uv run --project apps/prefect --locked pytest apps/prefect/tests/property/
 
       - name: Validate Airflow DAGs
-        run: uv run --project apps/flow python apps/flow/scripts/validate-dags.py
+        if: matrix.app == 'flow'
+        run: uv run --project apps/flow --locked python apps/flow/scripts/validate-dags.py
 
       - name: Test Flow
-        run: uv run --project apps/flow pytest apps/flow/tests/
+        if: matrix.app == 'flow'
+        run: uv run --project apps/flow --locked pytest apps/flow/tests/
 
   compose:
     name: Compose config

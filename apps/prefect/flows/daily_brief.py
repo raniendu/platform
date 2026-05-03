@@ -12,17 +12,18 @@ from __future__ import annotations
 import html
 import os
 import re
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Literal
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
-import xml.etree.ElementTree as ET
 
 import httpx
 from dotenv import load_dotenv
-from prefect import flow, get_run_logger
 from pydantic import BaseModel, HttpUrl
+
+from prefect import flow, get_run_logger
 
 # Load .env for local development
 load_dotenv()
@@ -37,8 +38,11 @@ _EM_TAG_RE = re.compile(r"<\s*(/?)\s*em\s*>", re.IGNORECASE)
 _MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 _MD_ITALIC_RE = re.compile(r"(?<!\*)\*(?!\*)([^*\n]+?)(?<!\*)\*(?!\*)")
 _MD_BULLET_RE = re.compile(r"^(\s*)[*-]\s+(.*)$")
-_SPECULATIVE_RE = re.compile(r"\b(might|may|could|rumou?r|reportedly|unconfirmed|expected to)\b", re.IGNORECASE)
+_SPECULATIVE_RE = re.compile(
+    r"\b(might|may|could|rumou?r|reportedly|unconfirmed|expected to)\b", re.IGNORECASE
+)
 _WORD_RE = re.compile(r"[a-zA-Z0-9]{4,}")
+
 
 class NewsCandidate(BaseModel):
     headline: str
@@ -47,6 +51,7 @@ class NewsCandidate(BaseModel):
     publisher_name: str | None = None
     published_timestamp: datetime | None = None
     evidence_snippet: str | None = None
+
 
 class NewsVerificationResult(BaseModel):
     headline: str
@@ -58,6 +63,7 @@ class NewsVerificationResult(BaseModel):
     verification_status: Literal["verified", "rejected"]
     rejection_reason: str | None = None
 
+
 class VerifiedNewsItem(BaseModel):
     headline: str
     summary: str
@@ -68,6 +74,7 @@ class VerifiedNewsItem(BaseModel):
     verification_status: Literal["verified"]
     rejection_reason: None = None
 
+
 class MarketSnapshot(BaseModel):
     name: str
     symbol: str
@@ -77,20 +84,28 @@ class MarketSnapshot(BaseModel):
     source_url: HttpUrl
     verification_status: Literal["verified"] = "verified"
 
+
 def _is_production() -> bool:
     """Check if running in production (matches config.settings.detect_environment logic)."""
     env_value = os.getenv("ENVIRONMENT") or os.getenv("PREFECT_ENVIRONMENT") or ""
     return env_value.lower() in ("production", "prod")
 
+
 def _get_pst_now() -> datetime:
     """Get current time in Pacific timezone (PST/PDT)."""
     return datetime.now(PACIFIC_TZ)
 
+
 def _normalize_html_tags(message: str) -> str:
     """Normalize common HTML tags to ones supported by Pushover."""
-    message = _STRONG_TAG_RE.sub(lambda match: f"<{'/' if match.group(1) else ''}b>", message)
-    message = _EM_TAG_RE.sub(lambda match: f"<{'/' if match.group(1) else ''}i>", message)
+    message = _STRONG_TAG_RE.sub(
+        lambda match: f"<{'/' if match.group(1) else ''}b>", message
+    )
+    message = _EM_TAG_RE.sub(
+        lambda match: f"<{'/' if match.group(1) else ''}i>", message
+    )
     return message
+
 
 def _sanitize_html(message: str) -> str:
     """Escape HTML while preserving supported tags."""
@@ -102,6 +117,7 @@ def _sanitize_html(message: str) -> str:
         else:
             sanitized_parts.append(html.escape(part))
     return "".join(sanitized_parts)
+
 
 def _convert_markdown_to_html(message: str) -> str:
     """Convert lightweight Markdown used by summaries into supported Pushover HTML."""
@@ -117,6 +133,7 @@ def _convert_markdown_to_html(message: str) -> str:
     converted = _MD_BOLD_RE.sub(r"<b>\1</b>", converted)
     converted = _MD_ITALIC_RE.sub(r"<i>\1</i>", converted)
     return converted
+
 
 def _format_pushover_message(message: str) -> tuple[str, int]:
     """Return a message and html flag based on detected formatting."""
@@ -141,6 +158,7 @@ def _format_pushover_message(message: str) -> tuple[str, int]:
     sanitized = _sanitize_html(message)
     return sanitized, 1 if has_html else 0
 
+
 def _resolve_period(period_override: str | None) -> str:
     """Resolve briefing period from override or current Pacific time."""
     if period_override is None:
@@ -149,8 +167,10 @@ def _resolve_period(period_override: str | None) -> str:
         return period_override
     raise ValueError("period_override must be one of: 'Morning', 'Afternoon', or None")
 
+
 def _strip_html(raw: str) -> str:
     return re.sub(r"<[^>]+>", "", raw).strip()
+
 
 def _is_valid_http_url(url: str | None) -> bool:
     if not url:
@@ -158,16 +178,23 @@ def _is_valid_http_url(url: str | None) -> bool:
     parsed = urlparse(url)
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
+
 def _find_tokens(text: str) -> set[str]:
     return {token.lower() for token in _WORD_RE.findall(text)}
 
-def _evidence_supports_claim(headline: str, summary: str, evidence_snippet: str) -> bool:
+
+def _evidence_supports_claim(
+    headline: str, summary: str, evidence_snippet: str
+) -> bool:
     evidence_tokens = _find_tokens(evidence_snippet)
     if len(evidence_tokens) < 4:
         return False
     headline_tokens = _find_tokens(headline)
     summary_tokens = _find_tokens(summary)
-    return bool(headline_tokens & evidence_tokens) and bool(summary_tokens & evidence_tokens)
+    return bool(headline_tokens & evidence_tokens) and bool(
+        summary_tokens & evidence_tokens
+    )
+
 
 def _verify_candidate(candidate: NewsCandidate) -> NewsVerificationResult:
     reason: str | None = None
@@ -214,20 +241,27 @@ def _verify_candidate(candidate: NewsCandidate) -> NewsVerificationResult:
         rejection_reason=None,
     )
 
-def verify_news_candidates(candidates: list[NewsCandidate]) -> tuple[list[VerifiedNewsItem], list[NewsVerificationResult]]:
+
+def verify_news_candidates(
+    candidates: list[NewsCandidate],
+) -> tuple[list[VerifiedNewsItem], list[NewsVerificationResult]]:
     verified: list[VerifiedNewsItem] = []
     rejected: list[NewsVerificationResult] = []
     seen_keys: set[str] = set()
 
     for candidate in candidates:
         verification = _verify_candidate(candidate)
-        dedupe_key = f"{candidate.source_url or ''}|{candidate.headline.lower().strip()}"
+        dedupe_key = (
+            f"{candidate.source_url or ''}|{candidate.headline.lower().strip()}"
+        )
 
         if verification.verification_status == "verified" and dedupe_key in seen_keys:
-            verification = verification.model_copy(update={
-                "verification_status": "rejected",
-                "rejection_reason": "duplicate_story",
-            })
+            verification = verification.model_copy(
+                update={
+                    "verification_status": "rejected",
+                    "rejection_reason": "duplicate_story",
+                }
+            )
 
         if verification.verification_status == "verified":
             required_fields_present = all(
@@ -267,7 +301,12 @@ def verify_news_candidates(candidates: list[NewsCandidate]) -> tuple[list[Verifi
 
     return verified, rejected
 
-def render_brief(period: str, verified_news: list[VerifiedNewsItem], market_data: list[MarketSnapshot]) -> str:
+
+def render_brief(
+    period: str,
+    verified_news: list[VerifiedNewsItem],
+    market_data: list[MarketSnapshot],
+) -> str:
     now = _get_pst_now()
     date_str = now.strftime("%A, %B %d, %Y")
     time_str = now.strftime("%I:%M %p")
@@ -297,10 +336,15 @@ def render_brief(period: str, verified_news: list[VerifiedNewsItem], market_data
     else:
         lines.append("  - No verified market updates available.")
 
-    lines.append("• <b>💡 Inspiration</b>: Keep inputs factual and decisions deliberate.")
+    lines.append(
+        "• <b>💡 Inspiration</b>: Keep inputs factual and decisions deliberate."
+    )
     return "\n".join(lines)
 
-async def _fetch_google_news_candidates(query: str, limit: int = 5) -> list[NewsCandidate]:
+
+async def _fetch_google_news_candidates(
+    query: str, limit: int = 5
+) -> list[NewsCandidate]:
     rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.get(rss_url)
@@ -316,7 +360,9 @@ async def _fetch_google_news_candidates(query: str, limit: int = 5) -> list[News
         pub_date = item.findtext("pubDate", default="").strip()
         description = _strip_html(item.findtext("description", default=""))
         source = item.find("source")
-        publisher_name = source.text.strip() if source is not None and source.text else None
+        publisher_name = (
+            source.text.strip() if source is not None and source.text else None
+        )
 
         published_timestamp = None
         if pub_date:
@@ -339,6 +385,7 @@ async def _fetch_google_news_candidates(query: str, limit: int = 5) -> list[News
 
     return candidates
 
+
 async def _fetch_market_snapshots(period: str, logger) -> list[MarketSnapshot]:
     symbols = [
         ("S&P 500", "^GSPC"),
@@ -357,7 +404,11 @@ async def _fetch_market_snapshots(period: str, logger) -> list[MarketSnapshot]:
                 response.raise_for_status()
                 payload = response.json()
                 result = payload["chart"]["result"][0]
-                closes = [v for v in result["indicators"]["quote"][0]["close"] if v is not None]
+                closes = [
+                    v
+                    for v in result["indicators"]["quote"][0]["close"]
+                    if v is not None
+                ]
                 timestamps = result["timestamp"]
                 if len(closes) < 2:
                     continue
@@ -380,6 +431,7 @@ async def _fetch_market_snapshots(period: str, logger) -> list[MarketSnapshot]:
 
     return quotes
 
+
 async def _summarize_verified_brief(logger, period: str, rendered_brief: str) -> str:
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key:
@@ -400,12 +452,17 @@ async def _summarize_verified_brief(logger, period: str, rendered_brief: str) ->
 
     try:
         client = genai.Client(api_key=api_key)
-        response = await client.aio.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        response = await client.aio.models.generate_content(
+            model=GEMINI_MODEL, contents=prompt
+        )
         content = response.text.strip() if response.text else ""
         return content or rendered_brief
     except Exception as exc:
-        logger.warning(f"Gemini summarization failed; using deterministic rendering: {exc}")
+        logger.warning(
+            f"Gemini summarization failed; using deterministic rendering: {exc}"
+        )
         return rendered_brief
+
 
 @flow(name="daily-brief", retries=1, retry_delay_seconds=300)
 async def daily_brief(period_override: str | None = None) -> None:
@@ -437,7 +494,10 @@ async def daily_brief(period_override: str | None = None) -> None:
         len(candidates),
         len(verified_news),
         len(rejected_news),
-        {reason: sum(1 for i in rejected_news if i.rejection_reason == reason) for reason in {i.rejection_reason for i in rejected_news}},
+        {
+            reason: sum(1 for i in rejected_news if i.rejection_reason == reason)
+            for reason in {i.rejection_reason for i in rejected_news}
+        },
     )
     logger.info("Market snapshots rendered=%d", len(market_data))
 
@@ -460,7 +520,10 @@ async def daily_brief(period_override: str | None = None) -> None:
     if response.status_code == 200:
         logger.info("Pushover notification sent successfully")
     else:
-        raise RuntimeError(f"Pushover notification failed: {response.status_code} — {response.text}")
+        raise RuntimeError(
+            f"Pushover notification failed: {response.status_code} — {response.text}"
+        )
+
 
 if __name__ == "__main__":
     import asyncio

@@ -11,12 +11,15 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 MONOREPO_ROOT = PROJECT_ROOT.parent.parent
 
 FLOW_DEPENDENCIES = ["google-genai", "httpx", "python-dotenv"]
-FLOW_IMPORT_CHECKS = ["import httpx", "from dotenv import load_dotenv", "from google import genai"]
+FLOW_IMPORT_CHECKS = [
+    "import httpx",
+    "from dotenv import load_dotenv",
+    "from google import genai",
+]
 
 REQUIRED_WORKER_ENV_VARS = [
     "PUSHOVER_APP_TOKEN",
@@ -37,9 +40,9 @@ class TestWorkerDependencyInstallation:
         content = pyproject.read_text()
 
         for dep in FLOW_DEPENDENCIES:
-            assert f'"{dep}' in content, (
-                f"pyproject.toml must declare runtime dependency '{dep}'"
-            )
+            assert (
+                f'"{dep}' in content
+            ), f"pyproject.toml must declare runtime dependency '{dep}'"
 
     def test_prefect_dockerfile_syncs_runtime_dependencies(self) -> None:
         """The Prefect image must install locked runtime dependencies at build time."""
@@ -62,14 +65,16 @@ class TestWorkerDependencyInstallation:
 
         assert verify_pos != -1, "start-worker.sh must verify flow dependencies"
         assert worker_pos != -1, "start-worker.sh must contain 'prefect worker start'"
-        assert verify_pos < worker_pos, "dependency verification must run before worker start"
+        assert (
+            verify_pos < worker_pos
+        ), "dependency verification must run before worker start"
         assert "uv pip install" not in content
         assert "curl -LsSf https://astral.sh/uv/install.sh" not in content
 
         for import_check in FLOW_IMPORT_CHECKS:
-            assert import_check in content, (
-                f"start-worker.sh must verify '{import_check}' before starting"
-            )
+            assert (
+                import_check in content
+            ), f"start-worker.sh must verify '{import_check}' before starting"
 
 
 class TestDeployWorkflowEnvVars:

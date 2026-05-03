@@ -8,7 +8,10 @@ apps=(
 )
 
 for app in "${apps[@]}"; do
-  echo "==> uv sync --project ${app}"
-  uv sync --project "${app}"
+  if (($#)); then
+    echo "==> uv sync --project ${app} $*"
+  else
+    echo "==> uv sync --project ${app}"
+  fi
+  uv sync --project "${app}" "$@"
 done
-

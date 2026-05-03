@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 MIGRATION_SCRIPT = REPO_ROOT / "deploy" / "scripts" / "migrate-smaller-droplet.sh"
 
@@ -54,4 +53,6 @@ def test_container_health_failure_prints_container_logs_before_error() -> None:
     body = _function_body(script, "wait_container_health")
 
     assert 'show_container_logs "$host" "$container"' in body
-    assert body.index("show_container_logs") < body.index('error "${container} did not become healthy')
+    assert body.index("show_container_logs") < body.index(
+        'error "${container} did not become healthy'
+    )

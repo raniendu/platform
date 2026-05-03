@@ -2,11 +2,11 @@
 # Provides environment-specific settings for local and production environments
 
 from config.settings import (
+    DatabaseConfig,
+    Environment,
     EnvironmentConfig,
     PrefectConfig,
-    DatabaseConfig,
     get_config,
-    Environment,
 )
 
 __all__ = [

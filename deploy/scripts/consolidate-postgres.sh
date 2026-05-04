@@ -92,8 +92,13 @@ container_exists "$old_airflow_container" && old_airflow_exists=1
 
 if [ "$old_prefect_exists" -eq 0 ] && [ "$old_airflow_exists" -eq 0 ]; then
   if container_exists "$new_container"; then
-    echo "Shared Postgres container exists but marker is absent; refusing to infer migration state."
-    exit 1
+    echo "Shared Postgres container exists without marker; verifying expected databases before adoption."
+    "${compose[@]}" up -d postgres
+    wait_for_postgres "$new_container" postgres postgres
+    wait_for_postgres "$new_container" prefect prefect
+    wait_for_postgres "$new_container" airflow airflow
+    write_marker adopted
+    exit 0
   fi
 
   echo "No legacy Postgres containers found; initializing shared Postgres for a new host."

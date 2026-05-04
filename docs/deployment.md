@@ -153,6 +153,8 @@ On the first deploy to an existing host, `deploy/scripts/consolidate-postgres.sh
 4. Restores both dumps into the shared Postgres container.
 5. Writes a marker at `/var/lib/platform/postgres-consolidated`.
 
+If no legacy Postgres containers exist and `platform-postgres` already exists without the marker, the script starts that container, verifies the `postgres`, `prefect`, and `airflow` databases respond, and writes an `adopted` marker. This covers restored or migrated hosts where the shared database is already the steady state.
+
 Existing initialized Postgres volumes do not rerun entrypoint init scripts, so the deploy workflow also runs `paperclip-db-init` before Paperclip starts. That one-shot container is idempotent and only ensures the `paperclip` role/database exist with the configured password.
 
 The dump backups remain on the host under `/var/backups/platform/postgres-consolidation/` when the consolidation path runs. The smaller-Droplet migration has been accepted and the old 4 GiB host was decommissioned, so rollback now depends on Droplet backups/snapshots or app-level database backups rather than the old legacy Postgres containers.

@@ -32,6 +32,7 @@ env:
   IMAGE_PREFIX: ghcr.io/raniendu/platform
   NEW_DROPLET_NAME: platform-shared-small
   OLD_DROPLET_NAME: platform-shared
+  PAPERCLIP_IMAGE_NAME: paperclip
   PREFECT_IMAGE_NAME: prefect
   TARGET_DROPLET_SIZE: s-1vcpu-2gb
   TARGET_REGION: nyc3
@@ -101,6 +102,17 @@ jobs:
           cache-from: type=gha,scope=airflow
           cache-to: type=gha,mode=max,scope=airflow
 
+      - name: Build and push Paperclip image
+        if: inputs.phase == 'stage'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/paperclip
+          file: apps/paperclip/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.PAPERCLIP_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha,scope=paperclip
+          cache-to: type=gha,mode=max,scope=paperclip
+
       - name: Configure SSH
         if: inputs.phase == 'stage' || inputs.phase == 'promote' || inputs.phase == 'rollback_stage'
         env:
@@ -121,6 +133,7 @@ jobs:
           MIGRATION_PHASE: ${{ inputs.phase }}
           NEW_DROPLET_NAME: ${{ env.NEW_DROPLET_NAME }}
           OLD_DROPLET_NAME: ${{ env.OLD_DROPLET_NAME }}
+          PAPERCLIP_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.PAPERCLIP_IMAGE_NAME }}:${{ github.sha }}
           PLATFORM_ENV_FILE: ${{ secrets.PLATFORM_ENV_FILE }}
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}

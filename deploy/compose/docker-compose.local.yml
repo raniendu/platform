@@ -4,6 +4,9 @@ services:
   caddy:
     image: caddy:2.8-alpine
     container_name: platform-caddy-local
+    environment:
+      PAPERCLIP_BASIC_AUTH_USER: ${PAPERCLIP_BASIC_AUTH_USER:-admin}
+      PAPERCLIP_BASIC_AUTH_HASH: ${PAPERCLIP_BASIC_AUTH_HASH}
     ports:
       - "80:80"
     volumes:
@@ -12,6 +15,7 @@ services:
       - dotdev
       - prefect-server
       - airflow-webserver
+      - paperclip
     networks:
       - platform
     restart: unless-stopped
@@ -90,6 +94,70 @@ services:
     depends_on:
       prefect-server:
         condition: service_healthy
+    networks:
+      - platform
+    restart: unless-stopped
+
+  paperclip-postgres:
+    image: postgres:15-alpine
+    container_name: platform-paperclip-postgres-local
+    environment:
+      POSTGRES_USER: paperclip
+      POSTGRES_PASSWORD: ${PAPERCLIP_POSTGRES_PASSWORD:-paperclip_local}
+      POSTGRES_DB: paperclip
+    volumes:
+      - paperclip-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "paperclip", "-d", "paperclip"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - platform
+    restart: unless-stopped
+
+  paperclip:
+    build:
+      context: ../../apps/paperclip
+      dockerfile: Dockerfile
+    container_name: platform-paperclip-local
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3100
+      SERVE_UI: "true"
+      PAPERCLIP_HOME: /paperclip
+      PAPERCLIP_INSTANCE_ID: default
+      PAPERCLIP_CONFIG: /etc/paperclip/config.json
+      PAPERCLIP_DEPLOYMENT_MODE: authenticated
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: private
+      PAPERCLIP_PUBLIC_URL: http://paperclip.localhost
+      PAPERCLIP_AUTH_PUBLIC_BASE_URL: http://paperclip.localhost
+      PAPERCLIP_AUTH_BASE_URL_MODE: explicit
+      PAPERCLIP_ALLOWED_HOSTNAMES: localhost,paperclip.localhost
+      PAPERCLIP_MIGRATION_AUTO_APPLY: "true"
+      PAPERCLIP_TELEMETRY_DISABLED: "1"
+      DO_NOT_TRACK: "1"
+      DATABASE_URL: postgresql://paperclip:${PAPERCLIP_POSTGRES_PASSWORD:-paperclip_local}@paperclip-postgres:5432/paperclip
+      BETTER_AUTH_SECRET: ${PAPERCLIP_BETTER_AUTH_SECRET:-local_paperclip_better_auth_secret_change_me}
+      PAPERCLIP_AGENT_JWT_SECRET: ${PAPERCLIP_AGENT_JWT_SECRET:-local_paperclip_agent_jwt_secret_change_me}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "3100:3100"
+    volumes:
+      - paperclip-data:/paperclip
+      - ../paperclip/config.local.json:/etc/paperclip/config.json:ro
+    depends_on:
+      paperclip-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3100/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     networks:
       - platform
     restart: unless-stopped
@@ -205,3 +273,5 @@ volumes:
   airflow-postgres-data:
   airflow-logs:
   airflow-plugins:
+  paperclip-postgres-data:
+  paperclip-data:

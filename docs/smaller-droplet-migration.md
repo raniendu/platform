@@ -51,7 +51,7 @@ Run `Migrate Smaller Droplet` with:
 - `confirmation`: `stage-platform-shared-to-s-1vcpu-2gb`
 - `retired_droplet_name`: blank
 
-The stage phase creates or reuses one `platform-shared-small` Droplet, attaches it to the firewall, copies repository and environment data, migrates Postgres, copies Caddy data, starts services in phases, and smoke-tests the public routes with `curl --resolve`.
+The stage phase creates or reuses one `platform-shared-small` Droplet, attaches it to the firewall, copies repository and environment data, migrates Prefect, Airflow, and Paperclip Postgres data, copies Caddy data, starts services in phases, and smoke-tests the public routes with `curl --resolve`.
 
 ### 2. DNS Cutover
 
@@ -59,6 +59,7 @@ Manually update Squarespace A records to the staged Droplet IP:
 
 - `raniendu.dev`
 - `prefect.raniendu.dev`
+- `paperclip.raniendu.dev`
 - `flow.raniendu.dev`
 
 Keep `www.raniendu.dev` as a CNAME to `raniendu.dev`.
@@ -92,7 +93,7 @@ Before `promote`, rollback is DNS-first:
    - `phase`: `rollback_stage`
    - `confirmation`: `rollback-platform-shared-small`
    - `retired_droplet_name`: blank
-3. Verify public smoke checks: `200`, `301`, `401`, `200`.
+3. Verify public smoke checks: `200`, `301`, `401`, `401`, `200`.
 
 After `promote` but before `decommission_retired`, rollback is no longer DNS-only because the canonical resource names have changed.
 

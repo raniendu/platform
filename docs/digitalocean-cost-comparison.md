@@ -22,6 +22,7 @@ Current public routes:
 - `https://raniendu.dev`
 - `https://www.raniendu.dev` -> redirects to `https://raniendu.dev`
 - `https://prefect.raniendu.dev`
+- `https://paperclip.raniendu.dev`
 - `https://flow.raniendu.dev`
 
 ## Current Cost Estimate
@@ -49,7 +50,7 @@ The old `prefect-server` Droplet, old `dot-dev-app` App Platform app, old `prefe
 
 ## Interpretation
 
-The current platform is cheaper than the 4 GiB consolidated host and keeps the desired operating model: one monorepo, one Docker Compose runtime, one deployment workflow, one firewall, Caddy-managed HTTPS, and local Postgres for Prefect and Airflow metadata.
+The current platform is cheaper than the 4 GiB consolidated host and keeps the desired operating model: one monorepo, one Docker Compose runtime, one deployment workflow, one firewall, Caddy-managed HTTPS, and local Postgres for Prefect, Paperclip, and Airflow metadata.
 
 The current $14.40/month estimate assumes weekly backups remain enabled. Disabling backups would save about $2.40/month, but backups should stay enabled unless rollback and restore requirements change.
 

@@ -14,6 +14,7 @@ The consolidated platform is:
   - `https://raniendu.dev`
   - `https://www.raniendu.dev` -> redirect to `https://raniendu.dev`
   - `https://prefect.raniendu.dev`
+  - `https://paperclip.raniendu.dev`
   - `https://flow.raniendu.dev`
 
 ## Completed Decommissioning
@@ -37,12 +38,13 @@ Expected public smoke checks:
 curl -sS -o /dev/null -w '%{http_code}\n' https://raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://www.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://prefect.raniendu.dev/api/health
+curl -sS -o /dev/null -w '%{http_code}\n' https://paperclip.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 ```
 
-Expected: `200`, `301`, `401`, `200`.
+Expected: `200`, `301`, `401`, `401`, `200`.
 
-`401` for Prefect is expected because Caddy basic auth protects the route before the Prefect health endpoint is reached.
+`401` for Prefect and Paperclip is expected because Caddy basic auth protects those routes.
 
 Read-only inventory checks should show only the shared runtime resources for this stack:
 

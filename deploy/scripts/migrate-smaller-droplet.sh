@@ -245,8 +245,9 @@ validate_platform_env() {
   require_env DOTDEV_IMAGE
   require_env PREFECT_IMAGE
   require_env AIRFLOW_IMAGE
+  require_env PAPERCLIP_IMAGE
 
-  for key in PLATFORM_POSTGRES_PASSWORD PREFECT_POSTGRES_PASSWORD AIRFLOW_POSTGRES_PASSWORD; do
+  for key in PLATFORM_POSTGRES_PASSWORD PREFECT_POSTGRES_PASSWORD AIRFLOW_POSTGRES_PASSWORD PAPERCLIP_POSTGRES_PASSWORD PAPERCLIP_BASIC_AUTH_USER PAPERCLIP_BASIC_AUTH_HASH PAPERCLIP_BETTER_AUTH_SECRET PAPERCLIP_AGENT_JWT_SECRET; do
     if ! printf '%s\n' "$PLATFORM_ENV_FILE" | grep -Eq "^${key}="; then
       error "PLATFORM_ENV_FILE must include ${key}"
     fi
@@ -277,6 +278,7 @@ upload_production_env() {
     printf 'DOTDEV_IMAGE=%s\n' "$DOTDEV_IMAGE"
     printf 'PREFECT_IMAGE=%s\n' "$PREFECT_IMAGE"
     printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
+    printf 'PAPERCLIP_IMAGE=%s\n' "$PAPERCLIP_IMAGE"
   } | ssh_host "$host" "cat > /opt/platform/${ENV_FILE} && chmod 600 /opt/platform/${ENV_FILE}"
 }
 
@@ -300,13 +302,13 @@ remove_remote_ghcr_credentials() {
 stop_new_runtime_stack() {
   local host="$1"
 
-  ssh_host "$host" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop caddy dotdev prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init || true"
+  ssh_host "$host" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop caddy dotdev prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init paperclip paperclip-db-init || true"
 }
 
 stop_old_writers() {
   local host="$1"
 
-  ssh_host "$host" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init || true"
+  ssh_host "$host" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init paperclip || true"
   STAGE_WRITERS_STOPPED=1
 }
 
@@ -320,7 +322,7 @@ ensure_old_writers_stopped() {
   local host="$1"
   local running
 
-  running="$(ssh_host "$host" 'for container in platform-prefect-server platform-prefect-worker platform-airflow-webserver platform-airflow-scheduler platform-airflow-init; do status=$(docker inspect -f "{{.State.Status}}" "$container" 2>/dev/null || true); if [ "$status" = running ]; then echo "$container"; fi; done')"
+  running="$(ssh_host "$host" 'for container in platform-prefect-server platform-prefect-worker platform-airflow-webserver platform-airflow-scheduler platform-airflow-init platform-paperclip; do status=$(docker inspect -f "{{.State.Status}}" "$container" 2>/dev/null || true); if [ "$status" = running ]; then echo "$container"; fi; done')"
   if [ -n "$running" ]; then
     printf '%s\n' "$running" >&2
     error "Old writer containers are running. Rerun stage before promote, or rollback the staged migration."
@@ -364,7 +366,7 @@ restore_caddy_volume() {
 pull_production_images() {
   local host="$1"
 
-  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} pull postgres dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler caddy"
+  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} pull postgres dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler paperclip caddy"
 }
 
 start_new_postgres() {
@@ -392,6 +394,16 @@ require_container_exit_success() {
     show_container_logs "$host" "$container"
     error "${container} exited with code ${exit_code}"
   fi
+}
+
+run_paperclip_db_init() {
+  local host="$1"
+
+  if ! ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up --no-build --force-recreate paperclip-db-init"; then
+    show_container_logs "$host" platform-paperclip-db-init
+    return 1
+  fi
+  require_container_exit_success "$host" platform-paperclip-db-init
 }
 
 restore_database() {
@@ -424,6 +436,9 @@ start_new_stack() {
   require_container_exit_success "$host" platform-airflow-init
   ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build prefect-server"
   wait_container_health "$host" platform-prefect-server
+  run_paperclip_db_init "$host"
+  ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build paperclip"
+  wait_container_health "$host" platform-paperclip
   ssh_host "$host" "cd /opt/platform && docker --config '${REMOTE_DOCKER_CONFIG}' compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --no-build prefect-worker airflow-webserver airflow-scheduler caddy"
 }
 
@@ -489,6 +504,7 @@ check_public_smoke() {
   check_public_status "raniendu.dev" "https://raniendu.dev/" "200"
   check_public_status "www.raniendu.dev" "https://www.raniendu.dev/" "301"
   check_public_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
+  check_public_status "paperclip.raniendu.dev" "https://paperclip.raniendu.dev/" "401"
   check_public_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
 }
 
@@ -498,6 +514,7 @@ check_new_host_smoke() {
   check_resolved_status "raniendu.dev on new Droplet" "raniendu.dev" "https://raniendu.dev/" "200" "$ip"
   check_resolved_status "www.raniendu.dev on new Droplet" "www.raniendu.dev" "https://www.raniendu.dev/" "301" "$ip"
   check_resolved_status "prefect.raniendu.dev/api/health on new Droplet" "prefect.raniendu.dev" "https://prefect.raniendu.dev/api/health" "401" "$ip"
+  check_resolved_status "paperclip.raniendu.dev on new Droplet" "paperclip.raniendu.dev" "https://paperclip.raniendu.dev/" "401" "$ip"
   check_resolved_status "flow.raniendu.dev on new Droplet" "flow.raniendu.dev" "https://flow.raniendu.dev/" "200" "$ip"
 }
 
@@ -570,6 +587,7 @@ phase_stage() {
   stop_old_writers "$OLD_IP"
   dump_database "$OLD_IP" prefect "${TMP_DIR}/prefect.dump"
   dump_database "$OLD_IP" airflow "${TMP_DIR}/airflow.dump"
+  dump_database "$OLD_IP" paperclip "${TMP_DIR}/paperclip.dump"
   dump_caddy_volume "$OLD_IP" /data "${TMP_DIR}/caddy-data.tgz"
   dump_caddy_volume "$OLD_IP" /config "${TMP_DIR}/caddy-config.tgz"
 
@@ -577,12 +595,15 @@ phase_stage() {
   restore_caddy_volume "$NEW_IP" platform_caddy-data "${TMP_DIR}/caddy-data.tgz"
   restore_caddy_volume "$NEW_IP" platform_caddy-config "${TMP_DIR}/caddy-config.tgz"
   start_new_postgres "$NEW_IP"
+  run_paperclip_db_init "$NEW_IP"
   restore_database "$NEW_IP" prefect prefect "${TMP_DIR}/prefect.dump"
   restore_database "$NEW_IP" airflow airflow "${TMP_DIR}/airflow.dump"
+  restore_database "$NEW_IP" paperclip paperclip "${TMP_DIR}/paperclip.dump"
   start_new_stack "$NEW_IP"
 
   wait_container_health "$NEW_IP" platform-postgres
   wait_container_health "$NEW_IP" platform-prefect-server
+  wait_container_health "$NEW_IP" platform-paperclip
   wait_container_health "$NEW_IP" platform-airflow-webserver
   wait_container_health "$NEW_IP" platform-airflow-scheduler
   check_new_host_smoke "$NEW_IP"
@@ -595,7 +616,7 @@ phase_stage() {
   summary "- Target size: \`${TARGET_DROPLET_SIZE}\`"
   summary ""
   summary "Next: update Squarespace A records to \`${NEW_IP}\`, verify public traffic, then rerun this workflow with phase \`promote\`."
-  log "Staged ${NEW_DROPLET_NAME} at ${NEW_IP}. Old Prefect/Airflow writers are stopped to avoid post-dump divergence."
+  log "Staged ${NEW_DROPLET_NAME} at ${NEW_IP}. Old Prefect, Airflow, and Paperclip writers are stopped to avoid post-dump divergence."
 }
 
 phase_promote() {
@@ -645,7 +666,7 @@ phase_rollback_stage() {
     new_line="$(require_one_droplet "$NEW_DROPLET_NAME")"
     read_droplet "$new_line" new_id new_name new_status new_size NEW_IP
     add_known_host "$NEW_IP"
-    ssh_host "$NEW_IP" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init || true" || true
+    ssh_host "$NEW_IP" "cd /opt/platform && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} stop prefect-server prefect-worker airflow-webserver airflow-scheduler airflow-init paperclip paperclip-db-init || true" || true
   fi
 
   start_old_stack "$OLD_IP"

@@ -36,3 +36,4 @@ SQL
 
 create_app_database prefect "$PREFECT_POSTGRES_PASSWORD" prefect
 create_app_database airflow "$AIRFLOW_POSTGRES_PASSWORD" airflow
+create_app_database paperclip "$PAPERCLIP_POSTGRES_PASSWORD" paperclip

@@ -4,7 +4,7 @@
 
 - Docker Desktop with Compose v2.
 - `uv` installed locally.
-- Ports `80`, `4200`, `8080`, and `8501` available.
+- Ports `80`, `3100`, `4200`, `8080`, and `8501` available.
 
 ## Environment
 
@@ -14,7 +14,9 @@ Create local environment values from the example file:
 cp .env.example .env.local
 ```
 
-Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution.
+Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Paperclip can also pass through `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` when you want provider-backed agent features locally.
+
+The example file includes local Paperclip Caddy credentials with user `admin` and password `paperclip_local`. Change them in `.env.local` if needed.
 
 ## Python Environments
 
@@ -97,9 +99,19 @@ Use `down -v` only when you intentionally want to delete local database volumes.
 curl -I http://dotdev.localhost/
 curl http://prefect.localhost/api/health
 curl -I http://flow.localhost/
+curl -I http://paperclip.localhost/
 curl -I http://localhost:8501/
+curl http://localhost:3100/api/health
 curl http://localhost:4200/api/health
 curl -I http://localhost:8080/
 ```
 
-Airflow may return a redirect or login response depending on auth state; the webserver should be reachable and the scheduler container should be running.
+Paperclip should return `401` through `http://paperclip.localhost/` until Caddy basic auth credentials are supplied, and `http://localhost:3100/api/health` should reach the direct container health endpoint. Airflow may return a redirect or login response depending on auth state; the webserver should be reachable and the scheduler container should be running.
+
+After Paperclip is running, generate the first local admin invite inside the container:
+
+```bash
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local exec paperclip pnpm paperclipai auth bootstrap-ceo --config /etc/paperclip/config.json --base-url http://paperclip.localhost
+```
+
+Redeem the invite through `http://paperclip.localhost` using the local Caddy credentials. Do not paste invite URLs into logs, issues, or chat.

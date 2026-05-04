@@ -14,3 +14,9 @@ http://flow.localhost {
 	reverse_proxy airflow-webserver:8080
 }
 
+http://paperclip.localhost {
+	basicauth {
+		{$PAPERCLIP_BASIC_AUTH_USER} {$PAPERCLIP_BASIC_AUTH_HASH}
+	}
+	reverse_proxy paperclip:3100
+}

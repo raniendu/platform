@@ -14,6 +14,7 @@ Current production routes:
 
 - `https://raniendu.dev` -> DotDev
 - `https://prefect.raniendu.dev` -> Prefect behind Caddy basic auth
+- `https://paperclip.raniendu.dev` -> Paperclip behind Caddy basic auth and Paperclip authenticated/public mode
 - `https://flow.raniendu.dev` -> Airflow
 
 The initial local, GitHub, Terraform, and DNS gates have passed. Keep the gate notes below for rebuilds or disaster recovery.
@@ -26,8 +27,8 @@ Before any GitHub or DigitalOcean change, prove:
 - targeted app tests pass,
 - local Compose config renders,
 - local Compose builds and starts,
-- Caddy routes all three local hostnames,
-- smoke tests show DotDev, Prefect, and Airflow are reachable.
+- Caddy routes all four local hostnames,
+- smoke tests show DotDev, Prefect, Paperclip, and Airflow are reachable.
 
 ## Gate 2: GitHub Repo Creation
 
@@ -45,7 +46,7 @@ CI/deploy workflows are under `.github/workflows/`.
 
 Expected deploy workflow:
 
-1. Build DotDev, Prefect, and Airflow images in GitHub Actions and push them to GHCR with the current commit SHA tag.
+1. Build DotDev, Prefect, Airflow, and Paperclip images in GitHub Actions and push them to GHCR with the current commit SHA tag.
 2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`; the deploy stops if inventory cannot be read.
 3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, fail if the smaller-Droplet staging host `platform-shared-small` exists, or allow Terraform to create one Droplet if none exists.
 4. Plan and apply Terraform from `infra/terraform`; the guard refuses any Droplet delete/replace and refuses creating a second Droplet when one already exists.
@@ -54,10 +55,11 @@ Expected deploy workflow:
 7. Upload the production env file to `/opt/platform/.env.production`, appending the SHA-pinned image references for the deploy.
 8. Upload temporary GHCR credentials and pull images on the Droplet.
 9. Run the one-time Postgres consolidation if the host still has separate Prefect and Airflow Postgres containers.
-10. Run production Compose with `up -d --no-build`.
-11. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
-12. Smoke test the public endpoints, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
-13. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
+10. Run the idempotent Paperclip database initializer so existing `platform-postgres` volumes get the `paperclip` role and database.
+11. Run production Compose with `up -d --no-build`.
+12. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
+13. Smoke test the public endpoints, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
+14. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
 
 GitHub secrets are listed in `docs/secrets.md`. Do not run `Deploy` until production secrets are configured.
 
@@ -78,7 +80,8 @@ Normal production applies run through `deploy.yml` after the GitHub `production`
 Cloud-init installs Docker and creates `/opt/platform`. After the Droplet exists, deployment should copy this repository to `/opt/platform`, create a root-only production env file, pull the SHA-pinned GHCR images, and start production Compose.
 
 ```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler paperclip
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up --no-build --force-recreate paperclip-db-init
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
@@ -93,12 +96,12 @@ Before running the `Deploy` workflow:
 - `DO_SSH_KEY_FINGERPRINTS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["aa:bb:cc"]`.
 - `ALLOWED_SSH_CIDRS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["203.0.113.10/32"]` or `[]`.
 - `PLATFORM_ENV_FILE` contains the complete production `.env.production` content.
-- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, and `AIRFLOW_POSTGRES_PASSWORD`; the deploy workflow validates these keys before uploading the file.
-- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, and `AIRFLOW_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
+- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, `AIRFLOW_POSTGRES_PASSWORD`, `PAPERCLIP_POSTGRES_PASSWORD`, `PAPERCLIP_BASIC_AUTH_USER`, `PAPERCLIP_BASIC_AUTH_HASH`, `PAPERCLIP_BETTER_AUTH_SECRET`, and `PAPERCLIP_AGENT_JWT_SECRET`; the deploy workflow validates these keys before uploading the file.
+- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, and `PAPERCLIP_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
-If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks.
+If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks. Paperclip also requires an `A paperclip` record pointing at the Droplet IP before the public `paperclip.raniendu.dev` smoke check can pass.
 
 ## Smaller Droplet Migration
 
@@ -133,20 +136,31 @@ The workflow is expected to report these smoke statuses:
 - `raniendu.dev` -> `200`
 - `www.raniendu.dev` -> `301`
 - `prefect.raniendu.dev/api/health` -> `401`
+- `paperclip.raniendu.dev` -> `401`
 - `flow.raniendu.dev` -> `200`
 
-`401` for Prefect is expected because Caddy basic auth is protecting the route before the API health endpoint is reached.
+`401` for Prefect and Paperclip is expected because Caddy basic auth is protecting those routes.
 
 ## Postgres Consolidation
 
-Production now uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. Local development still uses separate local Postgres containers.
+Production now uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. Local development still uses separate local Postgres containers.
 
 On the first deploy to an existing host, `deploy/scripts/consolidate-postgres.sh`:
 
 1. Stops Prefect and Airflow application containers to avoid writes during dumps.
 2. Dumps `platform-prefect-postgres` and `platform-airflow-postgres`.
-3. Starts `platform-postgres`, whose init script creates the `prefect` and `airflow` roles/databases.
+3. Starts `platform-postgres`, whose init script creates the `prefect`, `airflow`, and `paperclip` roles/databases on fresh volumes.
 4. Restores both dumps into the shared Postgres container.
 5. Writes a marker at `/var/lib/platform/postgres-consolidated`.
 
+Existing initialized Postgres volumes do not rerun entrypoint init scripts, so the deploy workflow also runs `paperclip-db-init` before Paperclip starts. That one-shot container is idempotent and only ensures the `paperclip` role/database exist with the configured password.
+
 The dump backups remain on the host under `/var/backups/platform/postgres-consolidation/` when the consolidation path runs. The smaller-Droplet migration has been accepted and the old 4 GiB host was decommissioned, so rollback now depends on Droplet backups/snapshots or app-level database backups rather than the old legacy Postgres containers.
+
+## Paperclip First Admin
+
+Generate the first Paperclip admin invite only after the service is running. Run the bootstrap command manually on the host or locally inside the container; do not add it to GitHub Actions because the invite URL is a credential.
+
+```bash
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec paperclip pnpm paperclipai auth bootstrap-ceo --config /etc/paperclip/config.json --base-url https://paperclip.raniendu.dev
+```

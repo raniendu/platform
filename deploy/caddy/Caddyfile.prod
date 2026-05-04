@@ -24,3 +24,10 @@ prefect.raniendu.dev {
 flow.raniendu.dev {
 	reverse_proxy airflow-webserver:8080
 }
+
+paperclip.raniendu.dev {
+	basicauth {
+		{$PAPERCLIP_BASIC_AUTH_USER} {$PAPERCLIP_BASIC_AUTH_HASH}
+	}
+	reverse_proxy paperclip:3100
+}

@@ -8,6 +8,11 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PLATFORM_POSTGRES_PASSWORD`: Shared production PostgreSQL superuser password for the consolidated Postgres container.
 - `PREFECT_BASIC_AUTH_USER`: Caddy username for Prefect UI/API.
 - `PREFECT_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash.
+- `PAPERCLIP_POSTGRES_PASSWORD`: Paperclip PostgreSQL role password.
+- `PAPERCLIP_BASIC_AUTH_USER`: Caddy username for Paperclip.
+- `PAPERCLIP_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Paperclip. Use credentials separate from Prefect.
+- `PAPERCLIP_BETTER_AUTH_SECRET`: Paperclip Better Auth secret.
+- `PAPERCLIP_AGENT_JWT_SECRET`: Paperclip agent JWT signing secret.
 - `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications.
 - `PUSHOVER_USER_KEY`: Prefect daily brief notifications.
 - `GEMINI_API_KEY`: Prefect daily brief rewrite support.
@@ -29,11 +34,19 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 DigitalOcean write access should be used by GitHub Actions workflows only. Local `doctl` is for read-only inventory and verification.
 
+## Optional Provider Keys
+
+- `OPENAI_API_KEY`: Optional Paperclip provider key.
+- `ANTHROPIC_API_KEY`: Optional Paperclip provider key.
+- `GEMINI_API_KEY`: Optional Paperclip provider key when also configured for Prefect.
+
 ## Rotation Notes
 
 Rotate app API keys at the provider first, then update `.env.production` and restart only the affected service where possible.
 
-Rotate database passwords during a maintenance window. Production uses one Postgres container with separate `prefect` and `airflow` roles/databases, so update the Postgres role password and Compose env file together. Rotate `PLATFORM_POSTGRES_PASSWORD` separately from the app database role passwords.
+Rotate database passwords during a maintenance window. Production uses one Postgres container with separate `prefect`, `airflow`, and `paperclip` roles/databases, so update the Postgres role password and Compose env file together. Rotate `PLATFORM_POSTGRES_PASSWORD` separately from the app database role passwords.
+
+Rotate Paperclip `PAPERCLIP_BETTER_AUTH_SECRET` and `PAPERCLIP_AGENT_JWT_SECRET` only with an application-level plan for active sessions and agent credentials. Treat Paperclip bootstrap invite URLs as credentials; generate them manually and do not store them in GitHub Actions logs.
 
 Rotate Airflow `FERNET_KEY` using Airflow's documented key rotation process; replacing it blindly can make encrypted connection values unreadable.
 

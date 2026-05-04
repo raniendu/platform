@@ -9,10 +9,11 @@ Current production host:
 - size `s-1vcpu-2gb`
 - weekly Droplet backups enabled
 
-The platform runs three application services behind Caddy:
+The platform runs four application services behind Caddy:
 
 - DotDev: Flask site built from `apps/dotdev/Dockerfile`, listening on port `8501`.
 - Prefect: Prefect API/UI server plus a process worker, built from `apps/prefect/Dockerfile`, listening on port `4200`.
+- Paperclip: upstream `paperclipai/paperclip` built from `apps/paperclip/Dockerfile`, listening on port `3100`.
 - Flow: Apache Airflow API server and scheduler, built from `apps/flow/Dockerfile`, listening on port `8080`.
 
 ## Container Layout
@@ -24,12 +25,14 @@ Local Compose starts:
 - `prefect-postgres`
 - `prefect-server`
 - `prefect-worker`
+- `paperclip-postgres`
+- `paperclip`
 - `airflow-postgres`
 - `airflow-init`
 - `airflow-webserver`
 - `airflow-scheduler`
 
-Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. This lower-memory shape is what allows the smaller `s-1vcpu-2gb` Droplet migration.
+Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. This lower-memory shape is what allows the smaller `s-1vcpu-2gb` Droplet migration.
 
 ## Networking
 
@@ -46,12 +49,14 @@ Local Caddy routes:
 
 - `http://dotdev.localhost` -> `dotdev:8501`
 - `http://prefect.localhost` -> `prefect-server:4200`
+- `http://paperclip.localhost` -> `paperclip:3100`, protected by Caddy basic auth
 - `http://flow.localhost` -> `airflow-webserver:8080`
 
 Production Caddy routes:
 
 - `https://raniendu.dev` -> DotDev
 - `https://prefect.raniendu.dev` -> Prefect, protected by Caddy basic auth
+- `https://paperclip.raniendu.dev` -> Paperclip, protected by Caddy basic auth and Paperclip authenticated/public mode
 - `https://flow.raniendu.dev` -> Airflow
 
 ## Data Volumes
@@ -59,6 +64,8 @@ Production Caddy routes:
 Local volumes:
 
 - `prefect-postgres-data`
+- `paperclip-postgres-data`
+- `paperclip-data`
 - `airflow-postgres-data`
 - `airflow-logs`
 - `airflow-plugins`
@@ -68,6 +75,7 @@ Production volumes:
 - `caddy-data`
 - `caddy-config`
 - `postgres-data`
+- `paperclip-data`
 - `airflow-logs`
 - `airflow-plugins`
 - `airflow-config`

@@ -73,7 +73,7 @@ terraform init
 terraform plan -var-file=terraform.tfvars
 ```
 
-Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Terraform's desired size is `s-1vcpu-2gb`. The Droplet resource still protects against destructive replacement and imports the existing `platform-shared` Droplet before applying so a missing GitHub-side state file does not create a duplicate Droplet.
+Normal production applies run through `deploy.yml` after the GitHub `production` environment approval. Terraform's desired size is `s-1vcpu-2gb` with DigitalOcean monitoring and weekly backups enabled. The Droplet resource still protects against destructive replacement and imports the existing `platform-shared` Droplet before applying so a missing GitHub-side state file does not create a duplicate Droplet.
 
 ## Production Host Bootstrap
 

@@ -9,6 +9,7 @@ resource "digitalocean_droplet" "platform" {
   size        = var.droplet_size
   resize_disk = false
   backups     = var.enable_backups
+  monitoring  = true
   ssh_keys    = var.ssh_key_fingerprints
   tags        = [var.project_name, "shared-runtime"]
 

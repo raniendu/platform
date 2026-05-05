@@ -54,6 +54,10 @@ gh run watch --repo raniendu/platform --exit-status
 
 The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, runs public smoke checks, and cleans up temporary access.
 
+## Temporary SSH Access
+
+Use the `Temporary SSH Access` workflow only when an interactive host session is required and the DigitalOcean web console is unavailable. Pass a single administrator `/32` CIDR, keep the window short, and let the workflow close the rule automatically. Do not use this workflow to add broad CIDRs such as `0.0.0.0/0`.
+
 The `s-1vcpu-2gb` migration is complete. Use `Deploy` for routine releases. Keep `Migrate Smaller Droplet` as the audited pattern for future new-Droplet migrations; do not use local `doctl` for write operations.
 
 ## Health Checks

@@ -34,6 +34,18 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 DigitalOcean write access should be used by GitHub Actions workflows only. Local `doctl` is for read-only inventory and verification.
 
+## Human Login Credentials
+
+Production Caddy basic-auth passwords are intentionally not stored in `.env.production.generated`. That generated file is used for the GitHub `PLATFORM_ENV_FILE` secret and contains Caddy bcrypt hashes such as `PAPERCLIP_BASIC_AUTH_HASH`, plus internal service secrets such as `PAPERCLIP_BETTER_AUTH_SECRET`.
+
+Use `.env.production.credentials` for human-readable production login values:
+
+```bash
+grep '^PAPERCLIP_BASIC_AUTH_' .env.production.credentials
+```
+
+For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD` from `.env.production.credentials`. `PAPERCLIP_BETTER_AUTH_SECRET` is not a browser login password; it is an internal Paperclip auth/session secret.
+
 ## Optional Provider Keys
 
 - `OPENAI_API_KEY`: Optional Paperclip provider key.

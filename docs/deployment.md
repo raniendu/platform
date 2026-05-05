@@ -141,6 +141,8 @@ The workflow is expected to report these smoke statuses:
 
 `401` for Prefect and Paperclip is expected because Caddy basic auth is protecting those routes.
 
+The production browser credentials for the Paperclip Caddy prompt live in `.env.production.credentials` as `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD`. The deploy env file and GitHub `PLATFORM_ENV_FILE` use `PAPERCLIP_BASIC_AUTH_HASH`; do not try to sign in with `PAPERCLIP_BETTER_AUTH_SECRET`, which is only an internal Paperclip auth/session secret.
+
 ## Postgres Consolidation
 
 Production now uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. Local development still uses separate local Postgres containers.

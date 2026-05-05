@@ -83,6 +83,16 @@ Paperclip direct health from the host:
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec paperclip curl --fail --header 'Host: paperclip.raniendu.dev' http://localhost:3100/api/health
 ```
 
+## Paperclip Browser Login
+
+The first browser prompt for `https://paperclip.raniendu.dev` is Caddy basic auth, not the Paperclip app login. Use the Paperclip-specific values from `.env.production.credentials`:
+
+```bash
+grep '^PAPERCLIP_BASIC_AUTH_' .env.production.credentials
+```
+
+Do not use `PAPERCLIP_BETTER_AUTH_SECRET` for this prompt. That value is an internal Paperclip secret from `.env.production.generated`, not a human password.
+
 ## Paperclip Admin Bootstrap
 
 Generate the first admin invite only in an interactive local or host shell after Paperclip is running:

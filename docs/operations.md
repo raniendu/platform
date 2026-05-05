@@ -93,6 +93,8 @@ docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.product
 
 Treat the invite URL as a credential and do not paste it into GitHub Actions logs, issues, docs, or chat.
 
+If the DigitalOcean web console and direct SSH are unavailable, use the `Paperclip Bootstrap Admin` workflow. It runs the bootstrap command over the existing deploy SSH key, stores command output in a one-day GitHub Actions artifact, and keeps the invite out of logs. Download the artifact locally and delete it after redeeming the invite.
+
 ## Backups
 
 Back up named volumes before risky deploys:

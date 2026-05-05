@@ -1,0 +1,142 @@
+name: Paperclip Bootstrap Admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type bootstrap-paperclip-admin to confirm.
+        required: true
+        type: string
+
+concurrency:
+  group: paperclip-bootstrap-admin
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Generate first admin invite
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Set up doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Validate confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CONFIRMATION" != "bootstrap-paperclip-admin" ]; then
+            echo "::error::confirmation must be bootstrap-paperclip-admin"
+            exit 1
+          fi
+
+      - name: Resolve infrastructure
+        run: |
+          set -euo pipefail
+
+          droplet_ip="$(
+            doctl compute droplet list --format Name,PublicIPv4 --no-header |
+              awk '$1 == "platform-shared" {print $2}'
+          )"
+          firewall_id="$(
+            doctl compute firewall list --format ID,Name --no-header |
+              awk '$2 == "platform-shared-firewall" {print $1}'
+          )"
+
+          if [ -z "$droplet_ip" ] || [ -z "$firewall_id" ]; then
+            echo "::error::Could not resolve platform-shared Droplet and firewall."
+            exit 1
+          fi
+
+          if [ "$(printf '%s\n' "$droplet_ip" | wc -l)" -ne 1 ]; then
+            echo "::error::Expected one platform-shared Droplet."
+            exit 1
+          fi
+
+          if [ "$(printf '%s\n' "$firewall_id" | wc -l)" -ne 1 ]; then
+            echo "::error::Expected one platform-shared-firewall."
+            exit 1
+          fi
+
+          echo "PLATFORM_SSH_HOST=${droplet_ip}" >> "$GITHUB_ENV"
+          echo "PLATFORM_FIREWALL_ID=${firewall_id}" >> "$GITHUB_ENV"
+
+      - name: Open SSH firewall for runner
+        run: |
+          set -euo pipefail
+
+          runner_ip="$(curl -fsS https://api.ipify.org)"
+          runner_cidr="${runner_ip}/32"
+          echo "RUNNER_SSH_CIDR=${runner_cidr}" >> "$GITHUB_ENV"
+
+          doctl compute firewall remove-rules "$PLATFORM_FIREWALL_ID" \
+            --inbound-rules "protocol:tcp,ports:22,address:${runner_cidr}" >/dev/null 2>&1 || true
+          doctl compute firewall add-rules "$PLATFORM_FIREWALL_ID" \
+            --inbound-rules "protocol:tcp,ports:22,address:${runner_cidr}"
+
+      - name: Configure SSH
+        env:
+          PLATFORM_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_SSH_PRIVATE_KEY }}
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+        run: |
+          set -euo pipefail
+
+          test -n "$PLATFORM_SSH_PRIVATE_KEY"
+          test -n "$PLATFORM_SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PLATFORM_SSH_PRIVATE_KEY" > ~/.ssh/platform_key
+          chmod 600 ~/.ssh/platform_key
+          ssh-keyscan -p "${PLATFORM_SSH_PORT:-22}" "$PLATFORM_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Generate invite artifact
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          mkdir -p paperclip-bootstrap
+
+          set +e
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "cd /opt/platform && docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec -T paperclip pnpm paperclipai auth bootstrap-ceo --config /etc/paperclip/config.json --base-url https://paperclip.raniendu.dev" \
+            > paperclip-bootstrap/admin-invite.txt 2>&1
+          status="$?"
+          set -e
+
+          chmod 600 paperclip-bootstrap/admin-invite.txt
+          echo "BOOTSTRAP_STATUS=${status}" >> "$GITHUB_ENV"
+
+      - name: Upload invite artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paperclip-admin-invite
+          path: paperclip-bootstrap/admin-invite.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Fail if bootstrap failed
+        if: env.BOOTSTRAP_STATUS != '0'
+        run: |
+          echo "::error::Paperclip admin bootstrap failed. Download the artifact for command output."
+          exit 1
+
+      - name: Close SSH firewall for runner
+        if: always()
+        run: |
+          if [ -z "${PLATFORM_FIREWALL_ID:-}" ] || [ -z "${RUNNER_SSH_CIDR:-}" ]; then
+            echo "No temporary SSH firewall rule recorded; skipping cleanup."
+            exit 0
+          fi
+
+          doctl compute firewall remove-rules "$PLATFORM_FIREWALL_ID" \
+            --inbound-rules "protocol:tcp,ports:22,address:${RUNNER_SSH_CIDR}" || true

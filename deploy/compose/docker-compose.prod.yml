@@ -15,13 +15,9 @@ services:
       - "443:443"
     volumes:
       - ../caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ../caddy/prod-sites:/etc/caddy/sites:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on:
-      - dotdev
-      - prefect-server
-      - airflow-webserver
-      - paperclip
     networks:
       - platform
     restart: unless-stopped
@@ -29,6 +25,7 @@ services:
   dotdev:
     image: ${DOTDEV_IMAGE:?DOTDEV_IMAGE is required}
     container_name: platform-dotdev
+    profiles: ["dotdev"]
     networks:
       - platform
     restart: unless-stopped
@@ -59,6 +56,7 @@ services:
   prefect-server:
     image: ${PREFECT_IMAGE:?PREFECT_IMAGE is required}
     container_name: platform-prefect-server
+    profiles: ["prefect"]
     command: prefect server start --host 0.0.0.0
     environment:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect:${PREFECT_POSTGRES_PASSWORD}@postgres:5432/prefect
@@ -83,6 +81,7 @@ services:
   prefect-worker:
     image: ${PREFECT_IMAGE:?PREFECT_IMAGE is required}
     container_name: platform-prefect-worker
+    profiles: ["prefect"]
     command: /bin/bash /app/docker/prefect/start-worker.sh
     environment:
       PREFECT_API_URL: http://prefect-server:4200/api
@@ -102,6 +101,7 @@ services:
   paperclip-db-init:
     image: postgres:15-alpine
     container_name: platform-paperclip-db-init
+    profiles: ["paperclip"]
     entrypoint: /bin/sh
     command: /scripts/ensure-paperclip-db.sh
     environment:
@@ -122,6 +122,7 @@ services:
   paperclip:
     image: ${PAPERCLIP_IMAGE:?PAPERCLIP_IMAGE is required}
     container_name: platform-paperclip
+    profiles: ["paperclip"]
     environment:
       HOST: 0.0.0.0
       PORT: 3100
@@ -163,6 +164,7 @@ services:
   airflow-init:
     image: ${AIRFLOW_IMAGE:?AIRFLOW_IMAGE is required}
     container_name: platform-airflow-init
+    profiles: ["flow"]
     entrypoint: /bin/bash
     command:
       - -c
@@ -210,6 +212,7 @@ services:
   airflow-webserver:
     image: ${AIRFLOW_IMAGE:?AIRFLOW_IMAGE is required}
     container_name: platform-airflow-webserver
+    profiles: ["flow"]
     command: api-server
     environment: *airflow-prod-env
     volumes: *airflow-prod-volumes
@@ -230,6 +233,7 @@ services:
   airflow-scheduler:
     image: ${AIRFLOW_IMAGE:?AIRFLOW_IMAGE is required}
     container_name: platform-airflow-scheduler
+    profiles: ["flow"]
     command: scheduler
     environment: *airflow-prod-env
     volumes: *airflow-prod-volumes

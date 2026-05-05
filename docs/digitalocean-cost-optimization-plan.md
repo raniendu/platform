@@ -44,11 +44,11 @@ Current public smoke-check expectations:
 https://raniendu.dev/ -> 200
 https://www.raniendu.dev/ -> 301
 https://prefect.raniendu.dev/api/health -> 401
-https://paperclip.raniendu.dev/ -> 401
-https://flow.raniendu.dev/ -> 200
+https://paperclip.raniendu.dev/ -> 404
+https://flow.raniendu.dev/ -> 404
 ```
 
-`401` for Prefect and Paperclip is expected because Caddy basic auth protects those routes.
+`401` for Prefect is expected because Caddy basic auth protects that route. Paperclip and Flow return `404` while their production app flags are disabled.
 
 ## Current Cost
 

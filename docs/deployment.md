@@ -14,8 +14,17 @@ Current production routes:
 
 - `https://raniendu.dev` -> DotDev
 - `https://prefect.raniendu.dev` -> Prefect behind Caddy basic auth
-- `https://paperclip.raniendu.dev` -> Paperclip behind Caddy basic auth and Paperclip authenticated/public mode
-- `https://flow.raniendu.dev` -> Airflow
+- `https://paperclip.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
+- `https://flow.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
+
+Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags and rerun `Deploy` to start or stop a production app:
+
+```env
+DEPLOY_DOTDEV=true
+DEPLOY_PREFECT=true
+DEPLOY_FLOW=false
+DEPLOY_PAPERCLIP=false
+```
 
 The initial local, GitHub, Terraform, and DNS gates have passed. Keep the gate notes below for rebuilds or disaster recovery.
 
@@ -46,17 +55,17 @@ CI/deploy workflows are under `.github/workflows/`.
 
 Expected deploy workflow:
 
-1. Build DotDev, Prefect, Airflow, and Paperclip images in GitHub Actions and push them to GHCR with the current commit SHA tag.
+1. Read `deploy/apps.prod.env`, build enabled app images in GitHub Actions, and push them to GHCR with the current commit SHA tag.
 2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`; the deploy stops if inventory cannot be read.
 3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, fail if the smaller-Droplet staging host `platform-shared-small` exists, or allow Terraform to create one Droplet if none exists.
 4. Plan and apply Terraform from `infra/terraform`; the guard refuses any Droplet delete/replace and refuses creating a second Droplet when one already exists.
 5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
 6. Upload repository files to `/opt/platform`.
-7. Upload the production env file to `/opt/platform/.env.production`, appending the SHA-pinned image references for the deploy.
-8. Upload temporary GHCR credentials and pull images on the Droplet.
+7. Upload the production env file to `/opt/platform/.env.production`, appending deploy flags and SHA-pinned image references.
+8. Upload temporary GHCR credentials, render the enabled/disabled production Caddy routes, stop disabled app containers without deleting volumes, and pull enabled images on the Droplet.
 9. Run the one-time Postgres consolidation if the host still has separate Prefect and Airflow Postgres containers.
-10. Run the idempotent Paperclip database initializer so existing `platform-postgres` volumes get the `paperclip` role and database.
-11. Run production Compose with `up -d --no-build`.
+10. Run the idempotent Paperclip database initializer only when Paperclip is enabled so existing `platform-postgres` volumes get the `paperclip` role and database.
+11. Run production Compose with `COMPOSE_PROFILES` matching the enabled app flags and `up -d --no-build`.
 12. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
 13. Smoke test the public endpoints, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
 14. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
@@ -80,9 +89,9 @@ Normal production applies run through `deploy.yml` after the GitHub `production`
 Cloud-init installs Docker and creates `/opt/platform`. After the Droplet exists, deployment should copy this repository to `/opt/platform`, create a root-only production env file, pull the SHA-pinned GHCR images, and start production Compose.
 
 ```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler paperclip
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up --no-build --force-recreate paperclip-db-init
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
+bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
+COMPOSE_PROFILES=dotdev,prefect docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull postgres caddy dotdev prefect-server prefect-worker
+COMPOSE_PROFILES=dotdev,prefect docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
 Public verification waits until Squarespace DNS cutover is complete.
@@ -96,8 +105,9 @@ Before running the `Deploy` workflow:
 - `DO_SSH_KEY_FINGERPRINTS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["aa:bb:cc"]`.
 - `ALLOWED_SSH_CIDRS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["203.0.113.10/32"]` or `[]`.
 - `PLATFORM_ENV_FILE` contains the complete production `.env.production` content.
-- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, `AIRFLOW_POSTGRES_PASSWORD`, `PAPERCLIP_POSTGRES_PASSWORD`, `PAPERCLIP_BASIC_AUTH_USER`, `PAPERCLIP_BASIC_AUTH_HASH`, `PAPERCLIP_BETTER_AUTH_SECRET`, and `PAPERCLIP_AGENT_JWT_SECRET`; the deploy workflow validates these keys before uploading the file.
+- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, `AIRFLOW_POSTGRES_PASSWORD`, and `PAPERCLIP_POSTGRES_PASSWORD`; the deploy workflow validates additional app auth keys only when their app flag is enabled.
 - The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, and `PAPERCLIP_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
+- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, and `DEPLOY_PAPERCLIP`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
@@ -136,10 +146,10 @@ The workflow is expected to report these smoke statuses:
 - `raniendu.dev` -> `200`
 - `www.raniendu.dev` -> `301`
 - `prefect.raniendu.dev/api/health` -> `401`
-- `paperclip.raniendu.dev` -> `401`
-- `flow.raniendu.dev` -> `200`
+- `paperclip.raniendu.dev` -> `404`
+- `flow.raniendu.dev` -> `404`
 
-`401` for Prefect and Paperclip is expected because Caddy basic auth is protecting those routes.
+`401` for Prefect is expected because Caddy basic auth is protecting that route. Paperclip and Flow return `404` while their production app flags are disabled.
 
 The production browser credentials for the Paperclip Caddy prompt live in `.env.production.credentials` as `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD`. The deploy env file and GitHub `PLATFORM_ENV_FILE` use `PAPERCLIP_BASIC_AUTH_HASH`; do not try to sign in with `PAPERCLIP_BETTER_AUTH_SECRET`, which is only an internal Paperclip auth/session secret.
 

@@ -42,9 +42,9 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://paperclip.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 ```
 
-Expected: `200`, `301`, `401`, `401`, `200`.
+Expected with the current production app flags: `200`, `301`, `401`, `404`, `404`.
 
-`401` for Prefect and Paperclip is expected because Caddy basic auth protects those routes.
+`401` for Prefect is expected because Caddy basic auth protects that route. Paperclip and Flow return `404` while their production app flags are disabled.
 
 Read-only inventory checks should show only the shared runtime resources for this stack:
 

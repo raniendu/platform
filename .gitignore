@@ -31,6 +31,7 @@ apps/flow/airflow.db
 apps/flow/logs/
 apps/flow/plugins/
 apps/prefect/.prefect/
+deploy/caddy/prod-sites/*.caddy
 
 # Terraform local state
 *.tfstate
@@ -39,4 +40,3 @@ apps/prefect/.prefect/
 .terraform.lock.hcl
 terraform.tfvars
 *.auto.tfvars
-

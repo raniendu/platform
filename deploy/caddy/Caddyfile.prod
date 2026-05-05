@@ -2,32 +2,4 @@
 	email {$ACME_EMAIL}
 }
 
-raniendu.dev {
-	reverse_proxy dotdev:8501
-}
-
-http://www.raniendu.dev {
-	redir https://raniendu.dev{uri} permanent
-}
-
-www.raniendu.dev {
-	redir https://raniendu.dev{uri} permanent
-}
-
-prefect.raniendu.dev {
-	basicauth {
-		{$PREFECT_BASIC_AUTH_USER} {$PREFECT_BASIC_AUTH_HASH}
-	}
-	reverse_proxy prefect-server:4200
-}
-
-flow.raniendu.dev {
-	reverse_proxy airflow-webserver:8080
-}
-
-paperclip.raniendu.dev {
-	basicauth {
-		{$PAPERCLIP_BASIC_AUTH_USER} {$PAPERCLIP_BASIC_AUTH_HASH}
-	}
-	reverse_proxy paperclip:3100
-}
+import /etc/caddy/sites/*.caddy

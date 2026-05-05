@@ -74,11 +74,18 @@ jobs:
       - name: Prepare CI env file
         run: cp .env.example .env.ci
 
+      - name: Load production app flags
+        id: app_flags
+        run: bash deploy/scripts/prod-app-flags.sh github-outputs deploy/apps.prod.env >> "$GITHUB_OUTPUT"
+
       - name: Validate local Compose
         run: docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.ci config
 
+      - name: Render production Caddy routes
+        run: bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
+
       - name: Validate production Compose
-        run: docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.ci config
+        run: COMPOSE_PROFILES="${{ steps.app_flags.outputs.compose_profiles }}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.ci config
 
   terraform:
     name: Terraform

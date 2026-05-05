@@ -9,12 +9,14 @@ Current production host:
 - size `s-1vcpu-2gb`
 - weekly Droplet backups enabled
 
-The platform runs four application services behind Caddy:
+The platform can run four application services behind Caddy:
 
 - DotDev: Flask site built from `apps/dotdev/Dockerfile`, listening on port `8501`.
 - Prefect: Prefect API/UI server plus a process worker, built from `apps/prefect/Dockerfile`, listening on port `4200`.
 - Paperclip: upstream `paperclipai/paperclip` built from `apps/paperclip/Dockerfile`, listening on port `3100`.
 - Flow: Apache Airflow API server and scheduler, built from `apps/flow/Dockerfile`, listening on port `8080`.
+
+Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. The current production setting enables DotDev and Prefect, and keeps Flow/Airflow and Paperclip disabled without deleting their code, configuration, databases, or Docker volumes.
 
 ## Container Layout
 
@@ -32,7 +34,7 @@ Local Compose starts:
 - `airflow-webserver`
 - `airflow-scheduler`
 
-Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. This lower-memory shape is what allows the smaller `s-1vcpu-2gb` Droplet migration.
+Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. Optional production app services are behind Docker Compose profiles so disabled apps are not started by routine deploys. This lower-memory shape is what allows the smaller `s-1vcpu-2gb` Droplet migration.
 
 ## Networking
 
@@ -52,12 +54,12 @@ Local Caddy routes:
 - `http://paperclip.localhost` -> `paperclip:3100`, protected by Caddy basic auth
 - `http://flow.localhost` -> `airflow-webserver:8080`
 
-Production Caddy routes:
+Production Caddy routes are rendered during deploy from `deploy/apps.prod.env`:
 
-- `https://raniendu.dev` -> DotDev
-- `https://prefect.raniendu.dev` -> Prefect, protected by Caddy basic auth
-- `https://paperclip.raniendu.dev` -> Paperclip, protected by Caddy basic auth and Paperclip authenticated/public mode
-- `https://flow.raniendu.dev` -> Airflow
+- `https://raniendu.dev` -> DotDev when `DEPLOY_DOTDEV=true`, otherwise `404`
+- `https://prefect.raniendu.dev` -> Prefect when `DEPLOY_PREFECT=true`, otherwise `404`
+- `https://paperclip.raniendu.dev` -> Paperclip when `DEPLOY_PAPERCLIP=true`, otherwise `404`
+- `https://flow.raniendu.dev` -> Airflow when `DEPLOY_FLOW=true`, otherwise `404`
 
 ## Data Volumes
 

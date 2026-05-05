@@ -40,9 +40,9 @@ docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.product
 Pull and restart the current production images:
 
 ```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull dotdev prefect-server prefect-worker airflow-init airflow-webserver airflow-scheduler paperclip
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up --no-build --force-recreate paperclip-db-init
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
+bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
+COMPOSE_PROFILES=dotdev,prefect docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull postgres caddy dotdev prefect-server prefect-worker
+COMPOSE_PROFILES=dotdev,prefect docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
 Preferred production redeploy path:
@@ -53,6 +53,19 @@ gh run watch --repo raniendu/platform --exit-status
 ```
 
 The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, runs public smoke checks, and cleans up temporary access.
+
+## Production App Flags
+
+Production app launch is controlled by `deploy/apps.prod.env`.
+
+```env
+DEPLOY_DOTDEV=true
+DEPLOY_PREFECT=true
+DEPLOY_FLOW=false
+DEPLOY_PAPERCLIP=false
+```
+
+Change a flag in a PR and rerun the `Deploy` workflow after merge. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
 
 ## Temporary SSH Access
 
@@ -66,8 +79,8 @@ The `s-1vcpu-2gb` migration is complete. Use `Deploy` for routine releases. Keep
 curl -I https://raniendu.dev/
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
-curl -I https://paperclip.raniendu.dev/
-curl -I https://flow.raniendu.dev/
+curl -I https://paperclip.raniendu.dev/ # expected 404 while disabled
+curl -I https://flow.raniendu.dev/      # expected 404 while disabled
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
 ```
 

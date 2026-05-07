@@ -71,6 +71,12 @@ Change a flag in a PR and rerun the `Deploy` workflow after merge. Disabled apps
 
 Use the `Temporary SSH Access` workflow only when an interactive host session is required and the DigitalOcean web console is unavailable. Pass a single administrator `/32` CIDR, keep the window short, and let the workflow close the rule automatically. Do not use this workflow to add broad CIDRs such as `0.0.0.0/0`.
 
+## Emergency Droplet Recovery
+
+If the Droplet accepts TCP connections but SSH or HTTPS handshakes time out, the host may be under memory pressure during startup. Use the `Resize Droplet` workflow to temporarily move `platform-shared` to `s-2vcpu-4gb` without resizing disk, run `Deploy` to apply the production app flags, then use `Resize Droplet` again to return to `s-1vcpu-2gb` after smoke checks pass.
+
+The resize workflow is production-gated, only accepts `platform-shared`, and does not use the irreversible `--resize-disk` option.
+
 The `s-1vcpu-2gb` migration is complete. Use `Deploy` for routine releases. Keep `Migrate Smaller Droplet` as the audited pattern for future new-Droplet migrations; do not use local `doctl` for write operations.
 
 ## Health Checks

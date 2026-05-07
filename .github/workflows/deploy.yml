@@ -334,16 +334,19 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Open SSH firewall for runner
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
         run: |
           test -n "$PLATFORM_FIREWALL_ID"
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
           runner_ip="$(curl -fsS https://api.ipify.org)"
           runner_cidr="${runner_ip}/32"
           echo "RUNNER_SSH_CIDR=${runner_cidr}" >> "$GITHUB_ENV"
 
           doctl compute firewall remove-rules "$PLATFORM_FIREWALL_ID" \
-            --inbound-rules "protocol:tcp,ports:22,address:${runner_cidr}" >/dev/null 2>&1 || true
+            --inbound-rules "protocol:tcp,ports:${ssh_port},address:${runner_cidr}" >/dev/null 2>&1 || true
           doctl compute firewall add-rules "$PLATFORM_FIREWALL_ID" \
-            --inbound-rules "protocol:tcp,ports:22,address:${runner_cidr}"
+            --inbound-rules "protocol:tcp,ports:${ssh_port},address:${runner_cidr}"
 
       - name: Configure SSH
         env:
@@ -612,11 +615,15 @@ jobs:
 
       - name: Close SSH firewall for runner
         if: always()
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
         run: |
           if [ -z "${PLATFORM_FIREWALL_ID:-}" ] || [ -z "${RUNNER_SSH_CIDR:-}" ]; then
             echo "No temporary SSH firewall rule recorded; skipping cleanup."
             exit 0
           fi
 
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+
           doctl compute firewall remove-rules "$PLATFORM_FIREWALL_ID" \
-            --inbound-rules "protocol:tcp,ports:22,address:${RUNNER_SSH_CIDR}" || true
+            --inbound-rules "protocol:tcp,ports:${ssh_port},address:${RUNNER_SSH_CIDR}" || true

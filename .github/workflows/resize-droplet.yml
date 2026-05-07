@@ -1,0 +1,158 @@
+name: Resize Droplet
+
+on:
+  workflow_dispatch:
+    inputs:
+      droplet_name:
+        description: Exact DigitalOcean Droplet name to resize.
+        required: true
+        default: platform-shared
+        type: string
+      target_size:
+        description: Reversible CPU/RAM-only size target.
+        required: true
+        default: s-2vcpu-4gb
+        type: choice
+        options:
+          - s-2vcpu-4gb
+          - s-1vcpu-2gb
+          - s-4vcpu-8gb
+      confirmation:
+        description: Type resize-platform-shared to confirm.
+        required: true
+        type: string
+
+concurrency:
+  group: resize-droplet
+  cancel-in-progress: false
+
+jobs:
+  resize:
+    name: Resize Droplet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Set up doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Resolve and validate Droplet
+        id: droplet
+        env:
+          DROPLET_NAME: ${{ inputs.droplet_name }}
+          TARGET_SIZE: ${{ inputs.target_size }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+
+          if [ "$DROPLET_NAME" != "platform-shared" ]; then
+            echo "::error::Only platform-shared can be resized by this workflow."
+            exit 1
+          fi
+
+          if [ "$CONFIRMATION" != "resize-platform-shared" ]; then
+            echo "::error::confirmation must be resize-platform-shared"
+            exit 1
+          fi
+
+          case "$TARGET_SIZE" in
+            s-1vcpu-2gb | s-2vcpu-4gb | s-4vcpu-8gb) ;;
+            *)
+              echo "::error::Unsupported target size: ${TARGET_SIZE}"
+              exit 1
+              ;;
+          esac
+
+          droplet_rows="$(
+            doctl compute droplet list --format ID,Name,Status,PublicIPv4,Memory,VCPUs --no-header |
+              awk -v expected="$DROPLET_NAME" '$2 == expected {print $0}'
+          )"
+
+          if [ -z "$droplet_rows" ]; then
+            echo "::error::Droplet ${DROPLET_NAME} was not found."
+            exit 1
+          fi
+
+          if [ "$(printf '%s\n' "$droplet_rows" | wc -l)" -ne 1 ]; then
+            echo "::error::Expected exactly one Droplet named ${DROPLET_NAME}."
+            printf '%s\n' "$droplet_rows"
+            exit 1
+          fi
+
+          read -r droplet_id droplet_name droplet_status droplet_ip memory vcpus <<< "$droplet_rows"
+
+          test -n "$droplet_id"
+          test -n "$droplet_ip"
+
+          echo "droplet_id=${droplet_id}" >> "$GITHUB_OUTPUT"
+          echo "droplet_ip=${droplet_ip}" >> "$GITHUB_OUTPUT"
+          echo "current_memory=${memory}" >> "$GITHUB_OUTPUT"
+          echo "current_vcpus=${vcpus}" >> "$GITHUB_OUTPUT"
+          echo "Resolved ${droplet_name} (${droplet_id}) at ${droplet_ip}, status ${droplet_status}, ${memory} MiB, ${vcpus} vCPU."
+
+      - name: Resize Droplet
+        env:
+          DROPLET_ID: ${{ steps.droplet.outputs.droplet_id }}
+          TARGET_SIZE: ${{ inputs.target_size }}
+          CURRENT_MEMORY: ${{ steps.droplet.outputs.current_memory }}
+          CURRENT_VCPUS: ${{ steps.droplet.outputs.current_vcpus }}
+        run: |
+          set -euo pipefail
+
+          case "$TARGET_SIZE" in
+            s-1vcpu-2gb)
+              target_memory=2048
+              target_vcpus=1
+              ;;
+            s-2vcpu-4gb)
+              target_memory=4096
+              target_vcpus=2
+              ;;
+            s-4vcpu-8gb)
+              target_memory=8192
+              target_vcpus=4
+              ;;
+          esac
+
+          if [ "$CURRENT_MEMORY" = "$target_memory" ] && [ "$CURRENT_VCPUS" = "$target_vcpus" ]; then
+            echo "Droplet already matches ${TARGET_SIZE}; skipping resize."
+            exit 0
+          fi
+
+          doctl compute droplet-action resize "$DROPLET_ID" --size "$TARGET_SIZE" --wait
+
+      - name: Ensure Droplet is powered on
+        env:
+          DROPLET_ID: ${{ steps.droplet.outputs.droplet_id }}
+        run: |
+          set -euo pipefail
+
+          status="$(doctl compute droplet get "$DROPLET_ID" --format Status --no-header)"
+          if [ "$status" != "active" ]; then
+            doctl compute droplet-action power-on "$DROPLET_ID" --wait
+          fi
+
+      - name: Wait for public ports
+        env:
+          DROPLET_IP: ${{ steps.droplet.outputs.droplet_ip }}
+        run: |
+          set -euo pipefail
+
+          for port in 80 443; do
+            for attempt in $(seq 1 60); do
+              if timeout 3 bash -c "</dev/tcp/${DROPLET_IP}/${port}" >/dev/null 2>&1; then
+                echo "Port ${port} is reachable."
+                break
+              fi
+
+              if [ "$attempt" -eq 60 ]; then
+                echo "::error::Port ${port} did not become reachable."
+                exit 1
+              fi
+
+              echo "Waiting for port ${port}, attempt ${attempt}"
+              sleep 5
+            done
+          done

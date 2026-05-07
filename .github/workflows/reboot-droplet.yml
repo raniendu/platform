@@ -1,0 +1,104 @@
+name: Reboot Droplet
+
+on:
+  workflow_dispatch:
+    inputs:
+      droplet_name:
+        description: Exact DigitalOcean Droplet name to power-cycle.
+        required: true
+        default: platform-shared
+        type: string
+      confirmation:
+        description: Type power-cycle-platform-shared to confirm.
+        required: true
+        type: string
+
+concurrency:
+  group: reboot-droplet
+  cancel-in-progress: false
+
+jobs:
+  reboot:
+    name: Power-cycle Droplet
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Set up doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Resolve and validate Droplet
+        id: droplet
+        env:
+          DROPLET_NAME: ${{ inputs.droplet_name }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+
+          if [ "$DROPLET_NAME" != "platform-shared" ]; then
+            echo "::error::Only platform-shared can be power-cycled by this workflow."
+            exit 1
+          fi
+
+          if [ "$CONFIRMATION" != "power-cycle-platform-shared" ]; then
+            echo "::error::confirmation must be power-cycle-platform-shared"
+            exit 1
+          fi
+
+          droplet_rows="$(
+            doctl compute droplet list --format ID,Name,Status,PublicIPv4 --no-header |
+              awk -v expected="$DROPLET_NAME" '$2 == expected {print $0}'
+          )"
+
+          if [ -z "$droplet_rows" ]; then
+            echo "::error::Droplet ${DROPLET_NAME} was not found."
+            exit 1
+          fi
+
+          if [ "$(printf '%s\n' "$droplet_rows" | wc -l)" -ne 1 ]; then
+            echo "::error::Expected exactly one Droplet named ${DROPLET_NAME}."
+            printf '%s\n' "$droplet_rows"
+            exit 1
+          fi
+
+          read -r droplet_id droplet_name droplet_status droplet_ip <<< "$droplet_rows"
+
+          test -n "$droplet_id"
+          test -n "$droplet_ip"
+
+          echo "droplet_id=${droplet_id}" >> "$GITHUB_OUTPUT"
+          echo "droplet_ip=${droplet_ip}" >> "$GITHUB_OUTPUT"
+          echo "Resolved ${droplet_name} (${droplet_id}) at ${droplet_ip}, status ${droplet_status}."
+
+      - name: Power-cycle Droplet
+        env:
+          DROPLET_ID: ${{ steps.droplet.outputs.droplet_id }}
+        run: |
+          set -euo pipefail
+
+          doctl compute droplet-action power-cycle "$DROPLET_ID" --wait
+
+      - name: Wait for public ports
+        env:
+          DROPLET_IP: ${{ steps.droplet.outputs.droplet_ip }}
+        run: |
+          set -euo pipefail
+
+          for port in 80 443; do
+            for attempt in $(seq 1 60); do
+              if timeout 3 bash -c "</dev/tcp/${DROPLET_IP}/${port}" >/dev/null 2>&1; then
+                echo "Port ${port} is reachable."
+                break
+              fi
+
+              if [ "$attempt" -eq 60 ]; then
+                echo "::error::Port ${port} did not become reachable."
+                exit 1
+              fi
+
+              echo "Waiting for port ${port}, attempt ${attempt}"
+              sleep 5
+            done
+          done

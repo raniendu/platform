@@ -94,7 +94,8 @@ PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect python a
 Trigger a registered deployment:
 
 ```bash
-PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect prefect deployment run "daily-brief/daily-brief"
+PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect prefect deployment run "daily-brief/morning-brief"
+PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect prefect deployment run "daily-brief/afternoon-brief"
 ```
 
 If a deployment name differs, list available deployments first:

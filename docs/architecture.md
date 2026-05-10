@@ -18,6 +18,18 @@ The platform can run four application services behind Caddy:
 
 Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. The current production setting enables DotDev and Prefect, and keeps Flow/Airflow and Paperclip disabled without deleting their code, configuration, databases, or Docker volumes.
 
+App-level architecture docs:
+
+- [DotDev](apps/dotdev-architecture.md)
+- [Prefect](apps/prefect-architecture.md)
+- [Flow / Airflow](apps/flow-architecture.md)
+- [Paperclip](apps/paperclip-architecture.md)
+
+Database and datastore ownership docs:
+
+- [Database documentation](database/README.md)
+- [PyDBML-compatible datastore model](database/platform-app-datastores.dbml)
+
 ## Container Layout
 
 Local Compose starts:

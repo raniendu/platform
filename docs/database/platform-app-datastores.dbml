@@ -1,0 +1,78 @@
+Project platform_app_datastores {
+  database_type: 'PostgreSQL'
+  Note: 'Logical datastore ownership for the platform monorepo. Upstream apps own their internal table schemas.'
+}
+
+Table runtime_service {
+  service_id varchar [pk, note: 'Stable service key such as dotdev, prefect-server, airflow-webserver, or paperclip']
+  app_name varchar [not null]
+  environment varchar [not null, note: 'local or production']
+  compose_service varchar [not null]
+  image_source varchar [not null, note: 'Dockerfile path, GHCR image ref, or upstream image source']
+  public_route varchar [note: 'Public or local Caddy route when routed through Caddy']
+}
+
+Table postgres_cluster {
+  cluster_id varchar [pk, note: 'local service name or production platform-postgres']
+  environment varchar [not null]
+  compose_service varchar [not null]
+  volume_name varchar [not null]
+  postgres_version varchar [not null]
+}
+
+Table app_database {
+  database_id varchar [pk, note: 'Logical database key: prefect, airflow, or paperclip']
+  cluster_id varchar [not null]
+  app_name varchar [not null]
+  database_name varchar [not null]
+  role_name varchar [not null]
+  schema_owner varchar [not null, note: 'Product that owns migrations and internal tables']
+  connection_env_var varchar [not null]
+  init_source varchar [not null, note: 'Compose env, Docker entrypoint init script, or app-specific init service']
+}
+
+Table app_volume {
+  volume_id varchar [pk]
+  app_name varchar [not null]
+  environment varchar [not null]
+  compose_volume varchar [not null]
+  mount_path varchar [not null]
+  contents varchar [not null]
+  backup_scope varchar [not null]
+}
+
+Table file_backed_store {
+  store_id varchar [pk]
+  app_name varchar [not null]
+  source_path varchar [not null]
+  content_type varchar [not null]
+  schema_owner varchar [not null]
+  notes text
+}
+
+Table service_database_dependency {
+  service_id varchar [not null]
+  database_id varchar [not null]
+  dependency_kind varchar [not null, note: 'read_write metadata, migration, or bootstrap']
+  connection_path varchar [not null, note: 'Environment variable or Compose service dependency']
+
+  Indexes {
+    (service_id, database_id) [pk]
+  }
+}
+
+Table service_volume_dependency {
+  service_id varchar [not null]
+  volume_id varchar [not null]
+  dependency_kind varchar [not null, note: 'logs, config, plugins, storage, or secrets']
+
+  Indexes {
+    (service_id, volume_id) [pk]
+  }
+}
+
+Ref: app_database.cluster_id > postgres_cluster.cluster_id
+Ref: service_database_dependency.service_id > runtime_service.service_id
+Ref: service_database_dependency.database_id > app_database.database_id
+Ref: service_volume_dependency.service_id > runtime_service.service_id
+Ref: service_volume_dependency.volume_id > app_volume.volume_id

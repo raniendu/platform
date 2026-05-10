@@ -1,6 +1,6 @@
 # Platform
 
-Monorepo for the services previously split across `dotDev`, `prefect`, and `flow`.
+Monorepo for the services previously split across `dotDev`, `prefect`, and `flow`, plus the shared Paperclip wrapper.
 
 Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
 
@@ -11,6 +11,7 @@ Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2g
 - `apps/dotdev/` - Flask personal site, Python 3.13.
 - `apps/prefect/` - Prefect flows, config, worker scripts, Python 3.10+.
 - `apps/flow/` - Airflow DAGs and image, Python 3.10+.
+- `apps/paperclip/` - Paperclip AI wrapper image and shared platform wiring.
 - `deploy/compose/` - shared local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
@@ -95,3 +96,4 @@ Do not use local DigitalOcean CLI commands for infrastructure writes. Local `doc
 
 Cloud provider architecture and cost tradeoffs are summarized in `docs/cloud-architecture-recommendation.md`.
 Developer workflows are covered in `docs/developer-guide.md`. DigitalOcean cost comparison, cost optimization, and old-resource deprecation are covered in `docs/digitalocean-cost-comparison.md`, `docs/digitalocean-cost-optimization-plan.md`, and `docs/deprecation-plan.md`.
+App-level architecture docs live under `docs/apps/`, and datastore ownership is documented in `docs/database/`.

@@ -27,6 +27,8 @@ REQUIRED_WORKER_ENV_VARS = [
     "GEMINI_API_KEY",
 ]
 
+DEPLOY_WORKFLOW = MONOREPO_ROOT / ".github" / "workflows" / "deploy.yml"
+
 
 class TestWorkerDependencyInstallation:
     """Tests that the worker image installs flow dependencies."""
@@ -95,3 +97,23 @@ class TestDeployWorkflowEnvVars:
                 f"docker-compose.prod.yml worker service must reference "
                 f"${{{var}}} so the secret reaches the container"
             )
+
+
+class TestDeployWorkflowRegistersFlows:
+    """Tests that production deploy registers Prefect flow deployments."""
+
+    def test_deploy_workflow_registers_prefect_flows_after_compose_start(self) -> None:
+        """
+        Production deploy must register flows after Prefect containers start so
+        the UI contains deployment records for the bundled flow code.
+        """
+        content = DEPLOY_WORKFLOW.read_text()
+
+        assert "name: Register Prefect deployments" in content
+        assert "if: needs.build-images.outputs.deploy_prefect == 'true'" in content
+        assert "platform-prefect-server" in content
+        assert "platform-prefect-worker" in content
+        assert "exec -T prefect-worker" in content
+        assert "python /app/scripts/deploy-flows.py" in content
+        assert "--api-url http://prefect-server:4200/api" in content
+        assert "--work-pool" in content

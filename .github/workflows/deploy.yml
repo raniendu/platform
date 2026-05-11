@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      raman_tag:
+        description: Raman GHCR tag to deploy.
+        required: false
+        type: string
+        default: main
 
 concurrency:
   group: production-deploy
@@ -30,6 +35,7 @@ jobs:
       deploy_prefect: ${{ steps.app_flags.outputs.deploy_prefect }}
       deploy_flow: ${{ steps.app_flags.outputs.deploy_flow }}
       deploy_paperclip: ${{ steps.app_flags.outputs.deploy_paperclip }}
+      deploy_raman: ${{ steps.app_flags.outputs.deploy_raman }}
       compose_profiles: ${{ steps.app_flags.outputs.compose_profiles }}
       enabled_pull_services: ${{ steps.app_flags.outputs.enabled_pull_services }}
       disabled_services: ${{ steps.app_flags.outputs.disabled_services }}
@@ -38,6 +44,7 @@ jobs:
       prefect_image: ${{ steps.image_refs.outputs.prefect_image }}
       airflow_image: ${{ steps.image_refs.outputs.airflow_image }}
       paperclip_image: ${{ steps.image_refs.outputs.paperclip_image }}
+      raman_image: ${{ steps.image_refs.outputs.raman_image }}
 
     steps:
       - name: Check out repository
@@ -49,11 +56,21 @@ jobs:
 
       - name: Set image refs
         id: image_refs
+        env:
+          RAMAN_TAG: ${{ inputs.raman_tag }}
         run: |
-          echo "dotdev_image=${IMAGE_PREFIX}/dotdev:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "prefect_image=${IMAGE_PREFIX}/prefect:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "airflow_image=${IMAGE_PREFIX}/airflow:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "paperclip_image=${IMAGE_PREFIX}/paperclip:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          raman_tag="${RAMAN_TAG:-main}"
+          case "$raman_tag" in
+            *[!A-Za-z0-9_.-]*)
+              echo "::error::raman_tag may only contain letters, numbers, dots, underscores, and hyphens."
+              exit 1
+              ;;
+          esac
+          printf 'dotdev_image=%s/dotdev:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'prefect_image=%s/prefect:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'airflow_image=%s/airflow:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'paperclip_image=%s/paperclip:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'raman_image=ghcr.io/raniendu/raman:%s\n' "$raman_tag" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -418,20 +435,24 @@ jobs:
           PREFECT_IMAGE: ${{ needs.build-images.outputs.prefect_image }}
           AIRFLOW_IMAGE: ${{ needs.build-images.outputs.airflow_image }}
           PAPERCLIP_IMAGE: ${{ needs.build-images.outputs.paperclip_image }}
+          RAMAN_IMAGE: ${{ needs.build-images.outputs.raman_image }}
           DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
           DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
+          DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
         run: |
           test -n "$PLATFORM_ENV_FILE"
           test -n "$DOTDEV_IMAGE"
           test -n "$PREFECT_IMAGE"
           test -n "$AIRFLOW_IMAGE"
           test -n "$PAPERCLIP_IMAGE"
+          test -n "$RAMAN_IMAGE"
           test -n "$DEPLOY_DOTDEV"
           test -n "$DEPLOY_PREFECT"
           test -n "$DEPLOY_FLOW"
           test -n "$DEPLOY_PAPERCLIP"
+          test -n "$DEPLOY_RAMAN"
           require_env_key() {
             key="$1"
             if ! printf '%s\n' "$PLATFORM_ENV_FILE" | grep -Eq "^${key}="; then
@@ -459,6 +480,15 @@ jobs:
             require_env_key PAPERCLIP_BETTER_AUTH_SECRET
             require_env_key PAPERCLIP_AGENT_JWT_SECRET
           fi
+          if [ "$DEPLOY_RAMAN" = true ]; then
+            require_env_key RAMAN_MODEL_PROVIDER
+            require_env_key RAMAN_DEV_MODEL
+            require_env_key DO_INFERENCE_API_KEY
+            require_env_key TELEGRAM_BOT_TOKEN
+            require_env_key TELEGRAM_WEBHOOK_SECRET
+            require_env_key TELEGRAM_ALLOWED_CHAT_IDS
+            require_env_key RAMAN_PUBLIC_BASE_URL
+          fi
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
           {
@@ -467,10 +497,12 @@ jobs:
             printf 'DEPLOY_PREFECT=%s\n' "$DEPLOY_PREFECT"
             printf 'DEPLOY_FLOW=%s\n' "$DEPLOY_FLOW"
             printf 'DEPLOY_PAPERCLIP=%s\n' "$DEPLOY_PAPERCLIP"
+            printf 'DEPLOY_RAMAN=%s\n' "$DEPLOY_RAMAN"
             printf 'DOTDEV_IMAGE=%s\n' "$DOTDEV_IMAGE"
             printf 'PREFECT_IMAGE=%s\n' "$PREFECT_IMAGE"
             printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
             printf 'PAPERCLIP_IMAGE=%s\n' "$PAPERCLIP_IMAGE"
+            printf 'RAMAN_IMAGE=%s\n' "$RAMAN_IMAGE"
           } | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
             "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cat > /opt/platform/.env.production && chmod 600 /opt/platform/.env.production"
@@ -581,6 +613,7 @@ jobs:
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
           DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
+          DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
         run: |
           check_status() {
             label="$1"
@@ -627,6 +660,12 @@ jobs:
             check_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
           else
             check_status "flow.raniendu.dev disabled" "https://flow.raniendu.dev/" "404"
+          fi
+
+          if [ "$DEPLOY_RAMAN" = true ]; then
+            check_status "raman.raniendu.dev/healthz" "https://raman.raniendu.dev/healthz" "200"
+          else
+            check_status "raman.raniendu.dev disabled" "https://raman.raniendu.dev/" "404"
           fi
 
       - name: Stop legacy Postgres containers after migration

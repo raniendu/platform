@@ -30,6 +30,27 @@ services:
       - platform
     restart: unless-stopped
 
+  raman:
+    image: ${RAMAN_IMAGE:?RAMAN_IMAGE is required}
+    container_name: platform-raman
+    profiles: ["raman"]
+    environment:
+      RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-digitalocean}
+      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-llama3.3-70b-instruct}
+      DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:?DO_INFERENCE_API_KEY is required}
+      RAMAN_AGENT: ${RAMAN_AGENT:-raman}
+      RAMAN_PUBLIC_BASE_URL: ${RAMAN_PUBLIC_BASE_URL:-https://raman.raniendu.dev}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?TELEGRAM_WEBHOOK_SECRET is required}
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:?TELEGRAM_ALLOWED_CHAT_IDS is required}
+      ENVIRONMENT: production
+    volumes:
+      - raman-state:/app/.raman
+    networks:
+      - platform
+    restart: unless-stopped
+
   postgres:
     image: postgres:15-alpine
     container_name: platform-postgres
@@ -264,3 +285,4 @@ volumes:
   airflow-plugins:
   airflow-config:
   paperclip-data:
+  raman-state:

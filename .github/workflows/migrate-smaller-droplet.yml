@@ -34,6 +34,7 @@ env:
   OLD_DROPLET_NAME: platform-shared
   PAPERCLIP_IMAGE_NAME: paperclip
   PREFECT_IMAGE_NAME: prefect
+  RAMAN_IMAGE: ghcr.io/raniendu/raman:main
   TARGET_DROPLET_SIZE: s-1vcpu-2gb
   TARGET_REGION: nyc3
   TF_WORKING_DIR: infra/terraform
@@ -138,6 +139,7 @@ jobs:
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
           PREFECT_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.PREFECT_IMAGE_NAME }}:${{ github.sha }}
+          RAMAN_IMAGE: ${{ env.RAMAN_IMAGE }}
           RETIRED_DROPLET_NAME: ${{ inputs.retired_droplet_name }}
           TARGET_DROPLET_SIZE: ${{ env.TARGET_DROPLET_SIZE }}
           TARGET_REGION: ${{ env.TARGET_REGION }}

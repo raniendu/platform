@@ -4,7 +4,7 @@
 
 - Docker Desktop with Compose v2.
 - `uv` installed locally.
-- Ports `80`, `3100`, `4200`, `8080`, and `8501` available.
+- Ports `80`, `3100`, `4200`, `8000`, `8080`, and `8501` available.
 
 ## Environment
 
@@ -14,7 +14,7 @@ Create local environment values from the example file:
 cp .env.example .env.local
 ```
 
-Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Paperclip can also pass through `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` when you want provider-backed agent features locally.
+Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Paperclip can also pass through `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` when you want provider-backed agent features locally. Raman local Compose defaults to the published `ghcr.io/raniendu/raman:main` image and a host Ollama server at `http://host.docker.internal:11434/v1`.
 
 The example file includes local Paperclip Caddy credentials with user `admin` and password `paperclip_local`. Change them in `.env.local` if needed.
 
@@ -98,9 +98,11 @@ Use `down -v` only when you intentionally want to delete local database volumes.
 ```bash
 curl -I http://dotdev.localhost/
 curl http://prefect.localhost/api/health
+curl http://raman.localhost/healthz
 curl -I http://flow.localhost/
 curl -I http://paperclip.localhost/
 curl -I http://localhost:8501/
+curl http://localhost:8000/healthz
 curl http://localhost:3100/api/health
 curl http://localhost:4200/api/health
 curl -I http://localhost:8080/

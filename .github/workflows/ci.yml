@@ -85,7 +85,7 @@ jobs:
         run: bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
 
       - name: Validate production Compose
-        run: COMPOSE_PROFILES="${{ steps.app_flags.outputs.compose_profiles }}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.ci config
+        run: RAMAN_IMAGE=ghcr.io/raniendu/raman:ci COMPOSE_PROFILES="${{ steps.app_flags.outputs.compose_profiles }}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.ci config
 
   terraform:
     name: Terraform

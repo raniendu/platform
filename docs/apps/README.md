@@ -7,6 +7,7 @@ the platform monorepo.
 - [Prefect](prefect-architecture.md)
 - [Flow / Airflow](flow-architecture.md)
 - [Paperclip](paperclip-architecture.md)
+- [Raman](raman-architecture.md)
 
 The root [architecture document](../architecture.md) covers shared hosting,
 networking, routing, and volumes. These app documents focus on code boundaries,

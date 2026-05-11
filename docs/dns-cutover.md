@@ -18,6 +18,7 @@ Use the Terraform output `droplet_ip` as the A record value.
 - `www.raniendu.dev` -> CNAME to `raniendu.dev`
 - `prefect.raniendu.dev` -> new Droplet IP
 - `paperclip.raniendu.dev` -> new Droplet IP
+- `raman.raniendu.dev` -> new Droplet IP
 - `flow.raniendu.dev` -> new Droplet IP
 
 If Squarespace uses host labels:
@@ -26,6 +27,7 @@ If Squarespace uses host labels:
 - www: `www`
 - Prefect: `prefect`
 - Paperclip: `paperclip`
+- Raman: `raman`
 - Airflow: `flow`
 
 Expected Squarespace record shape:
@@ -35,6 +37,7 @@ A      @        174.138.71.121
 CNAME  www      raniendu.dev
 A      prefect  174.138.71.121
 A      paperclip 174.138.71.121
+A      raman    174.138.71.121
 A      flow     174.138.71.121
 ```
 
@@ -49,11 +52,13 @@ dig +short raniendu.dev
 dig +short www.raniendu.dev
 dig +short prefect.raniendu.dev
 dig +short paperclip.raniendu.dev
+dig +short raman.raniendu.dev
 dig +short flow.raniendu.dev
 curl -I https://raniendu.dev/
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
 curl -I https://paperclip.raniendu.dev/
+curl -I https://raman.raniendu.dev/healthz
 curl -I https://flow.raniendu.dev/
 ```
 

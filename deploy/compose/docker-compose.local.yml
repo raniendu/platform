@@ -33,11 +33,13 @@ services:
     restart: unless-stopped
 
   raman:
-    image: ghcr.io/raniendu/raman:main
+    build:
+      context: ../../apps/raman
+      dockerfile: Dockerfile
     container_name: platform-raman-local
     environment:
       RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-ollama}
-      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-qwen3}
+      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-gemma4:26b}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:-}
       RAMAN_AGENT: ${RAMAN_AGENT:-raman}

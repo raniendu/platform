@@ -14,7 +14,7 @@ The platform can run five application services behind Caddy:
 - DotDev: Flask site built from `apps/dotdev/Dockerfile`, listening on port `8501`.
 - Prefect: Prefect API/UI server plus a process worker, built from `apps/prefect/Dockerfile`, listening on port `4200`.
 - Paperclip: upstream `paperclipai/paperclip` built from `apps/paperclip/Dockerfile`, listening on port `3100`.
-- Raman: external agent image from `ghcr.io/raniendu/raman`, listening on port `8000`.
+- Raman: in-repo FastAPI/Pydantic AI agent app in `apps/raman`, listening on port `8000`.
 - Flow: Apache Airflow API server and scheduler, built from `apps/flow/Dockerfile`, listening on port `8080`.
 
 Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. The current production setting enables DotDev, Prefect, and Raman, and keeps Flow/Airflow and Paperclip disabled without deleting their code, configuration, databases, or Docker volumes.

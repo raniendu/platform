@@ -13,13 +13,10 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PAPERCLIP_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Paperclip. Use credentials separate from Prefect.
 - `PAPERCLIP_BETTER_AUTH_SECRET`: Paperclip Better Auth secret.
 - `PAPERCLIP_AGENT_JWT_SECRET`: Paperclip agent JWT signing secret.
-- `RAMAN_MODEL_PROVIDER`: Raman model provider. Production uses `digitalocean`; local defaults to `ollama`.
-- `RAMAN_DEV_MODEL`: Raman model identifier. Production default is `llama3.3-70b-instruct`.
-- `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`.
+- `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`. Scope the production key to `openai-gpt-oss-120b`.
 - `TELEGRAM_BOT_TOKEN`: Raman Telegram bot token from BotFather.
 - `TELEGRAM_WEBHOOK_SECRET`: Raman Telegram webhook secret. Generate with `openssl rand -hex 32`.
 - `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Raman Telegram interface.
-- `RAMAN_PUBLIC_BASE_URL`: Public Raman URL, currently `https://raman.raniendu.dev`.
 - `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications.
 - `PUSHOVER_USER_KEY`: Prefect daily brief notifications.
 - `GEMINI_API_KEY`: Prefect daily brief rewrite support.
@@ -40,6 +37,13 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 `PLATFORM_SSH_HOST` and `PLATFORM_FIREWALL_ID` are no longer required. The deploy workflow reads the Droplet IP and firewall ID from Terraform outputs. The smaller-Droplet migration workflow discovers both the canonical and staged Droplet IPs from DigitalOcean inventory.
 
 DigitalOcean write access should be used by GitHub Actions workflows only. Local `doctl` is for read-only inventory and verification.
+
+Raman production constants are tracked in the deploy workflows, not in secrets:
+
+- `RAMAN_MODEL_PROVIDER=digitalocean`
+- `RAMAN_DEV_MODEL=openai-gpt-oss-120b`
+- `RAMAN_AGENT=raman`
+- `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`
 
 ## Human Login Credentials
 
@@ -80,4 +84,4 @@ When a Caddy bcrypt hash is stored in a Compose `--env-file`, escape dollar sign
 
 ## Production Env File
 
-`PLATFORM_ENV_FILE` should contain the same variable names as `.env.example`, with production values. Do not include comments with secret values in this secret; keep it as plain `KEY=value` lines.
+`PLATFORM_ENV_FILE` should contain shared production values such as database passwords, Caddy auth hashes, and app provider keys. Do not include comments with secret values in this secret; keep it as plain `KEY=value` lines. The deploy workflow appends image refs, app deploy flags, and Raman runtime values to the host env file during deployment.

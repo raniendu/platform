@@ -2,11 +2,12 @@
 
 ## Scope
 
-This file applies to the whole `platform` monorepo. More specific `AGENTS.md` files under `apps/dotdev/`, `apps/prefect/`, and `apps/flow/` apply inside those app directories, but this root guide is the source of truth for shared monorepo, deployment, infrastructure, and secret-handling work.
+This file applies to the whole `platform` monorepo. More specific `AGENTS.md` files under `apps/dotdev/`, `apps/raman/`, `apps/prefect/`, and `apps/flow/` apply inside those app directories, but this root guide is the source of truth for shared monorepo, deployment, infrastructure, and secret-handling work.
 
 ## Repository Shape
 
 - `apps/dotdev/`: Flask personal site, Python 3.13.
+- `apps/raman/`: Personal Pydantic AI agent, FastAPI HTTP/Telegram surface, Python 3.13.
 - `apps/prefect/`: Prefect flows, server/worker image, Python 3.10+.
 - `apps/flow/`: Airflow DAGs and image, Python 3.10+.
 - `deploy/compose/`: local and production Docker Compose files.
@@ -26,6 +27,7 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
   - `docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production.generated config`
 - Use targeted app commands when changing one app:
   - DotDev: `uv run --project apps/dotdev pytest apps/dotdev/tests -q`
+  - Raman: `uv run --project apps/raman pytest apps/raman/tests -q`
   - Prefect: `uv run --project apps/prefect pytest apps/prefect/tests/property/`
   - Airflow: `uv run --project apps/flow python apps/flow/scripts/validate-dags.py` and `uv run --project apps/flow pytest apps/flow/tests/`
 

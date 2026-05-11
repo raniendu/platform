@@ -1,0 +1,35 @@
+// Raman application schema — SQLite at $RAMAN_DB_PATH (default .raman/raman.sqlite3).
+// Source of truth: raman/gateway.py::ThreadStore._init_schema.
+// The DBOS workflow database (.raman/dbos.sqlite3 by default) is managed by DBOS
+// itself and not modeled here.
+//
+// Render: paste into https://dbdiagram.io, or run `pydbml docs/schema.dbml` to
+// re-emit SQL. The same schema is mirrored as a mermaid erDiagram in
+// docs/current_architecture.md so GitHub renders it inline.
+
+Project raman {
+  database_type: 'SQLite'
+  Note: 'Per-thread conversation history and Telegram webhook deduplication.'
+}
+
+Table threads {
+  interface             text    [not null, note: 'Surface namespace, e.g. "telegram", "web", "manual".']
+  external_thread_id    text    [not null, note: 'Surface-native thread/chat id as a string.']
+  agent_name            text    [not null, note: 'Selected agent spec name; defaults to RAMAN_AGENT.']
+  message_history_json  blob    [note: 'Raw bytes from pydantic_ai result.all_messages_json(); NULL after /reset.']
+  created_at            text    [not null, note: 'UTC ISO 8601 timestamp.']
+  updated_at            text    [not null, note: 'UTC ISO 8601 timestamp; bumped on every write.']
+
+  indexes {
+    (interface, external_thread_id) [pk]
+  }
+
+  Note: 'One row per (interface, thread). Loaded by ConversationService before agent.run, written back after.'
+}
+
+Table telegram_updates {
+  update_id   integer [pk, note: 'Telegram-assigned update id; used for at-most-once webhook handling.']
+  created_at  text    [not null, note: 'UTC ISO 8601 timestamp the row was inserted.']
+
+  Note: 'Idempotency log for Telegram webhook deliveries. INSERT OR IGNORE — second delivery of the same update_id is a no-op.'
+}

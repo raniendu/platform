@@ -8,11 +8,6 @@ on:
         required: false
         type: boolean
         default: false
-      raman_tag:
-        description: Raman GHCR tag to deploy.
-        required: false
-        type: string
-        default: main
 
 concurrency:
   group: production-deploy
@@ -56,21 +51,12 @@ jobs:
 
       - name: Set image refs
         id: image_refs
-        env:
-          RAMAN_TAG: ${{ inputs.raman_tag }}
         run: |
-          raman_tag="${RAMAN_TAG:-main}"
-          case "$raman_tag" in
-            *[!A-Za-z0-9_.-]*)
-              echo "::error::raman_tag may only contain letters, numbers, dots, underscores, and hyphens."
-              exit 1
-              ;;
-          esac
           printf 'dotdev_image=%s/dotdev:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'prefect_image=%s/prefect:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'airflow_image=%s/airflow:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'paperclip_image=%s/paperclip:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          printf 'raman_image=ghcr.io/raniendu/raman:%s\n' "$raman_tag" >> "$GITHUB_OUTPUT"
+          printf 'raman_image=%s/raman:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -125,6 +111,17 @@ jobs:
           tags: ${{ steps.image_refs.outputs.paperclip_image }}
           cache-from: type=gha,scope=paperclip
           cache-to: type=gha,mode=max,scope=paperclip
+
+      - name: Build and push Raman image
+        if: steps.app_flags.outputs.deploy_raman == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/raman
+          file: apps/raman/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.raman_image }}
+          cache-from: type=gha,scope=raman
+          cache-to: type=gha,mode=max,scope=raman
 
   deploy:
     name: Deploy to shared Droplet
@@ -436,6 +433,15 @@ jobs:
           AIRFLOW_IMAGE: ${{ needs.build-images.outputs.airflow_image }}
           PAPERCLIP_IMAGE: ${{ needs.build-images.outputs.paperclip_image }}
           RAMAN_IMAGE: ${{ needs.build-images.outputs.raman_image }}
+          RAMAN_MODEL_PROVIDER: digitalocean
+          RAMAN_DEV_MODEL: openai-gpt-oss-120b
+          RAMAN_AGENT: raman
+          RAMAN_PUBLIC_BASE_URL: https://raman.raniendu.dev
+          DO_INFERENCE_API_KEY: ${{ secrets.DO_INFERENCE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          TELEGRAM_ALLOWED_CHAT_IDS: ${{ secrets.TELEGRAM_ALLOWED_CHAT_IDS }}
+          PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
           DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
@@ -481,13 +487,14 @@ jobs:
             require_env_key PAPERCLIP_AGENT_JWT_SECRET
           fi
           if [ "$DEPLOY_RAMAN" = true ]; then
-            require_env_key RAMAN_MODEL_PROVIDER
-            require_env_key RAMAN_DEV_MODEL
-            require_env_key DO_INFERENCE_API_KEY
-            require_env_key TELEGRAM_BOT_TOKEN
-            require_env_key TELEGRAM_WEBHOOK_SECRET
-            require_env_key TELEGRAM_ALLOWED_CHAT_IDS
-            require_env_key RAMAN_PUBLIC_BASE_URL
+            test -n "$RAMAN_MODEL_PROVIDER"
+            test -n "$RAMAN_DEV_MODEL"
+            test -n "$RAMAN_AGENT"
+            test -n "$RAMAN_PUBLIC_BASE_URL"
+            test -n "$DO_INFERENCE_API_KEY"
+            test -n "$TELEGRAM_BOT_TOKEN"
+            test -n "$TELEGRAM_WEBHOOK_SECRET"
+            test -n "$TELEGRAM_ALLOWED_CHAT_IDS"
           fi
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
@@ -503,6 +510,17 @@ jobs:
             printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
             printf 'PAPERCLIP_IMAGE=%s\n' "$PAPERCLIP_IMAGE"
             printf 'RAMAN_IMAGE=%s\n' "$RAMAN_IMAGE"
+            if [ "$DEPLOY_RAMAN" = true ]; then
+              printf 'RAMAN_MODEL_PROVIDER=%s\n' "$RAMAN_MODEL_PROVIDER"
+              printf 'RAMAN_DEV_MODEL=%s\n' "$RAMAN_DEV_MODEL"
+              printf 'RAMAN_AGENT=%s\n' "$RAMAN_AGENT"
+              printf 'RAMAN_PUBLIC_BASE_URL=%s\n' "$RAMAN_PUBLIC_BASE_URL"
+              printf 'DO_INFERENCE_API_KEY=%s\n' "$DO_INFERENCE_API_KEY"
+              printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
+              printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
+              printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
+              printf 'PARALLEL_API_KEY=%s\n' "$PARALLEL_API_KEY"
+            fi
           } | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
             "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cat > /opt/platform/.env.production && chmod 600 /opt/platform/.env.production"

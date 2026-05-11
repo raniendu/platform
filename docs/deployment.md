@@ -39,7 +39,7 @@ Before any GitHub or DigitalOcean change, prove:
 - local Compose config renders,
 - local Compose builds and starts,
 - Caddy routes all five local hostnames,
-- smoke tests show DotDev, Prefect, Paperclip, and Airflow are reachable.
+- smoke tests show DotDev, Raman, Prefect, Paperclip, and Airflow are reachable.
 
 ## Gate 2: GitHub Repo Creation
 
@@ -57,13 +57,13 @@ CI/deploy workflows are under `.github/workflows/`.
 
 Expected deploy workflow:
 
-1. Read `deploy/apps.prod.env`, build enabled in-repo app images in GitHub Actions, push them to GHCR with the current commit SHA tag, and compute the external Raman image ref from the `raman_tag` workflow input.
+1. Read `deploy/apps.prod.env`, build enabled in-repo app images in GitHub Actions, and push them to GHCR with the current commit SHA tag.
 2. After the GitHub `production` environment approval, query DigitalOcean for `platform-shared` and `platform-shared-firewall`; the deploy stops if inventory cannot be read.
 3. Import exactly one existing matching Droplet/firewall into Terraform state, fail if duplicates exist, fail if the smaller-Droplet staging host `platform-shared-small` exists, or allow Terraform to create one Droplet if none exists.
 4. Plan and apply Terraform from `infra/terraform`; the guard refuses any Droplet delete/replace and refuses creating a second Droplet when one already exists.
 5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
 6. Upload repository files to `/opt/platform`.
-7. Upload the production env file to `/opt/platform/.env.production`, appending deploy flags, SHA-pinned in-repo image references, and `RAMAN_IMAGE=ghcr.io/raniendu/raman:<tag>`.
+7. Upload the production env file to `/opt/platform/.env.production`, appending deploy flags and SHA-pinned image references, including `RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:<sha>`.
 8. Upload temporary GHCR credentials, render the enabled/disabled production Caddy routes, stop disabled app containers without deleting volumes, and pull enabled images on the Droplet.
 9. Run the one-time Postgres consolidation if the host still has separate Prefect and Airflow Postgres containers.
 10. Run the idempotent Paperclip database initializer only when Paperclip is enabled so existing `platform-postgres` volumes get the `paperclip` role and database.
@@ -106,11 +106,13 @@ Before running the `Deploy` workflow:
 - `DIGITALOCEAN_ACCESS_TOKEN` is set in the GitHub environment so the workflow can add and remove its temporary SSH firewall rule.
 - `DO_SSH_KEY_FINGERPRINTS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["aa:bb:cc"]`.
 - `ALLOWED_SSH_CIDRS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["203.0.113.10/32"]` or `[]`.
-- `PLATFORM_ENV_FILE` contains the complete production `.env.production` content.
+- `PLATFORM_ENV_FILE` contains the shared production `.env.production` content.
 - `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, `AIRFLOW_POSTGRES_PASSWORD`, and `PAPERCLIP_POSTGRES_PASSWORD`; the deploy workflow validates additional app auth keys only when their app flag is enabled.
-- When `DEPLOY_RAMAN=true`, `PLATFORM_ENV_FILE` also includes `RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=llama3.3-70b-instruct`, `DO_INFERENCE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_IDS`, and `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`. `PARALLEL_API_KEY` is optional unless Raman enables web search.
+- When `DEPLOY_RAMAN=true`, the GitHub `production` environment includes `DO_INFERENCE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `TELEGRAM_ALLOWED_CHAT_IDS` secrets. `PARALLEL_API_KEY` is optional unless Raman enables web search.
+- `DO_INFERENCE_API_KEY` should be a DigitalOcean model access key scoped to `openai-gpt-oss-120b` for the production Raman deployment. Serverless inference does not require a Terraform-managed endpoint or dedicated GPU resource.
 - The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, `PAPERCLIP_IMAGE`, and `RAMAN_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
 - The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_PAPERCLIP`, and `DEPLOY_RAMAN`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
+- The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=openai-gpt-oss-120b`, `RAMAN_AGENT=raman`, and `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`) plus the Raman GitHub secrets to the host env file at deploy time.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
@@ -144,7 +146,7 @@ gh workflow run deploy.yml --repo raniendu/platform --ref main
 gh run watch --repo raniendu/platform --exit-status
 ```
 
-The `Deploy` workflow accepts an optional `raman_tag` input. It defaults to `main` and sets `RAMAN_IMAGE=ghcr.io/raniendu/raman:<tag>` on the host. Use a published `sha-<short>` or `v*` tag for pinned deploys and rollbacks.
+Raman is built from `apps/raman` during the `Deploy` workflow when `DEPLOY_RAMAN=true`. Rollbacks should redeploy a prior platform commit so all app image refs and deployment wiring stay in sync.
 
 The workflow is expected to report these smoke statuses:
 

@@ -36,7 +36,7 @@ services:
     profiles: ["raman"]
     environment:
       RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-digitalocean}
-      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-llama3.3-70b-instruct}
+      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-openai-gpt-oss-120b}
       DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:?DO_INFERENCE_API_KEY is required}
       RAMAN_AGENT: ${RAMAN_AGENT:-raman}
       RAMAN_PUBLIC_BASE_URL: ${RAMAN_PUBLIC_BASE_URL:-https://raman.raniendu.dev}

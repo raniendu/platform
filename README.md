@@ -1,6 +1,6 @@
 # Platform
 
-Monorepo for the services previously split across `dotDev`, `prefect`, and `flow`, plus shared Paperclip and Raman deployment wiring.
+Monorepo for the services previously split across `dotDev`, `prefect`, `flow`, and `raman`, plus shared Paperclip deployment wiring.
 
 Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
 
@@ -9,10 +9,10 @@ Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2g
 ## Layout
 
 - `apps/dotdev/` - Flask personal site, Python 3.13.
+- `apps/raman/` - Personal Pydantic AI agent, FastAPI HTTP/Telegram surface, Python 3.13.
 - `apps/prefect/` - Prefect flows, config, worker scripts, Python 3.10+.
 - `apps/flow/` - Airflow DAGs and image, Python 3.10+.
 - `apps/paperclip/` - Paperclip AI wrapper image and shared platform wiring.
-- Raman - external agent image from `ghcr.io/raniendu/raman`, composed and routed by this repo.
 - `deploy/compose/` - shared local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
@@ -31,7 +31,7 @@ cp .env.example .env.local
 Install per-app Python environments:
 
 ```bash
-./scripts/sync-apps.sh
+./scripts/sync-apps.sh --locked
 ```
 
 Run targeted checks:
@@ -66,6 +66,9 @@ Direct container ports are also exposed for smoke checks:
 uv sync --project apps/dotdev
 uv run --project apps/dotdev pytest apps/dotdev/tests -q
 
+uv sync --project apps/raman
+uv run --project apps/raman pytest apps/raman/tests -q
+
 uv sync --project apps/prefect
 uv run --project apps/prefect pytest apps/prefect/tests/property/
 
@@ -77,6 +80,36 @@ docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local 
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local ps
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local down
 ```
+
+## Raman Local Testing
+
+Raman has two local run modes:
+
+- Platform Compose from the repo root uses root `.env.local`.
+- Direct app development from `apps/raman/` uses `apps/raman/.env`.
+
+For the platform container path:
+
+```bash
+cp .env.example .env.local
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build raman
+curl http://localhost:8000/healthz
+curl http://localhost:8000/chat --json '{"prompt":"say pong"}'
+```
+
+For direct app development:
+
+```bash
+cd apps/raman
+cp .env.example .env
+uv sync --locked
+uv run pytest tests -q
+uv run raman-api
+```
+
+Use `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1` in root
+`.env.local` for Docker, and `OLLAMA_BASE_URL=http://localhost:11434/v1` in
+`apps/raman/.env` for direct `uv` runs on your Mac.
 
 ## Production
 

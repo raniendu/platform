@@ -3,6 +3,7 @@ set -euo pipefail
 
 apps=(
   "apps/dotdev"
+  "apps/raman"
   "apps/prefect"
   "apps/flow"
 )

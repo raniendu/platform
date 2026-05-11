@@ -34,7 +34,11 @@ env:
   OLD_DROPLET_NAME: platform-shared
   PAPERCLIP_IMAGE_NAME: paperclip
   PREFECT_IMAGE_NAME: prefect
-  RAMAN_IMAGE: ghcr.io/raniendu/raman:main
+  RAMAN_IMAGE_NAME: raman
+  RAMAN_MODEL_PROVIDER: digitalocean
+  RAMAN_DEV_MODEL: openai-gpt-oss-120b
+  RAMAN_AGENT: raman
+  RAMAN_PUBLIC_BASE_URL: https://raman.raniendu.dev
   TARGET_DROPLET_SIZE: s-1vcpu-2gb
   TARGET_REGION: nyc3
   TF_WORKING_DIR: infra/terraform
@@ -114,6 +118,17 @@ jobs:
           cache-from: type=gha,scope=paperclip
           cache-to: type=gha,mode=max,scope=paperclip
 
+      - name: Build and push Raman image
+        if: inputs.phase == 'stage'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/raman
+          file: apps/raman/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ env.RAMAN_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha,scope=raman
+          cache-to: type=gha,mode=max,scope=raman
+
       - name: Configure SSH
         if: inputs.phase == 'stage' || inputs.phase == 'promote' || inputs.phase == 'rollback_stage'
         env:
@@ -139,7 +154,16 @@ jobs:
           PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
           PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
           PREFECT_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.PREFECT_IMAGE_NAME }}:${{ github.sha }}
-          RAMAN_IMAGE: ${{ env.RAMAN_IMAGE }}
+          RAMAN_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ env.RAMAN_IMAGE_NAME }}:${{ github.sha }}
+          RAMAN_MODEL_PROVIDER: ${{ env.RAMAN_MODEL_PROVIDER }}
+          RAMAN_DEV_MODEL: ${{ env.RAMAN_DEV_MODEL }}
+          RAMAN_AGENT: ${{ env.RAMAN_AGENT }}
+          RAMAN_PUBLIC_BASE_URL: ${{ env.RAMAN_PUBLIC_BASE_URL }}
+          DO_INFERENCE_API_KEY: ${{ secrets.DO_INFERENCE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          TELEGRAM_ALLOWED_CHAT_IDS: ${{ secrets.TELEGRAM_ALLOWED_CHAT_IDS }}
+          PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
           RETIRED_DROPLET_NAME: ${{ inputs.retired_droplet_name }}
           TARGET_DROPLET_SIZE: ${{ env.TARGET_DROPLET_SIZE }}
           TARGET_REGION: ${{ env.TARGET_REGION }}

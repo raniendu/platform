@@ -13,6 +13,7 @@ DEPLOY_DOTDEV=
 DEPLOY_PREFECT=
 DEPLOY_FLOW=
 DEPLOY_PAPERCLIP=
+DEPLOY_RAMAN=
 
 # shellcheck disable=SC1090
 . "$flags_file"
@@ -34,6 +35,7 @@ validate_bool DEPLOY_DOTDEV
 validate_bool DEPLOY_PREFECT
 validate_bool DEPLOY_FLOW
 validate_bool DEPLOY_PAPERCLIP
+validate_bool DEPLOY_RAMAN
 
 mkdir -p "$target_dir"
 find "$target_dir" -type f -name '*.caddy' -delete
@@ -108,6 +110,20 @@ else
   cat > "${target_dir}/40-paperclip.caddy" <<'EOF'
 paperclip.raniendu.dev {
 	respond "Paperclip is not deployed." 404
+}
+EOF
+fi
+
+if [ "$DEPLOY_RAMAN" = true ]; then
+  cat > "${target_dir}/50-raman.caddy" <<'EOF'
+raman.raniendu.dev {
+	reverse_proxy raman:8000
+}
+EOF
+else
+  cat > "${target_dir}/50-raman.caddy" <<'EOF'
+raman.raniendu.dev {
+	respond "Raman is not deployed." 404
 }
 EOF
 fi

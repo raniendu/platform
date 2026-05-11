@@ -4,7 +4,7 @@ Project platform_app_datastores {
 }
 
 Table runtime_service {
-  service_id varchar [pk, note: 'Stable service key such as dotdev, prefect-server, airflow-webserver, or paperclip']
+  service_id varchar [pk, note: 'Stable service key such as dotdev, prefect-server, airflow-webserver, paperclip, or raman']
   app_name varchar [not null]
   environment varchar [not null, note: 'local or production']
   compose_service varchar [not null]

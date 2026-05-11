@@ -23,6 +23,7 @@ Current public routes:
 - `https://www.raniendu.dev` -> redirects to `https://raniendu.dev`
 - `https://prefect.raniendu.dev`
 - `https://paperclip.raniendu.dev`
+- `https://raman.raniendu.dev`
 - `https://flow.raniendu.dev`
 
 ## Current Cost Estimate
@@ -60,6 +61,7 @@ The current $14.40/month estimate assumes weekly backups remain enabled. Disabli
 - Weekly percentage backups add 20% of the Droplet cost.
 - Firewalls are free.
 - No managed database, volume, load balancer, App Platform app, or standalone snapshot costs were observed.
+- Raman DigitalOcean Inference API usage is not included in the Droplet estimate.
 
 ## Sources
 

@@ -1,6 +1,6 @@
 # Rollback
 
-Rollback now assumes the consolidated `platform-shared` Droplet is the only active production host for DotDev, Prefect, Paperclip, and Airflow. The old App Platform app, old Prefect Droplet, and retired 4 GiB platform Droplet have already been deleted.
+Rollback now assumes the consolidated `platform-shared` Droplet is the only active production host for DotDev, Prefect, Paperclip, Raman, and Airflow. The old App Platform app, old Prefect Droplet, and retired 4 GiB platform Droplet have already been deleted.
 
 ## Before DNS Cutover
 
@@ -12,12 +12,12 @@ If a future replacement Droplet fails after DNS changes:
 
 1. Repoint Squarespace A records to the previous known-good `platform-shared` IP if that Droplet still exists.
 2. Keep the new Droplet running for log inspection unless it is causing harm.
-3. Verify `raniendu.dev`, `prefect.raniendu.dev`, `paperclip.raniendu.dev`, and `flow.raniendu.dev` against the restored target.
+3. Verify `raniendu.dev`, `prefect.raniendu.dev`, `paperclip.raniendu.dev`, `raman.raniendu.dev`, and `flow.raniendu.dev` against the restored target.
 4. Fix the new stack and repeat public verification before trying another cutover.
 
 ## Data Considerations
 
-Production currently uses one shared Postgres container with separate `prefect`, `airflow`, and `paperclip` databases. Paperclip file storage also uses the `paperclip-data` Docker volume. After the old 4 GiB Droplet was decommissioned, rollback requires restoring from the latest Droplet backup/snapshot or app-level database backup.
+Production currently uses one shared Postgres container with separate `prefect`, `airflow`, and `paperclip` databases. Paperclip file storage uses the `paperclip-data` Docker volume, and Raman thread history plus DBOS workflow state use `raman-state`. After the old 4 GiB Droplet was decommissioned, rollback requires restoring from the latest Droplet backup/snapshot or app-level database backup.
 
 ## Decommissioning Gate
 

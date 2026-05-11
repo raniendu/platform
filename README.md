@@ -1,6 +1,6 @@
 # Platform
 
-Monorepo for the services previously split across `dotDev`, `prefect`, and `flow`, plus the shared Paperclip wrapper.
+Monorepo for the services previously split across `dotDev`, `prefect`, and `flow`, plus shared Paperclip and Raman deployment wiring.
 
 Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
 
@@ -12,6 +12,7 @@ Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2g
 - `apps/prefect/` - Prefect flows, config, worker scripts, Python 3.10+.
 - `apps/flow/` - Airflow DAGs and image, Python 3.10+.
 - `apps/paperclip/` - Paperclip AI wrapper image and shared platform wiring.
+- Raman - external agent image from `ghcr.io/raniendu/raman`, composed and routed by this repo.
 - `deploy/compose/` - shared local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
@@ -49,11 +50,13 @@ Local service URLs:
 
 - DotDev: `http://dotdev.localhost`
 - Prefect: `http://prefect.localhost`
+- Raman: `http://raman.localhost`
 - Airflow: `http://flow.localhost`
 
 Direct container ports are also exposed for smoke checks:
 
 - DotDev: `http://localhost:8501`
+- Raman: `http://localhost:8000/healthz`
 - Prefect: `http://localhost:4200/api/health`
 - Airflow: `http://localhost:8080`
 
@@ -81,6 +84,7 @@ Public routes:
 
 - DotDev: `https://raniendu.dev`
 - Prefect: `https://prefect.raniendu.dev`
+- Raman: `https://raman.raniendu.dev`
 - Airflow: `https://flow.raniendu.dev`
 
 Manual redeploy:

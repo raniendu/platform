@@ -13,6 +13,13 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PAPERCLIP_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Paperclip. Use credentials separate from Prefect.
 - `PAPERCLIP_BETTER_AUTH_SECRET`: Paperclip Better Auth secret.
 - `PAPERCLIP_AGENT_JWT_SECRET`: Paperclip agent JWT signing secret.
+- `RAMAN_MODEL_PROVIDER`: Raman model provider. Production uses `digitalocean`; local defaults to `ollama`.
+- `RAMAN_DEV_MODEL`: Raman model identifier. Production default is `llama3.3-70b-instruct`.
+- `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`.
+- `TELEGRAM_BOT_TOKEN`: Raman Telegram bot token from BotFather.
+- `TELEGRAM_WEBHOOK_SECRET`: Raman Telegram webhook secret. Generate with `openssl rand -hex 32`.
+- `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Raman Telegram interface.
+- `RAMAN_PUBLIC_BASE_URL`: Public Raman URL, currently `https://raman.raniendu.dev`.
 - `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications.
 - `PUSHOVER_USER_KEY`: Prefect daily brief notifications.
 - `GEMINI_API_KEY`: Prefect daily brief rewrite support.
@@ -51,6 +58,7 @@ For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC
 - `OPENAI_API_KEY`: Optional Paperclip provider key.
 - `ANTHROPIC_API_KEY`: Optional Paperclip provider key.
 - `GEMINI_API_KEY`: Optional Paperclip provider key when also configured for Prefect.
+- `PARALLEL_API_KEY`: Optional Raman web-search provider key when the active agent spec enables `web_search`.
 
 ## Rotation Notes
 

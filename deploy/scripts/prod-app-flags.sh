@@ -58,6 +58,7 @@ load_flags() {
   DEPLOY_PREFECT=
   DEPLOY_FLOW=
   DEPLOY_PAPERCLIP=
+  DEPLOY_RAMAN=
 
   # shellcheck disable=SC1090
   . "$flags_file"
@@ -66,6 +67,7 @@ load_flags() {
   normalize_bool DEPLOY_PREFECT
   normalize_bool DEPLOY_FLOW
   normalize_bool DEPLOY_PAPERCLIP
+  normalize_bool DEPLOY_RAMAN
 }
 
 build_lists() {
@@ -105,6 +107,14 @@ build_lists() {
     disabled_services+=(paperclip-db-init paperclip)
     disabled_containers+=(platform-paperclip-db-init platform-paperclip)
   fi
+
+  if [ "$DEPLOY_RAMAN" = true ]; then
+    profiles+=(raman)
+    enabled_pull_services+=(raman)
+  else
+    disabled_services+=(raman)
+    disabled_containers+=(platform-raman)
+  fi
 }
 
 load_flags
@@ -120,6 +130,7 @@ case "$command" in
       printf 'deploy_prefect=%s\n' "$DEPLOY_PREFECT"
       printf 'deploy_flow=%s\n' "$DEPLOY_FLOW"
       printf 'deploy_paperclip=%s\n' "$DEPLOY_PAPERCLIP"
+      printf 'deploy_raman=%s\n' "$DEPLOY_RAMAN"
       printf 'compose_profiles=%s\n' "$(join_by , "${profiles[@]}")"
       printf 'enabled_pull_services=%s\n' "$(join_by ' ' "${enabled_pull_services[@]}")"
       printf 'disabled_services=%s\n' "$(join_by ' ' "${disabled_services[@]}")"

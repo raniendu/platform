@@ -13,6 +13,7 @@ services:
       - ../caddy/Caddyfile.local:/etc/caddy/Caddyfile:ro
     depends_on:
       - dotdev
+      - raman
       - prefect-server
       - airflow-webserver
       - paperclip
@@ -27,6 +28,29 @@ services:
     container_name: platform-dotdev-local
     ports:
       - "8501:8501"
+    networks:
+      - platform
+    restart: unless-stopped
+
+  raman:
+    image: ghcr.io/raniendu/raman:main
+    container_name: platform-raman-local
+    environment:
+      RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-ollama}
+      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-qwen3}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:-}
+      RAMAN_AGENT: ${RAMAN_AGENT:-raman}
+      RAMAN_PUBLIC_BASE_URL: ${RAMAN_PUBLIC_BASE_URL:-http://raman.localhost}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
+      ENVIRONMENT: local
+    ports:
+      - "8000:8000"
+    volumes:
+      - raman-state:/app/.raman
     networks:
       - platform
     restart: unless-stopped
@@ -275,3 +299,4 @@ volumes:
   airflow-plugins:
   paperclip-postgres-data:
   paperclip-data:
+  raman-state:

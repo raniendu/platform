@@ -20,6 +20,7 @@ Filter by service name when possible:
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f caddy
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f prefect-worker
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f paperclip
+docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f raman
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f airflow-scheduler
 ```
 
@@ -41,8 +42,8 @@ Pull and restart the current production images:
 
 ```bash
 bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
-COMPOSE_PROFILES=dotdev,prefect docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull postgres caddy dotdev prefect-server prefect-worker
-COMPOSE_PROFILES=dotdev,prefect docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
+COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull postgres caddy dotdev prefect-server prefect-worker raman
+COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
 Preferred production redeploy path:
@@ -63,6 +64,7 @@ DEPLOY_DOTDEV=true
 DEPLOY_PREFECT=true
 DEPLOY_FLOW=false
 DEPLOY_PAPERCLIP=false
+DEPLOY_RAMAN=true
 ```
 
 Change a flag in a PR and rerun the `Deploy` workflow after merge. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
@@ -85,6 +87,7 @@ The `s-1vcpu-2gb` migration is complete. Use `Deploy` for routine releases. Keep
 curl -I https://raniendu.dev/
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
+curl -I https://raman.raniendu.dev/healthz
 curl -I https://paperclip.raniendu.dev/ # expected 404 while disabled
 curl -I https://flow.raniendu.dev/      # expected 404 while disabled
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
@@ -132,8 +135,10 @@ Back up named volumes before risky deploys:
 - `caddy-data`
 - `caddy-config`
 - `paperclip-data`
+- `raman-state`
 
 Paperclip metadata lives in the `paperclip` database inside `postgres-data`; Paperclip local disk storage lives in `paperclip-data`.
+Raman thread history and DBOS workflow state live in `raman-state`.
 
 The first production deploy after Postgres consolidation wrote logical dump backups under `/var/backups/platform/postgres-consolidation/` before restoring into the shared `platform-postgres` container. Legacy Prefect/Airflow Postgres containers were stopped after smoke checks; keep backup/restore decisions tied to explicit maintenance windows.
 

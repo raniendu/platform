@@ -3,6 +3,52 @@
 This runbook covers local HTTP testing, Telegram webhook setup, and debugging
 `Bad Request: invalid webhook URL specified`.
 
+## Fast Path: Local App, Production Model, ngrok Webhook
+
+Use this path when debugging the production Telegram behavior locally. The app
+runs on your Mac, but model calls go to DigitalOcean Serverless Inference.
+
+From the platform repo root:
+
+```bash
+./apps/raman/scripts/run-local-prod-debug.sh
+```
+
+The script reads root `.env.local`, requires `DO_INFERENCE_API_KEY`, forces
+`RAMAN_MODEL_PROVIDER=digitalocean`, defaults
+`RAMAN_DEV_MODEL=gemma-4-31B-it`, sets `RAMAN_LOG_LEVEL=DEBUG`, and keeps local
+debug state under `apps/raman/.raman/prod-debug/`.
+
+In a second terminal:
+
+```bash
+ngrok http 8000
+```
+
+In a third terminal, use the HTTPS forwarding URL from ngrok:
+
+```bash
+./apps/raman/scripts/set-local-telegram-webhook.sh https://<ngrok-host>
+```
+
+That command validates the URL, checks `<ngrok-url>/healthz`, then calls
+Telegram `setWebhook` with `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_WEBHOOK_SECRET` from `.env.local`. It does not print either secret.
+
+Useful overrides:
+
+```bash
+RAMAN_LOCAL_DEBUG_MODEL=<model-id> ./apps/raman/scripts/run-local-prod-debug.sh
+RAMAN_LOCAL_PORT=8001 ./apps/raman/scripts/run-local-prod-debug.sh
+RAMAN_ENV_FILE=/path/to/env ./apps/raman/scripts/set-local-telegram-webhook.sh https://<ngrok-host>
+```
+
+When you are done testing locally, point the webhook back to production:
+
+```bash
+uv run --project apps/raman --locked python -m raman.local_webhook https://raman.raniendu.dev --env-file .env.local --skip-health-check
+```
+
 ## 1. Configure Environment
 
 Copy the example and fill in real values:
@@ -132,6 +178,14 @@ Telegram supports webhook ports `443`, `80`, `88`, and `8443`. Most tunnel
 HTTPS URLs work because they use port `443`.
 
 ## 7. Set the Telegram Webhook
+
+Preferred local helper from the platform repo root:
+
+```bash
+./apps/raman/scripts/set-local-telegram-webhook.sh "$RAMAN_PUBLIC_BASE_URL"
+```
+
+Manual equivalent:
 
 Use `jq` to build JSON safely:
 

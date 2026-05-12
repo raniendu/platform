@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -12,8 +13,11 @@ from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.messages import ModelMessage
 
 from raman.agent import build_agent
+from raman.logging import get_logger, safe_metadata, thread_hash
 from raman.settings import RamanSettings
 from raman.spec import load_spec
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -232,10 +236,33 @@ class ConversationService:
         agent_name = message.agent_name or thread.agent_name
         history = _load_history(thread.message_history_json)
         agent = self._get_agent(agent_name)
-        result = await agent.run(
-            message.prompt,
-            message_history=history,
-            conversation_id=f"{message.interface}:{message.external_thread_id}",
+        conversation_id = f"{message.interface}:{message.external_thread_id}"
+        log = logger.bind(
+            interface=message.interface,
+            thread_hash=thread_hash(message.interface, message.external_thread_id),
+            agent=agent_name,
+            prompt_length=len(message.prompt),
+            history_count=len(history),
+            **safe_metadata(message.metadata),
+        )
+        start = time.perf_counter()
+        log.info("agent_run_started")
+        try:
+            result = await agent.run(
+                message.prompt,
+                message_history=history,
+                conversation_id=conversation_id,
+            )
+        except Exception:
+            log.exception(
+                "agent_run_failed",
+                duration_ms=round((time.perf_counter() - start) * 1000, 2),
+            )
+            raise
+        log.info(
+            "agent_run_succeeded",
+            duration_ms=round((time.perf_counter() - start) * 1000, 2),
+            output_length=len(str(result.output)),
         )
         self.store.set_history(
             message.interface,
@@ -243,6 +270,7 @@ class ConversationService:
             agent_name=agent_name,
             message_history_json=result.all_messages_json(),
         )
+        log.info("thread_history_persisted")
         return ConversationReply(
             interface=message.interface,
             external_thread_id=message.external_thread_id,

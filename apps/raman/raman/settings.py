@@ -68,6 +68,7 @@ class RamanSettings(BaseSettings):
     telegram_api_base_url: str = Field(
         default="https://api.telegram.org", validation_alias="TELEGRAM_API_BASE_URL"
     )
+    log_level: str = Field(default="INFO", validation_alias="RAMAN_LOG_LEVEL")
 
     @property
     def normalized_ollama_base_url(self) -> str:

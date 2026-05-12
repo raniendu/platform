@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from structlog.testing import capture_logs
 
 from raman.gateway import (
     ConversationService,
@@ -96,3 +97,42 @@ async def test_conversation_service_runs_agent_with_persisted_history(tmp_path):
         store.get_thread("telegram", "123", default_agent="raman").message_history_json
         == b"[]"
     )
+
+
+@pytest.mark.asyncio
+async def test_conversation_service_logs_agent_lifecycle_without_content(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+
+    class FakeResult:
+        output = "sensitive reply"
+
+        def all_messages_json(self):
+            return b"[]"
+
+    class FakeAgent:
+        async def run(self, prompt, *, message_history, conversation_id):
+            return FakeResult()
+
+    service = ConversationService(
+        settings=RamanSettings(_env_file=None),
+        store=store,
+        agent_factory=lambda name: FakeAgent(),
+    )
+
+    with capture_logs() as logs:
+        reply = await service.send_message(
+            InboundMessage(
+                interface="telegram",
+                external_thread_id="123",
+                prompt="sensitive prompt",
+                agent_name=None,
+                metadata={"update_id": 42},
+            )
+        )
+
+    assert reply.output == "sensitive reply"
+    events = {entry["event"] for entry in logs}
+    assert "agent_run_started" in events
+    assert "agent_run_succeeded" in events
+    assert "sensitive prompt" not in repr(logs)
+    assert "sensitive reply" not in repr(logs)

@@ -15,11 +15,13 @@ from raman.gateway import (
     make_message_received_event,
     make_reply_requested_event,
 )
+from raman.logging import get_logger, safe_database_url, safe_metadata, thread_hash
 from raman.settings import RamanSettings
 from raman.telegram import TelegramAdapter
 
 INBOUND_QUEUE = Queue("raman-inbound", concurrency=1, polling_interval_sec=0.1)
 OUTBOUND_QUEUE = Queue("raman-outbound", concurrency=1, polling_interval_sec=0.1)
+logger = get_logger(__name__)
 
 _configured = False
 
@@ -27,9 +29,24 @@ _configured = False
 class EventDispatcher:
     async def enqueue_message(self, message: InboundMessage) -> EnqueuedEvent:
         event = make_message_received_event(message)
+        logger.info(
+            "dbos_enqueue_inbound_started",
+            interface=message.interface,
+            thread_hash=thread_hash(message.interface, message.external_thread_id),
+            agent=message.agent_name,
+            prompt_length=len(message.prompt),
+            **safe_metadata(message.metadata),
+        )
         handle = await INBOUND_QUEUE.enqueue_async(
             process_inbound_message_event,
             cloud_event_to_dict(event),
+        )
+        logger.info(
+            "dbos_enqueue_inbound_succeeded",
+            workflow_id=handle.workflow_id,
+            interface=message.interface,
+            thread_hash=thread_hash(message.interface, message.external_thread_id),
+            **safe_metadata(message.metadata),
         )
         return EnqueuedEvent(workflow_id=handle.workflow_id, status="queued")
 
@@ -62,18 +79,24 @@ def configure_dbos(settings: RamanSettings) -> None:
             "run_admin_server": False,
         }
     )
+    logger.info(
+        "dbos_configured",
+        database_url=safe_database_url(settings.effective_dbos_system_database_url),
+    )
     _configured = True
 
 
 def launch_dbos(settings: RamanSettings) -> None:
     configure_dbos(settings)
     DBOS.launch()
+    logger.info("dbos_launched")
 
 
 def shutdown_dbos() -> None:
     global _configured
     DBOS.destroy()
     _configured = False
+    logger.info("dbos_shutdown")
 
 
 @DBOS.workflow(name="raman_process_inbound_message")
@@ -82,17 +105,35 @@ async def process_inbound_message_event(event_dict: dict[str, Any]) -> dict[str,
 
     event = cloud_event_from_dict(event_dict)
     message = inbound_message_from_event(event)
+    log = logger.bind(
+        interface=message.interface,
+        thread_hash=thread_hash(message.interface, message.external_thread_id),
+        agent=message.agent_name,
+        prompt_length=len(message.prompt),
+        **safe_metadata(message.metadata),
+    )
+    log.info("dbos_inbound_workflow_started")
     settings = RamanSettings()
     store = ThreadStore(settings.raman_db_path)
-    reply = await ConversationService(settings=settings, store=store).send_message(
-        message
-    )
+    try:
+        reply = await ConversationService(settings=settings, store=store).send_message(
+            message
+        )
+    except Exception:
+        log.exception("dbos_inbound_workflow_failed")
+        raise
     reply_event = make_reply_requested_event(message, reply)
     if reply.interface == "telegram":
-        await OUTBOUND_QUEUE.enqueue_async(
+        handle = await OUTBOUND_QUEUE.enqueue_async(
             deliver_reply_event,
             cloud_event_to_dict(reply_event),
         )
+        log.info(
+            "dbos_outbound_enqueued",
+            outbound_workflow_id=handle.workflow_id,
+            output_length=len(reply.output),
+        )
+    log.info("dbos_inbound_workflow_succeeded", output_length=len(reply.output))
     return {
         "agent": reply.agent_name,
         "output": reply.output,
@@ -107,8 +148,31 @@ async def deliver_reply_event(event_dict: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("Reply event data must be an object")
     if data["interface"] != "telegram":
+        logger.info(
+            "dbos_reply_delivery_skipped",
+            interface=data.get("interface"),
+            reason="unsupported_interface",
+        )
         return {"delivered": False, "reason": "unsupported interface"}
+    logger.info(
+        "dbos_reply_delivery_started",
+        interface=data["interface"],
+        thread_hash=thread_hash(
+            str(data["interface"]), str(data["external_thread_id"])
+        ),
+        agent=data.get("agent_name"),
+        output_length=len(str(data["output"])),
+        **safe_metadata(data.get("metadata")),
+    )
     await send_telegram_reply(int(data["external_thread_id"]), str(data["output"]))
+    logger.info(
+        "dbos_reply_delivery_succeeded",
+        interface=data["interface"],
+        thread_hash=thread_hash(
+            str(data["interface"]), str(data["external_thread_id"])
+        ),
+        **safe_metadata(data.get("metadata")),
+    )
     return {"delivered": True}
 
 

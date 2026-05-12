@@ -55,6 +55,7 @@ Optional:
 | `RAMAN_DB_PATH` | `/app/.raman/raman.sqlite3` in the image | Volume-mount the parent directory. |
 | `DBOS_SYSTEM_DATABASE_URL` | `sqlite:///app/.raman/dbos.sqlite3` | Override to use another DBOS state store. |
 | `RAMAN_AGENT` | `raman` | Default agent spec to load on startup. |
+| `RAMAN_LOG_LEVEL` | `INFO` | Structured JSON log level for stdout logs. |
 
 ## Runtime State
 
@@ -62,6 +63,20 @@ Mount one persistent volume at `/app/.raman`. It holds `raman.sqlite3` for
 thread history and Telegram dedupe state plus `dbos.sqlite3` for DBOS workflow
 state. Losing this volume loses conversation history and in-flight workflow
 state, but not the app code or agent specs.
+
+## Runtime Logs
+
+Raman logs to stdout as structured JSON. There is no app-managed log file. In
+local Compose, read logs with:
+
+```bash
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local logs -f raman
+```
+
+In production, the logs are the Raman container stdout on the Droplet. Inspect
+them with the production Compose project over SSH. The logs intentionally use
+hashed chat/thread IDs and lengths instead of raw prompt text, replies, tokens,
+or webhook secrets.
 
 ## Local Compose
 
@@ -89,6 +104,19 @@ uv run raman-api
 
 In `apps/raman/.env`, use `OLLAMA_BASE_URL=http://localhost:11434/v1` because
 the process runs directly on your Mac.
+
+To debug locally against the production DigitalOcean inference endpoint instead
+of Ollama, run from the platform repo root:
+
+```bash
+./apps/raman/scripts/run-local-prod-debug.sh
+```
+
+This reads root `.env.local`, requires `DO_INFERENCE_API_KEY`, defaults to
+`RAMAN_DEV_MODEL=gemma-4-31B-it`, and stores separate debug state under
+`apps/raman/.raman/prod-debug/`. Pair it with ngrok and
+`./apps/raman/scripts/set-local-telegram-webhook.sh https://<ngrok-host>` for
+live Telegram testing.
 
 For an app-only smoke test, this directory still includes
 [`compose.example.yml`](../compose.example.yml), which pairs Raman with Ollama:

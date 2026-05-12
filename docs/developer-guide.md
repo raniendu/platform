@@ -221,13 +221,11 @@ raniendu.dev -> 200
 www.raniendu.dev -> 301
 prefect.raniendu.dev/api/health -> 401
 raman.raniendu.dev/healthz -> 200
-homi.raniendu.dev -> 404
-vikram.raniendu.dev -> 404
 paperclip.raniendu.dev -> 404
 flow.raniendu.dev -> 404
 ```
 
-With the current `deploy/apps.prod.env`, Prefect's `401` response is expected because Caddy basic auth protects that route; Raman returns `200` from `/healthz`; Homi, Vikram, Paperclip, and Flow return `404` because they are disabled.
+With the current `deploy/apps.prod.env`, Prefect's `401` response is expected because Caddy basic auth protects that route; Raman returns `200` from `/healthz`; Paperclip and Flow return `404` because they are disabled. Homi and Vikram smoke checks are skipped while disabled so their DNS records are only required when enabling those apps.
 
 The `s-1vcpu-2gb` migration completed on 2026-05-02. Use `deploy.yml` for routine production releases. Keep `migrate-smaller-droplet.yml` only for future new-Droplet migrations or recovery; it stages `platform-shared-small`, waits for manual DNS cutover, promotes it back to canonical `platform-shared`, and deletes the retired Droplet only in a separate typed-confirmation phase.
 

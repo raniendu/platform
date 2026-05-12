@@ -15,8 +15,8 @@ Current production routes:
 - `https://raniendu.dev` -> DotDev
 - `https://prefect.raniendu.dev` -> Prefect behind Caddy basic auth
 - `https://raman.raniendu.dev` -> Raman agent health and Telegram webhook endpoint
-- `https://homi.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
-- `https://vikram.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
+- `https://homi.raniendu.dev` -> Homi only when DNS exists and `DEPLOY_HOMI=true`
+- `https://vikram.raniendu.dev` -> Vikram only when DNS exists and `DEPLOY_VIKRAM=true`
 - `https://paperclip.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 - `https://flow.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 
@@ -161,12 +161,10 @@ The workflow is expected to report these smoke statuses:
 - `www.raniendu.dev` -> `301`
 - `prefect.raniendu.dev/api/health` -> `401`
 - `raman.raniendu.dev/healthz` -> `200`
-- `homi.raniendu.dev` -> `404`
-- `vikram.raniendu.dev` -> `404`
 - `paperclip.raniendu.dev` -> `404`
 - `flow.raniendu.dev` -> `404`
 
-`401` for Prefect is expected because Caddy basic auth is protecting that route. Paperclip and Flow return `404` while their production app flags are disabled.
+`401` for Prefect is expected because Caddy basic auth is protecting that route. Paperclip and Flow return `404` while their production app flags are disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
 
 The production browser credentials for the Paperclip Caddy prompt live in `.env.production.credentials` as `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD`. The deploy env file and GitHub `PLATFORM_ENV_FILE` use `PAPERCLIP_BASIC_AUTH_HASH`; do not try to sign in with `PAPERCLIP_BETTER_AUTH_SECRET`, which is only an internal Paperclip auth/session secret.
 

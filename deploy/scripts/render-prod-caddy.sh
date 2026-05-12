@@ -139,11 +139,7 @@ homi.raniendu.dev {
 }
 EOF
 else
-  cat > "${target_dir}/60-homi.caddy" <<'EOF'
-homi.raniendu.dev {
-	respond "Homi is not deployed." 404
-}
-EOF
+  :
 fi
 
 if [ "$DEPLOY_VIKRAM" = true ]; then
@@ -153,9 +149,5 @@ vikram.raniendu.dev {
 }
 EOF
 else
-  cat > "${target_dir}/70-vikram.caddy" <<'EOF'
-vikram.raniendu.dev {
-	respond "Vikram is not deployed." 404
-}
-EOF
+  :
 fi

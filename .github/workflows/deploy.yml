@@ -797,13 +797,13 @@ jobs:
           if [ "$DEPLOY_HOMI" = true ]; then
             check_status "homi.raniendu.dev/healthz" "https://homi.raniendu.dev/healthz" "200"
           else
-            check_status "homi.raniendu.dev disabled" "https://homi.raniendu.dev/" "404"
+            echo "homi.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_HOMI=true are configured"
           fi
 
           if [ "$DEPLOY_VIKRAM" = true ]; then
             check_status "vikram.raniendu.dev/healthz" "https://vikram.raniendu.dev/healthz" "200"
           else
-            check_status "vikram.raniendu.dev disabled" "https://vikram.raniendu.dev/" "404"
+            echo "vikram.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_VIKRAM=true are configured"
           fi
 
       - name: Stop legacy Postgres containers after migration

@@ -92,12 +92,12 @@ curl -I https://raniendu.dev/
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
 curl -I https://raman.raniendu.dev/healthz
-curl -I https://homi.raniendu.dev/ # expected 404 while disabled
-curl -I https://vikram.raniendu.dev/ # expected 404 while disabled
 curl -I https://paperclip.raniendu.dev/ # expected 404 while disabled
 curl -I https://flow.raniendu.dev/      # expected 404 while disabled
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
 ```
+
+Homi and Vikram public checks are only expected after their DNS records exist and `DEPLOY_HOMI=true` or `DEPLOY_VIKRAM=true`.
 
 Prefect API health:
 

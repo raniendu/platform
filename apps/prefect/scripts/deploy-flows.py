@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from prefect import Flow
 
 
+def get_prefect_id(result: Any) -> Any:
+    """Return an ID from Prefect client methods that may return an object or raw UUID."""
+    return getattr(result, "id", result)
+
+
 def discover_flows(flows_dir: Path = Path("flows")) -> list[tuple[str, "Flow"]]:
     """
     Discover all Prefect flows in the flows directory.
@@ -112,12 +117,12 @@ async def register_deployments(
                 # Create or get the flow in the server
                 try:
                     flow_data = await client.read_flow_by_name(flow.name)
-                    flow_id = flow_data.id
+                    flow_id = get_prefect_id(flow_data)
                     print(f"  Using existing flow ID: {flow_id}")
                 except Exception:
                     # Flow doesn't exist, create it
                     flow_data = await client.create_flow(flow)
-                    flow_id = flow_data.id
+                    flow_id = get_prefect_id(flow_data)
                     print(f"  Created new flow ID: {flow_id}")
 
                 # Construct entrypoint for the worker

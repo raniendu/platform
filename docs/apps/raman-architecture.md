@@ -36,7 +36,7 @@ but does not affect the built image.
 ## Configuration
 
 Production uses `RAMAN_MODEL_PROVIDER=digitalocean` and
-`RAMAN_DEV_MODEL=openai-gpt-oss-120b`. `RAMAN_DEV_MODEL` is the upstream Raman
+`RAMAN_DEV_MODEL=gemma-4-31B-it`. `RAMAN_DEV_MODEL` is the upstream Raman
 setting for the provider-specific model identifier, so in production it names a
 DigitalOcean serverless inference model rather than a local development model.
 The deploy workflow appends those production constants to the host env file and

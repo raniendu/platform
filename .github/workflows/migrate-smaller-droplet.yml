@@ -36,7 +36,7 @@ env:
   PREFECT_IMAGE_NAME: prefect
   RAMAN_IMAGE_NAME: raman
   RAMAN_MODEL_PROVIDER: digitalocean
-  RAMAN_DEV_MODEL: openai-gpt-oss-120b
+  RAMAN_DEV_MODEL: gemma-4-31B-it
   RAMAN_AGENT: raman
   RAMAN_PUBLIC_BASE_URL: https://raman.raniendu.dev
   TARGET_DROPLET_SIZE: s-1vcpu-2gb

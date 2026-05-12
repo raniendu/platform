@@ -16,6 +16,8 @@ Do not commit `.env.local`, `.env.production.generated`, `.env.production.creden
 
 - `apps/dotdev/`: Flask site, Python 3.13.
 - `apps/raman/`: Pydantic AI agent with FastAPI, Telegram webhook, and threaded SQLite/DBOS state, Python 3.13.
+- `apps/homi/`: Strands SDK agent with the same FastAPI, Telegram, and threaded SQLite/DBOS surface as Raman, Python 3.13.
+- `apps/vikram/`: Google ADK agent with the same FastAPI, Telegram, and threaded SQLite/DBOS surface as Raman, Python 3.13.
 - `apps/prefect/`: Prefect server/worker image and flows, Python 3.10+.
 - `apps/paperclip/`: Dockerfile that builds upstream Paperclip.
 - `apps/flow/`: Airflow DAGs, image, and DAG validation script, Python 3.10+.
@@ -34,10 +36,12 @@ cp .env.example .env.local
 ```
 
 Use root `.env.local` for Docker Compose. If you run Raman directly with `uv`,
-also create `apps/raman/.env` from its app-local example:
+Homi directly, or Vikram directly, also create the app-local env file:
 
 ```bash
 cp apps/raman/.env.example apps/raman/.env
+cp apps/homi/.env.example apps/homi/.env
+cp apps/vikram/.env.example apps/vikram/.env
 ```
 
 Keep `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1` in root
@@ -67,6 +71,8 @@ Local routes:
 - `http://dotdev.localhost`
 - `http://prefect.localhost`
 - `http://raman.localhost`
+- `http://homi.localhost`
+- `http://vikram.localhost`
 - `http://paperclip.localhost`
 - `http://flow.localhost`
 
@@ -118,6 +124,44 @@ uv run pytest tests -q
 uv run raman-api
 ```
 
+Homi:
+
+```bash
+uv sync --project apps/homi
+uv run --project apps/homi pytest apps/homi/tests -q
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d homi
+curl http://localhost:8001/healthz
+```
+
+For direct Homi development:
+
+```bash
+cd apps/homi
+cp .env.example .env
+uv sync --locked
+uv run pytest tests -q
+uv run homi-api
+```
+
+Vikram:
+
+```bash
+uv sync --project apps/vikram
+uv run --project apps/vikram pytest apps/vikram/tests -q
+docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d vikram
+curl http://localhost:8002/healthz
+```
+
+For direct Vikram development:
+
+```bash
+cd apps/vikram
+cp .env.example .env
+uv sync --locked
+uv run pytest tests -q
+uv run vikram-api
+```
+
 Then, from another terminal:
 
 ```bash
@@ -141,7 +185,7 @@ Compose validation:
 ```bash
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local config
 bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
-RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:ci COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.example config
+RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:ci HOMI_IMAGE=ghcr.io/raniendu/platform/homi:ci VIKRAM_IMAGE=ghcr.io/raniendu/platform/vikram:ci COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.example config
 ```
 
 ## Production Deploys
@@ -177,11 +221,13 @@ raniendu.dev -> 200
 www.raniendu.dev -> 301
 prefect.raniendu.dev/api/health -> 401
 raman.raniendu.dev/healthz -> 200
+homi.raniendu.dev -> 404
+vikram.raniendu.dev -> 404
 paperclip.raniendu.dev -> 404
 flow.raniendu.dev -> 404
 ```
 
-With the current `deploy/apps.prod.env`, Prefect's `401` response is expected because Caddy basic auth protects that route; Raman returns `200` from `/healthz`; Paperclip and Flow return `404` because they are disabled.
+With the current `deploy/apps.prod.env`, Prefect's `401` response is expected because Caddy basic auth protects that route; Raman returns `200` from `/healthz`; Homi, Vikram, Paperclip, and Flow return `404` because they are disabled.
 
 The `s-1vcpu-2gb` migration completed on 2026-05-02. Use `deploy.yml` for routine production releases. Keep `migrate-smaller-droplet.yml` only for future new-Droplet migrations or recovery; it stages `platform-shared-small`, waits for manual DNS cutover, promotes it back to canonical `platform-shared`, and deletes the retired Droplet only in a separate typed-confirmation phase.
 

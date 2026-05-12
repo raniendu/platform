@@ -14,6 +14,8 @@ services:
     depends_on:
       - dotdev
       - raman
+      - homi
+      - vikram
       - prefect-server
       - airflow-webserver
       - paperclip
@@ -53,6 +55,58 @@ services:
       - "8000:8000"
     volumes:
       - raman-state:/app/.raman
+    networks:
+      - platform
+    restart: unless-stopped
+
+  homi:
+    build:
+      context: ../../apps/homi
+      dockerfile: Dockerfile
+    container_name: platform-homi-local
+    environment:
+      HOMI_MODEL_ID: ${HOMI_MODEL_ID:-us.anthropic.claude-sonnet-4-20250514-v1:0}
+      HOMI_AWS_REGION: ${HOMI_AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+      HOMI_AGENT: ${HOMI_AGENT:-homi}
+      HOMI_PUBLIC_BASE_URL: ${HOMI_PUBLIC_BASE_URL:-http://homi.localhost}
+      HOMI_PARALLEL_API_KEY: ${HOMI_PARALLEL_API_KEY:-}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      HOMI_TELEGRAM_BOT_TOKEN: ${HOMI_TELEGRAM_BOT_TOKEN:-}
+      HOMI_TELEGRAM_WEBHOOK_SECRET: ${HOMI_TELEGRAM_WEBHOOK_SECRET:-}
+      HOMI_TELEGRAM_ALLOWED_CHAT_IDS: ${HOMI_TELEGRAM_ALLOWED_CHAT_IDS:-}
+      ENVIRONMENT: local
+    ports:
+      - "8001:8000"
+    volumes:
+      - homi-state:/app/.homi
+    networks:
+      - platform
+    restart: unless-stopped
+
+  vikram:
+    build:
+      context: ../../apps/vikram
+      dockerfile: Dockerfile
+    container_name: platform-vikram-local
+    environment:
+      VIKRAM_MODEL: ${VIKRAM_MODEL:-gemini-flash-latest}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      VIKRAM_AGENT: ${VIKRAM_AGENT:-vikram}
+      VIKRAM_PUBLIC_BASE_URL: ${VIKRAM_PUBLIC_BASE_URL:-http://vikram.localhost}
+      VIKRAM_PARALLEL_API_KEY: ${VIKRAM_PARALLEL_API_KEY:-}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      VIKRAM_TELEGRAM_BOT_TOKEN: ${VIKRAM_TELEGRAM_BOT_TOKEN:-}
+      VIKRAM_TELEGRAM_WEBHOOK_SECRET: ${VIKRAM_TELEGRAM_WEBHOOK_SECRET:-}
+      VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS: ${VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS:-}
+      ENVIRONMENT: local
+    ports:
+      - "8002:8000"
+    volumes:
+      - vikram-state:/app/.vikram
     networks:
       - platform
     restart: unless-stopped
@@ -302,3 +356,5 @@ volumes:
   paperclip-postgres-data:
   paperclip-data:
   raman-state:
+  homi-state:
+  vikram-state:

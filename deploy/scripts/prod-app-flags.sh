@@ -59,6 +59,8 @@ load_flags() {
   DEPLOY_FLOW=
   DEPLOY_PAPERCLIP=
   DEPLOY_RAMAN=
+  DEPLOY_HOMI=
+  DEPLOY_VIKRAM=
 
   # shellcheck disable=SC1090
   . "$flags_file"
@@ -68,6 +70,8 @@ load_flags() {
   normalize_bool DEPLOY_FLOW
   normalize_bool DEPLOY_PAPERCLIP
   normalize_bool DEPLOY_RAMAN
+  normalize_bool DEPLOY_HOMI
+  normalize_bool DEPLOY_VIKRAM
 }
 
 build_lists() {
@@ -115,6 +119,22 @@ build_lists() {
     disabled_services+=(raman)
     disabled_containers+=(platform-raman)
   fi
+
+  if [ "$DEPLOY_HOMI" = true ]; then
+    profiles+=(homi)
+    enabled_pull_services+=(homi)
+  else
+    disabled_services+=(homi)
+    disabled_containers+=(platform-homi)
+  fi
+
+  if [ "$DEPLOY_VIKRAM" = true ]; then
+    profiles+=(vikram)
+    enabled_pull_services+=(vikram)
+  else
+    disabled_services+=(vikram)
+    disabled_containers+=(platform-vikram)
+  fi
 }
 
 load_flags
@@ -131,6 +151,8 @@ case "$command" in
       printf 'deploy_flow=%s\n' "$DEPLOY_FLOW"
       printf 'deploy_paperclip=%s\n' "$DEPLOY_PAPERCLIP"
       printf 'deploy_raman=%s\n' "$DEPLOY_RAMAN"
+      printf 'deploy_homi=%s\n' "$DEPLOY_HOMI"
+      printf 'deploy_vikram=%s\n' "$DEPLOY_VIKRAM"
       printf 'compose_profiles=%s\n' "$(join_by , "${profiles[@]}")"
       printf 'enabled_pull_services=%s\n' "$(join_by ' ' "${enabled_pull_services[@]}")"
       printf 'disabled_services=%s\n' "$(join_by ' ' "${disabled_services[@]}")"

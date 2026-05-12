@@ -33,7 +33,7 @@ Required for production:
 | Variable | Notes |
 |---|---|
 | `RAMAN_MODEL_PROVIDER` | Production uses `digitalocean`; local defaults to `ollama`. |
-| `RAMAN_DEV_MODEL` | Provider-specific model identifier. Production currently uses `openai-gpt-oss-120b`. |
+| `RAMAN_DEV_MODEL` | Provider-specific model identifier. Production currently uses `gemma-4-31B-it`. |
 | `DO_INFERENCE_API_KEY` | Required when `RAMAN_MODEL_PROVIDER=digitalocean`. |
 
 Required for Telegram:

@@ -36,17 +36,63 @@ services:
     profiles: ["raman"]
     environment:
       RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-digitalocean}
-      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-llama3.3-70b-instruct}
+      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-gemma-4-31B-it}
       DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:?DO_INFERENCE_API_KEY is required}
       RAMAN_AGENT: ${RAMAN_AGENT:-raman}
       RAMAN_PUBLIC_BASE_URL: ${RAMAN_PUBLIC_BASE_URL:-https://raman.raniendu.dev}
       PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?TELEGRAM_WEBHOOK_SECRET is required}
-      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:?TELEGRAM_ALLOWED_CHAT_IDS is required}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
       ENVIRONMENT: production
     volumes:
       - raman-state:/app/.raman
+    networks:
+      - platform
+    restart: unless-stopped
+
+  homi:
+    image: ${HOMI_IMAGE:?HOMI_IMAGE is required}
+    container_name: platform-homi
+    profiles: ["homi"]
+    environment:
+      HOMI_MODEL_ID: ${HOMI_MODEL_ID:-us.anthropic.claude-sonnet-4-20250514-v1:0}
+      HOMI_AWS_REGION: ${HOMI_AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+      HOMI_AGENT: ${HOMI_AGENT:-homi}
+      HOMI_PUBLIC_BASE_URL: ${HOMI_PUBLIC_BASE_URL:-https://homi.raniendu.dev}
+      HOMI_PARALLEL_API_KEY: ${HOMI_PARALLEL_API_KEY:-}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      HOMI_TELEGRAM_BOT_TOKEN: ${HOMI_TELEGRAM_BOT_TOKEN:-}
+      HOMI_TELEGRAM_WEBHOOK_SECRET: ${HOMI_TELEGRAM_WEBHOOK_SECRET:-}
+      HOMI_TELEGRAM_ALLOWED_CHAT_IDS: ${HOMI_TELEGRAM_ALLOWED_CHAT_IDS:-}
+      ENVIRONMENT: production
+    volumes:
+      - homi-state:/app/.homi
+    networks:
+      - platform
+    restart: unless-stopped
+
+  vikram:
+    image: ${VIKRAM_IMAGE:?VIKRAM_IMAGE is required}
+    container_name: platform-vikram
+    profiles: ["vikram"]
+    environment:
+      VIKRAM_MODEL: ${VIKRAM_MODEL:-gemini-flash-latest}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      VIKRAM_AGENT: ${VIKRAM_AGENT:-vikram}
+      VIKRAM_PUBLIC_BASE_URL: ${VIKRAM_PUBLIC_BASE_URL:-https://vikram.raniendu.dev}
+      VIKRAM_PARALLEL_API_KEY: ${VIKRAM_PARALLEL_API_KEY:-}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      VIKRAM_TELEGRAM_BOT_TOKEN: ${VIKRAM_TELEGRAM_BOT_TOKEN:-}
+      VIKRAM_TELEGRAM_WEBHOOK_SECRET: ${VIKRAM_TELEGRAM_WEBHOOK_SECRET:-}
+      VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS: ${VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS:-}
+      ENVIRONMENT: production
+    volumes:
+      - vikram-state:/app/.vikram
     networks:
       - platform
     restart: unless-stopped
@@ -286,3 +332,5 @@ volumes:
   airflow-config:
   paperclip-data:
   raman-state:
+  homi-state:
+  vikram-state:

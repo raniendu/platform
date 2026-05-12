@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field
+from pydantic_ai.models import Model
+from pydantic_ai.models.ollama import OllamaModel
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ModelProvider = Literal["ollama", "digitalocean"]
+
+
+class RamanSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra="ignore",
+        populate_by_name=True,
+    )
+
+    model_provider: ModelProvider = Field(
+        default="ollama", validation_alias="RAMAN_MODEL_PROVIDER"
+    )
+    dev_model: str = Field(default="gemma4:26b", validation_alias="RAMAN_DEV_MODEL")
+    ollama_base_url: str = Field(
+        default="http://localhost:11434/v1",
+        validation_alias="OLLAMA_BASE_URL",
+    )
+    do_inference_api_key: str | None = Field(
+        default=None, validation_alias="DO_INFERENCE_API_KEY"
+    )
+    do_inference_base_url: str = Field(
+        default="https://inference.do-ai.run/v1",
+        validation_alias="DO_INFERENCE_BASE_URL",
+    )
+    spec_root: Path = Field(
+        default=Path(__file__).resolve().parent.parent / "spec",
+        validation_alias="RAMAN_SPEC_ROOT",
+    )
+    default_agent: str = Field(default="raman", validation_alias="RAMAN_AGENT")
+    parallel_api_key: str | None = Field(
+        default=None, validation_alias="PARALLEL_API_KEY"
+    )
+    raman_db_path: Path = Field(
+        default=Path(__file__).resolve().parent.parent / ".raman" / "raman.sqlite3",
+        validation_alias="RAMAN_DB_PATH",
+    )
+    dbos_system_database_url: str | None = Field(
+        default=None, validation_alias="DBOS_SYSTEM_DATABASE_URL"
+    )
+    public_base_url: str | None = Field(
+        default=None, validation_alias="RAMAN_PUBLIC_BASE_URL"
+    )
+    telegram_bot_token: str | None = Field(
+        default=None, validation_alias="TELEGRAM_BOT_TOKEN"
+    )
+    telegram_webhook_secret: str | None = Field(
+        default=None, validation_alias="TELEGRAM_WEBHOOK_SECRET"
+    )
+    telegram_allowed_chat_ids: str = Field(
+        default="", validation_alias="TELEGRAM_ALLOWED_CHAT_IDS"
+    )
+    telegram_api_base_url: str = Field(
+        default="https://api.telegram.org", validation_alias="TELEGRAM_API_BASE_URL"
+    )
+
+    @property
+    def normalized_ollama_base_url(self) -> str:
+        base_url = self.ollama_base_url.strip().rstrip("/")
+        if base_url.endswith("/v1"):
+            return base_url
+        return f"{base_url}/v1"
+
+    @property
+    def telegram_allowed_chat_id_set(self) -> set[int]:
+        chat_ids: set[int] = set()
+        for raw in self.telegram_allowed_chat_ids.split(","):
+            value = raw.strip()
+            if value:
+                chat_ids.add(int(value))
+        return chat_ids
+
+    @property
+    def effective_dbos_system_database_url(self) -> str:
+        if self.dbos_system_database_url:
+            return self.dbos_system_database_url
+        return f"sqlite:///{self.raman_db_path.parent / 'dbos.sqlite3'}"
+
+
+def build_model(settings: RamanSettings | None = None) -> Model:
+    settings = settings or RamanSettings()
+    if settings.model_provider == "ollama":
+        return OllamaModel(
+            settings.dev_model,
+            provider=OllamaProvider(base_url=settings.normalized_ollama_base_url),
+        )
+    if settings.model_provider == "digitalocean":
+        if not settings.do_inference_api_key:
+            raise RuntimeError(
+                "DO_INFERENCE_API_KEY is not set. Add it to .env or the runtime "
+                "environment to use the digitalocean model provider."
+            )
+        return OpenAIChatModel(
+            settings.dev_model,
+            provider=OpenAIProvider(
+                base_url=settings.do_inference_base_url,
+                api_key=settings.do_inference_api_key,
+            ),
+        )
+    raise RuntimeError(f"Unknown RAMAN_MODEL_PROVIDER: {settings.model_provider!r}")

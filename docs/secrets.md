@@ -13,13 +13,17 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PAPERCLIP_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Paperclip. Use credentials separate from Prefect.
 - `PAPERCLIP_BETTER_AUTH_SECRET`: Paperclip Better Auth secret.
 - `PAPERCLIP_AGENT_JWT_SECRET`: Paperclip agent JWT signing secret.
-- `RAMAN_MODEL_PROVIDER`: Raman model provider. Production uses `digitalocean`; local defaults to `ollama`.
-- `RAMAN_DEV_MODEL`: Raman model identifier. Production default is `llama3.3-70b-instruct`.
-- `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`.
+- `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`. Scope the production key to `gemma-4-31B-it`.
 - `TELEGRAM_BOT_TOKEN`: Raman Telegram bot token from BotFather.
 - `TELEGRAM_WEBHOOK_SECRET`: Raman Telegram webhook secret. Generate with `openssl rand -hex 32`.
 - `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Raman Telegram interface.
-- `RAMAN_PUBLIC_BASE_URL`: Public Raman URL, currently `https://raman.raniendu.dev`.
+- `HOMI_TELEGRAM_BOT_TOKEN`: Homi Telegram bot token from BotFather, only required when `DEPLOY_HOMI=true`.
+- `HOMI_TELEGRAM_WEBHOOK_SECRET`: Homi Telegram webhook secret, only required when `DEPLOY_HOMI=true`.
+- `HOMI_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Homi Telegram interface.
+- `VIKRAM_TELEGRAM_BOT_TOKEN`: Vikram Telegram bot token from BotFather, only required when `DEPLOY_VIKRAM=true`.
+- `VIKRAM_TELEGRAM_WEBHOOK_SECRET`: Vikram Telegram webhook secret, only required when `DEPLOY_VIKRAM=true`.
+- `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Vikram Telegram interface.
+- `GOOGLE_API_KEY`: Google API key for Vikram ADK live calls, only required when `DEPLOY_VIKRAM=true`.
 - `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications.
 - `PUSHOVER_USER_KEY`: Prefect daily brief notifications.
 - `GEMINI_API_KEY`: Prefect daily brief rewrite support.
@@ -41,6 +45,22 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 DigitalOcean write access should be used by GitHub Actions workflows only. Local `doctl` is for read-only inventory and verification.
 
+Agent production constants are tracked in the deploy workflows, not in secrets:
+
+- `RAMAN_MODEL_PROVIDER=digitalocean`
+- `RAMAN_DEV_MODEL=gemma-4-31B-it`
+- `RAMAN_AGENT=raman`
+- `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`
+- `HOMI_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0`
+- `HOMI_AWS_REGION=us-west-2`
+- `HOMI_AGENT=homi`
+- `HOMI_PUBLIC_BASE_URL=https://homi.raniendu.dev`
+- `VIKRAM_MODEL=gemini-flash-latest`
+- `VIKRAM_AGENT=vikram`
+- `VIKRAM_PUBLIC_BASE_URL=https://vikram.raniendu.dev`
+
+Homi uses standard AWS credential env vars such as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, or `AWS_BEARER_TOKEN_BEDROCK`. Configure the least-privilege Bedrock credential before enabling `DEPLOY_HOMI=true`.
+
 ## Human Login Credentials
 
 Production Caddy basic-auth passwords are intentionally not stored in `.env.production.generated`. That generated file is used for the GitHub `PLATFORM_ENV_FILE` secret and contains Caddy bcrypt hashes such as `PAPERCLIP_BASIC_AUTH_HASH`, plus internal service secrets such as `PAPERCLIP_BETTER_AUTH_SECRET`.
@@ -58,7 +78,9 @@ For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC
 - `OPENAI_API_KEY`: Optional Paperclip provider key.
 - `ANTHROPIC_API_KEY`: Optional Paperclip provider key.
 - `GEMINI_API_KEY`: Optional Paperclip provider key when also configured for Prefect.
-- `PARALLEL_API_KEY`: Optional Raman web-search provider key when the active agent spec enables `web_search`.
+- `PARALLEL_API_KEY`: Optional shared web-search provider key for Raman, Homi, and Vikram when the active agent spec enables `web_search`.
+- `HOMI_PARALLEL_API_KEY`: Optional Homi-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
+- `VIKRAM_PARALLEL_API_KEY`: Optional Vikram-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
 
 ## Rotation Notes
 
@@ -80,4 +102,4 @@ When a Caddy bcrypt hash is stored in a Compose `--env-file`, escape dollar sign
 
 ## Production Env File
 
-`PLATFORM_ENV_FILE` should contain the same variable names as `.env.example`, with production values. Do not include comments with secret values in this secret; keep it as plain `KEY=value` lines.
+`PLATFORM_ENV_FILE` should contain shared production values such as database passwords, Caddy auth hashes, and app provider keys. Do not include comments with secret values in this secret; keep it as plain `KEY=value` lines. The deploy workflow appends image refs, app deploy flags, and agent runtime values to the host env file during deployment.

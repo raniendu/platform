@@ -15,6 +15,20 @@ repos:
         types: [python]
         files: ^apps/dotdev/
 
+      - id: raman-isort
+        name: Raman isort
+        entry: env -u VIRTUAL_ENV uv run --project apps/raman --locked isort
+        language: system
+        types: [python]
+        files: ^apps/raman/
+
+      - id: raman-black
+        name: Raman black
+        entry: env -u VIRTUAL_ENV uv run --project apps/raman --locked black
+        language: system
+        types: [python]
+        files: ^apps/raman/
+
       - id: prefect-isort
         name: Prefect isort
         entry: env -u VIRTUAL_ENV uv run --project apps/prefect --locked isort

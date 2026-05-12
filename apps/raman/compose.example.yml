@@ -1,0 +1,68 @@
+# Standalone Docker Compose for smoke-testing the raman image locally.
+# Brings up raman + ollama on a private network. No Caddy / TLS — for
+# production deployment the platform repo composes this image with its
+# own reverse proxy and host services.
+#
+# Usage:
+#   docker compose -f compose.example.yml --env-file .env up --build
+#   curl http://localhost:8000/healthz
+#
+# Required env (in .env or shell):
+#   RAMAN_DEV_MODEL=qwen3              # whatever Ollama tag you have pulled
+#   TELEGRAM_BOT_TOKEN=...             # only if testing the Telegram path
+#   TELEGRAM_WEBHOOK_SECRET=...
+#   TELEGRAM_ALLOWED_CHAT_IDS=...
+
+name: raman-local
+
+services:
+  raman:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/raniendu/platform/raman:local
+    container_name: raman
+    environment:
+      RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-ollama}
+      RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-qwen3}
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:-}
+      RAMAN_AGENT: ${RAMAN_AGENT:-raman}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
+    volumes:
+      - raman-state:/app/.raman
+    ports:
+      - "8000:8000"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - raman
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: raman-ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - raman
+    restart: unless-stopped
+
+networks:
+  raman:
+
+volumes:
+  raman-state:
+  ollama-models:

@@ -8,11 +8,6 @@ on:
         required: false
         type: boolean
         default: false
-      raman_tag:
-        description: Raman GHCR tag to deploy.
-        required: false
-        type: string
-        default: main
 
 concurrency:
   group: production-deploy
@@ -36,6 +31,8 @@ jobs:
       deploy_flow: ${{ steps.app_flags.outputs.deploy_flow }}
       deploy_paperclip: ${{ steps.app_flags.outputs.deploy_paperclip }}
       deploy_raman: ${{ steps.app_flags.outputs.deploy_raman }}
+      deploy_homi: ${{ steps.app_flags.outputs.deploy_homi }}
+      deploy_vikram: ${{ steps.app_flags.outputs.deploy_vikram }}
       compose_profiles: ${{ steps.app_flags.outputs.compose_profiles }}
       enabled_pull_services: ${{ steps.app_flags.outputs.enabled_pull_services }}
       disabled_services: ${{ steps.app_flags.outputs.disabled_services }}
@@ -45,6 +42,8 @@ jobs:
       airflow_image: ${{ steps.image_refs.outputs.airflow_image }}
       paperclip_image: ${{ steps.image_refs.outputs.paperclip_image }}
       raman_image: ${{ steps.image_refs.outputs.raman_image }}
+      homi_image: ${{ steps.image_refs.outputs.homi_image }}
+      vikram_image: ${{ steps.image_refs.outputs.vikram_image }}
 
     steps:
       - name: Check out repository
@@ -56,21 +55,14 @@ jobs:
 
       - name: Set image refs
         id: image_refs
-        env:
-          RAMAN_TAG: ${{ inputs.raman_tag }}
         run: |
-          raman_tag="${RAMAN_TAG:-main}"
-          case "$raman_tag" in
-            *[!A-Za-z0-9_.-]*)
-              echo "::error::raman_tag may only contain letters, numbers, dots, underscores, and hyphens."
-              exit 1
-              ;;
-          esac
           printf 'dotdev_image=%s/dotdev:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'prefect_image=%s/prefect:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'airflow_image=%s/airflow:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'paperclip_image=%s/paperclip:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          printf 'raman_image=ghcr.io/raniendu/raman:%s\n' "$raman_tag" >> "$GITHUB_OUTPUT"
+          printf 'raman_image=%s/raman:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'homi_image=%s/homi:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          printf 'vikram_image=%s/vikram:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -125,6 +117,39 @@ jobs:
           tags: ${{ steps.image_refs.outputs.paperclip_image }}
           cache-from: type=gha,scope=paperclip
           cache-to: type=gha,mode=max,scope=paperclip
+
+      - name: Build and push Raman image
+        if: steps.app_flags.outputs.deploy_raman == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/raman
+          file: apps/raman/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.raman_image }}
+          cache-from: type=gha,scope=raman
+          cache-to: type=gha,mode=max,scope=raman
+
+      - name: Build and push Homi image
+        if: steps.app_flags.outputs.deploy_homi == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/homi
+          file: apps/homi/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.homi_image }}
+          cache-from: type=gha,scope=homi
+          cache-to: type=gha,mode=max,scope=homi
+
+      - name: Build and push Vikram image
+        if: steps.app_flags.outputs.deploy_vikram == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/vikram
+          file: apps/vikram/Dockerfile
+          push: true
+          tags: ${{ steps.image_refs.outputs.vikram_image }}
+          cache-from: type=gha,scope=vikram
+          cache-to: type=gha,mode=max,scope=vikram
 
   deploy:
     name: Deploy to shared Droplet
@@ -436,11 +461,44 @@ jobs:
           AIRFLOW_IMAGE: ${{ needs.build-images.outputs.airflow_image }}
           PAPERCLIP_IMAGE: ${{ needs.build-images.outputs.paperclip_image }}
           RAMAN_IMAGE: ${{ needs.build-images.outputs.raman_image }}
+          HOMI_IMAGE: ${{ needs.build-images.outputs.homi_image }}
+          VIKRAM_IMAGE: ${{ needs.build-images.outputs.vikram_image }}
+          RAMAN_MODEL_PROVIDER: digitalocean
+          RAMAN_DEV_MODEL: gemma-4-31B-it
+          RAMAN_AGENT: raman
+          RAMAN_PUBLIC_BASE_URL: https://raman.raniendu.dev
+          HOMI_MODEL_ID: us.anthropic.claude-sonnet-4-20250514-v1:0
+          HOMI_AWS_REGION: us-west-2
+          HOMI_AGENT: homi
+          HOMI_PUBLIC_BASE_URL: https://homi.raniendu.dev
+          VIKRAM_MODEL: gemini-flash-latest
+          VIKRAM_AGENT: vikram
+          VIKRAM_PUBLIC_BASE_URL: https://vikram.raniendu.dev
+          DO_INFERENCE_API_KEY: ${{ secrets.DO_INFERENCE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          TELEGRAM_ALLOWED_CHAT_IDS: ${{ secrets.TELEGRAM_ALLOWED_CHAT_IDS }}
+          HOMI_TELEGRAM_BOT_TOKEN: ${{ secrets.HOMI_TELEGRAM_BOT_TOKEN }}
+          HOMI_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.HOMI_TELEGRAM_WEBHOOK_SECRET }}
+          HOMI_TELEGRAM_ALLOWED_CHAT_IDS: ${{ secrets.HOMI_TELEGRAM_ALLOWED_CHAT_IDS }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          VIKRAM_TELEGRAM_BOT_TOKEN: ${{ secrets.VIKRAM_TELEGRAM_BOT_TOKEN }}
+          VIKRAM_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.VIKRAM_TELEGRAM_WEBHOOK_SECRET }}
+          VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS: ${{ secrets.VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS }}
+          PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
+          HOMI_PARALLEL_API_KEY: ${{ secrets.HOMI_PARALLEL_API_KEY }}
+          VIKRAM_PARALLEL_API_KEY: ${{ secrets.VIKRAM_PARALLEL_API_KEY }}
           DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
           DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
           DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
+          DEPLOY_HOMI: ${{ needs.build-images.outputs.deploy_homi }}
+          DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
         run: |
           test -n "$PLATFORM_ENV_FILE"
           test -n "$DOTDEV_IMAGE"
@@ -448,11 +506,15 @@ jobs:
           test -n "$AIRFLOW_IMAGE"
           test -n "$PAPERCLIP_IMAGE"
           test -n "$RAMAN_IMAGE"
+          test -n "$HOMI_IMAGE"
+          test -n "$VIKRAM_IMAGE"
           test -n "$DEPLOY_DOTDEV"
           test -n "$DEPLOY_PREFECT"
           test -n "$DEPLOY_FLOW"
           test -n "$DEPLOY_PAPERCLIP"
           test -n "$DEPLOY_RAMAN"
+          test -n "$DEPLOY_HOMI"
+          test -n "$DEPLOY_VIKRAM"
           require_env_key() {
             key="$1"
             if ! printf '%s\n' "$PLATFORM_ENV_FILE" | grep -Eq "^${key}="; then
@@ -481,13 +543,36 @@ jobs:
             require_env_key PAPERCLIP_AGENT_JWT_SECRET
           fi
           if [ "$DEPLOY_RAMAN" = true ]; then
-            require_env_key RAMAN_MODEL_PROVIDER
-            require_env_key RAMAN_DEV_MODEL
-            require_env_key DO_INFERENCE_API_KEY
-            require_env_key TELEGRAM_BOT_TOKEN
-            require_env_key TELEGRAM_WEBHOOK_SECRET
-            require_env_key TELEGRAM_ALLOWED_CHAT_IDS
-            require_env_key RAMAN_PUBLIC_BASE_URL
+            test -n "$RAMAN_MODEL_PROVIDER"
+            test -n "$RAMAN_DEV_MODEL"
+            test -n "$RAMAN_AGENT"
+            test -n "$RAMAN_PUBLIC_BASE_URL"
+            test -n "$DO_INFERENCE_API_KEY"
+            test -n "$TELEGRAM_BOT_TOKEN"
+            test -n "$TELEGRAM_WEBHOOK_SECRET"
+            test -n "$TELEGRAM_ALLOWED_CHAT_IDS"
+          fi
+          if [ "$DEPLOY_HOMI" = true ]; then
+            test -n "$HOMI_MODEL_ID"
+            test -n "$HOMI_AWS_REGION"
+            test -n "$HOMI_AGENT"
+            test -n "$HOMI_PUBLIC_BASE_URL"
+            if [ -z "$AWS_BEARER_TOKEN_BEDROCK" ]; then
+              test -n "$AWS_ACCESS_KEY_ID"
+              test -n "$AWS_SECRET_ACCESS_KEY"
+            fi
+            test -n "$HOMI_TELEGRAM_BOT_TOKEN"
+            test -n "$HOMI_TELEGRAM_WEBHOOK_SECRET"
+            test -n "$HOMI_TELEGRAM_ALLOWED_CHAT_IDS"
+          fi
+          if [ "$DEPLOY_VIKRAM" = true ]; then
+            test -n "$VIKRAM_MODEL"
+            test -n "$VIKRAM_AGENT"
+            test -n "$VIKRAM_PUBLIC_BASE_URL"
+            test -n "$GOOGLE_API_KEY"
+            test -n "$VIKRAM_TELEGRAM_BOT_TOKEN"
+            test -n "$VIKRAM_TELEGRAM_WEBHOOK_SECRET"
+            test -n "$VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS"
           fi
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
@@ -498,11 +583,50 @@ jobs:
             printf 'DEPLOY_FLOW=%s\n' "$DEPLOY_FLOW"
             printf 'DEPLOY_PAPERCLIP=%s\n' "$DEPLOY_PAPERCLIP"
             printf 'DEPLOY_RAMAN=%s\n' "$DEPLOY_RAMAN"
+            printf 'DEPLOY_HOMI=%s\n' "$DEPLOY_HOMI"
+            printf 'DEPLOY_VIKRAM=%s\n' "$DEPLOY_VIKRAM"
             printf 'DOTDEV_IMAGE=%s\n' "$DOTDEV_IMAGE"
             printf 'PREFECT_IMAGE=%s\n' "$PREFECT_IMAGE"
             printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
             printf 'PAPERCLIP_IMAGE=%s\n' "$PAPERCLIP_IMAGE"
             printf 'RAMAN_IMAGE=%s\n' "$RAMAN_IMAGE"
+            printf 'HOMI_IMAGE=%s\n' "$HOMI_IMAGE"
+            printf 'VIKRAM_IMAGE=%s\n' "$VIKRAM_IMAGE"
+            if [ "$DEPLOY_RAMAN" = true ]; then
+              printf 'RAMAN_MODEL_PROVIDER=%s\n' "$RAMAN_MODEL_PROVIDER"
+              printf 'RAMAN_DEV_MODEL=%s\n' "$RAMAN_DEV_MODEL"
+              printf 'RAMAN_AGENT=%s\n' "$RAMAN_AGENT"
+              printf 'RAMAN_PUBLIC_BASE_URL=%s\n' "$RAMAN_PUBLIC_BASE_URL"
+              printf 'DO_INFERENCE_API_KEY=%s\n' "$DO_INFERENCE_API_KEY"
+              printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
+              printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
+              printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
+              printf 'PARALLEL_API_KEY=%s\n' "$PARALLEL_API_KEY"
+            fi
+            if [ "$DEPLOY_HOMI" = true ]; then
+              printf 'HOMI_MODEL_ID=%s\n' "$HOMI_MODEL_ID"
+              printf 'HOMI_AWS_REGION=%s\n' "$HOMI_AWS_REGION"
+              printf 'HOMI_AGENT=%s\n' "$HOMI_AGENT"
+              printf 'HOMI_PUBLIC_BASE_URL=%s\n' "$HOMI_PUBLIC_BASE_URL"
+              printf 'AWS_ACCESS_KEY_ID=%s\n' "$AWS_ACCESS_KEY_ID"
+              printf 'AWS_SECRET_ACCESS_KEY=%s\n' "$AWS_SECRET_ACCESS_KEY"
+              printf 'AWS_SESSION_TOKEN=%s\n' "$AWS_SESSION_TOKEN"
+              printf 'AWS_BEARER_TOKEN_BEDROCK=%s\n' "$AWS_BEARER_TOKEN_BEDROCK"
+              printf 'HOMI_TELEGRAM_BOT_TOKEN=%s\n' "$HOMI_TELEGRAM_BOT_TOKEN"
+              printf 'HOMI_TELEGRAM_WEBHOOK_SECRET=%s\n' "$HOMI_TELEGRAM_WEBHOOK_SECRET"
+              printf 'HOMI_TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$HOMI_TELEGRAM_ALLOWED_CHAT_IDS"
+              printf 'HOMI_PARALLEL_API_KEY=%s\n' "$HOMI_PARALLEL_API_KEY"
+            fi
+            if [ "$DEPLOY_VIKRAM" = true ]; then
+              printf 'VIKRAM_MODEL=%s\n' "$VIKRAM_MODEL"
+              printf 'GOOGLE_API_KEY=%s\n' "$GOOGLE_API_KEY"
+              printf 'VIKRAM_AGENT=%s\n' "$VIKRAM_AGENT"
+              printf 'VIKRAM_PUBLIC_BASE_URL=%s\n' "$VIKRAM_PUBLIC_BASE_URL"
+              printf 'VIKRAM_TELEGRAM_BOT_TOKEN=%s\n' "$VIKRAM_TELEGRAM_BOT_TOKEN"
+              printf 'VIKRAM_TELEGRAM_WEBHOOK_SECRET=%s\n' "$VIKRAM_TELEGRAM_WEBHOOK_SECRET"
+              printf 'VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS"
+              printf 'VIKRAM_PARALLEL_API_KEY=%s\n' "$VIKRAM_PARALLEL_API_KEY"
+            fi
           } | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
             "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cat > /opt/platform/.env.production && chmod 600 /opt/platform/.env.production"
@@ -614,6 +738,8 @@ jobs:
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
           DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
           DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
+          DEPLOY_HOMI: ${{ needs.build-images.outputs.deploy_homi }}
+          DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
         run: |
           check_status() {
             label="$1"
@@ -666,6 +792,18 @@ jobs:
             check_status "raman.raniendu.dev/healthz" "https://raman.raniendu.dev/healthz" "200"
           else
             check_status "raman.raniendu.dev disabled" "https://raman.raniendu.dev/" "404"
+          fi
+
+          if [ "$DEPLOY_HOMI" = true ]; then
+            check_status "homi.raniendu.dev/healthz" "https://homi.raniendu.dev/healthz" "200"
+          else
+            check_status "homi.raniendu.dev disabled" "https://homi.raniendu.dev/" "404"
+          fi
+
+          if [ "$DEPLOY_VIKRAM" = true ]; then
+            check_status "vikram.raniendu.dev/healthz" "https://vikram.raniendu.dev/healthz" "200"
+          else
+            check_status "vikram.raniendu.dev disabled" "https://vikram.raniendu.dev/" "404"
           fi
 
       - name: Stop legacy Postgres containers after migration

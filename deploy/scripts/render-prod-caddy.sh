@@ -14,6 +14,8 @@ DEPLOY_PREFECT=
 DEPLOY_FLOW=
 DEPLOY_PAPERCLIP=
 DEPLOY_RAMAN=
+DEPLOY_HOMI=
+DEPLOY_VIKRAM=
 
 # shellcheck disable=SC1090
 . "$flags_file"
@@ -36,6 +38,8 @@ validate_bool DEPLOY_PREFECT
 validate_bool DEPLOY_FLOW
 validate_bool DEPLOY_PAPERCLIP
 validate_bool DEPLOY_RAMAN
+validate_bool DEPLOY_HOMI
+validate_bool DEPLOY_VIKRAM
 
 mkdir -p "$target_dir"
 find "$target_dir" -type f -name '*.caddy' -delete
@@ -124,6 +128,34 @@ else
   cat > "${target_dir}/50-raman.caddy" <<'EOF'
 raman.raniendu.dev {
 	respond "Raman is not deployed." 404
+}
+EOF
+fi
+
+if [ "$DEPLOY_HOMI" = true ]; then
+  cat > "${target_dir}/60-homi.caddy" <<'EOF'
+homi.raniendu.dev {
+	reverse_proxy homi:8000
+}
+EOF
+else
+  cat > "${target_dir}/60-homi.caddy" <<'EOF'
+homi.raniendu.dev {
+	respond "Homi is not deployed." 404
+}
+EOF
+fi
+
+if [ "$DEPLOY_VIKRAM" = true ]; then
+  cat > "${target_dir}/70-vikram.caddy" <<'EOF'
+vikram.raniendu.dev {
+	reverse_proxy vikram:8000
+}
+EOF
+else
+  cat > "${target_dir}/70-vikram.caddy" <<'EOF'
+vikram.raniendu.dev {
+	respond "Vikram is not deployed." 404
 }
 EOF
 fi

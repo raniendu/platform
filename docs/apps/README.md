@@ -8,6 +8,8 @@ the platform monorepo.
 - [Flow / Airflow](flow-architecture.md)
 - [Paperclip](paperclip-architecture.md)
 - [Raman](raman-architecture.md)
+- [Homi](homi-architecture.md)
+- [Vikram](vikram-architecture.md)
 
 The root [architecture document](../architecture.md) covers shared hosting,
 networking, routing, and volumes. These app documents focus on code boundaries,

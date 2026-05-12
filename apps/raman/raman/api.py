@@ -10,9 +10,12 @@ from pydantic_ai import Agent
 from raman.agent import build_agent
 from raman.dbos_gateway import EventDispatcher, launch_dbos, shutdown_dbos
 from raman.gateway import InboundMessage, ThreadStore
+from raman.logging import configure_logging, get_logger, thread_hash
 from raman.settings import RamanSettings
 from raman.spec import load_spec
 from raman.telegram import TelegramAdapter
+
+logger = get_logger(__name__)
 
 
 class ChatRequest(BaseModel):
@@ -85,11 +88,21 @@ def _get_telegram_adapter() -> TelegramAdapter:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    launch_dbos(_get_settings())
-    _get_agent(_get_settings().default_agent)
+    settings = _get_settings()
+    configure_logging(settings.log_level)
+    logger.info(
+        "api_starting",
+        default_agent=settings.default_agent,
+        model_provider=settings.model_provider,
+        model=settings.dev_model,
+        db_path=str(settings.raman_db_path),
+    )
+    launch_dbos(settings)
+    _get_agent(settings.default_agent)
     try:
         yield
     finally:
+        logger.info("api_stopping")
         _agents.clear()
         global _store, _dispatcher, _telegram_adapter
         _store = None
@@ -127,6 +140,13 @@ async def thread_message(
     external_thread_id: str,
     req: ThreadMessageRequest,
 ) -> EnqueueResponse:
+    logger.info(
+        "thread_message_received",
+        interface=interface,
+        thread_hash=thread_hash(interface, external_thread_id),
+        agent=req.agent,
+        prompt_length=len(req.prompt),
+    )
     enqueued = await _get_dispatcher().enqueue_message(
         InboundMessage(
             interface=interface,
@@ -135,6 +155,13 @@ async def thread_message(
             agent_name=req.agent,
             metadata={},
         )
+    )
+    logger.info(
+        "thread_message_enqueued",
+        interface=interface,
+        thread_hash=thread_hash(interface, external_thread_id),
+        workflow_id=enqueued.workflow_id,
+        status=enqueued.status,
     )
     return EnqueueResponse(
         workflow_id=enqueued.workflow_id,
@@ -155,13 +182,22 @@ async def telegram_webhook(
 ) -> dict[str, Any]:
     settings = _get_settings()
     if not settings.telegram_webhook_secret:
+        logger.warning("telegram_webhook_unconfigured")
         raise HTTPException(
             status_code=503,
             detail="TELEGRAM_WEBHOOK_SECRET is not configured",
         )
     if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
+        logger.warning("telegram_webhook_secret_rejected")
         raise HTTPException(status_code=403, detail="Invalid Telegram webhook secret")
-    result = await _get_telegram_adapter().handle_update(await request.json())
+    update = await request.json()
+    result = await _get_telegram_adapter().handle_update(update)
+    logger.info(
+        "telegram_webhook_processed",
+        update_id=update.get("update_id"),
+        status=result.status,
+        workflow_id=result.workflow_id,
+    )
     return {
         "status": result.status,
         "workflow_id": result.workflow_id,

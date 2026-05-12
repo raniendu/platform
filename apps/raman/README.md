@@ -136,6 +136,20 @@ result. Default storage lives under `.raman/`; override with `RAMAN_DB_PATH`
 and `DBOS_SYSTEM_DATABASE_URL`. Full design and operational notes:
 [docs/threaded_conversations.md](docs/threaded_conversations.md).
 
+## Logging
+
+Raman writes structured JSON logs to stdout. The app does not create a local log
+file or ship logs to an external backend.
+
+- Direct `uv run raman-api`: logs are in the terminal running the API.
+- Local Compose: `docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local logs -f raman`.
+- Production Compose: logs are Docker container stdout on the Droplet and can be
+  inspected with `docker compose ... logs raman` over SSH.
+
+Set `RAMAN_LOG_LEVEL=DEBUG` to include debug-level events. The structured logs
+hash chat/thread IDs and avoid raw prompt text, replies, tokens, and webhook
+secrets.
+
 ## Telegram
 
 Telegram is wired as another interface through the FastAPI app:
@@ -153,6 +167,41 @@ unknown chats are rejected. V1 accepts text only and supports `/start`, `/help`,
 Telegram MarkdownV2 via `telegramify-markdown` so bold, code, and bullets
 render natively. See `docs/telegram_live_testing.md` for the full local
 live-testing and webhook troubleshooting runbook.
+
+### Local Production-Model Telegram Debugging
+
+Use this when you want the local Raman process to call the same DigitalOcean
+serverless inference endpoint as production, while Telegram sends webhooks to
+your Mac through ngrok.
+
+From the platform repo root, start Raman locally with the production model
+provider:
+
+```bash
+./apps/raman/scripts/run-local-prod-debug.sh
+```
+
+The script reads root `.env.local` by default, requires `DO_INFERENCE_API_KEY`,
+forces `RAMAN_MODEL_PROVIDER=digitalocean`, defaults
+`RAMAN_DEV_MODEL=gemma-4-31B-it`, sets `RAMAN_LOG_LEVEL=DEBUG`, and stores local
+debug state under `apps/raman/.raman/prod-debug/`.
+
+In another terminal:
+
+```bash
+ngrok http 8000
+```
+
+Then point Telegram at the ngrok HTTPS URL:
+
+```bash
+./apps/raman/scripts/set-local-telegram-webhook.sh https://<ngrok-host>
+```
+
+The webhook script validates the URL, checks `<ngrok-url>/healthz`, and calls
+Telegram `setWebhook` using `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_WEBHOOK_SECRET` from `.env.local`. Override the model with
+`RAMAN_LOCAL_DEBUG_MODEL=<model-id>` before running the debug script.
 
 ## Defining Agents
 
@@ -220,6 +269,7 @@ Environment variables (see `.env.example`):
 | `OLLAMA_BASE_URL`             | `http://localhost:11434/v1`            | Ollama server URL                                                          |
 | `RAMAN_AGENT`                 | `raman`                                | Default agent spec to load                                                 |
 | `RAMAN_SPEC_ROOT`             | `<repo>/spec`                          | Spec folder location                                                       |
+| `RAMAN_LOG_LEVEL`             | `INFO`                                 | Structured JSON log level for API, Telegram, DBOS, and agent handoffs      |
 | `RAMAN_DB_PATH`               | `<repo>/.raman/raman.sqlite3`          | SQLite path for the threaded conversation store                            |
 | `DBOS_SYSTEM_DATABASE_URL`    | `sqlite:///<repo>/.raman/dbos.sqlite3` | DBOS workflow state DB. Override to use Postgres                           |
 | `RAMAN_PUBLIC_BASE_URL`       | —                                      | HTTPS base URL used when registering the Telegram webhook                  |

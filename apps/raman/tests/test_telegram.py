@@ -1,4 +1,5 @@
 import pytest
+from structlog.testing import capture_logs
 
 from raman.gateway import EnqueuedEvent, ThreadStore
 from raman.settings import RamanSettings
@@ -75,6 +76,28 @@ async def test_telegram_enqueues_allowed_text_message(tmp_path):
     assert enqueued[0].external_thread_id == "123"
     assert enqueued[0].prompt == "hello"
     assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_telegram_logs_update_lifecycle_without_message_text(tmp_path):
+    async def enqueue(message):
+        return EnqueuedEvent(workflow_id="wf-1", status="queued")
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=enqueue,
+        send_text=None,
+    )
+
+    with capture_logs() as logs:
+        result = await adapter.handle_update(text_update("do not log this text"))
+
+    assert result.status == "queued"
+    events = {entry["event"] for entry in logs}
+    assert "telegram_update_received" in events
+    assert "telegram_message_enqueued" in events
+    assert "do not log this text" not in repr(logs)
 
 
 @pytest.mark.asyncio

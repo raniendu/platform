@@ -49,7 +49,7 @@ Optional:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `PARALLEL_API_KEY` | unset | Required only when the active spec enables `web_search`. |
+| `PARALLEL_API_KEY` | unset | Required by the current `spec/raman` because it enables `web_search`. |
 | `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Used only with the Ollama provider. |
 | `DO_INFERENCE_BASE_URL` | `https://inference.do-ai.run/v1` | Override only if DigitalOcean changes its endpoint. |
 | `RAMAN_DB_PATH` | `/app/.raman/raman.sqlite3` in the image | Volume-mount the parent directory. |

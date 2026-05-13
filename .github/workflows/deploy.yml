@@ -551,6 +551,10 @@ jobs:
             test -n "$TELEGRAM_BOT_TOKEN"
             test -n "$TELEGRAM_WEBHOOK_SECRET"
             test -n "$TELEGRAM_ALLOWED_CHAT_IDS"
+            if [ -z "$PARALLEL_API_KEY" ]; then
+              echo "::error::PARALLEL_API_KEY is required because spec/raman enables web_search"
+              exit 1
+            fi
           fi
           if [ "$DEPLOY_HOMI" = true ]; then
             test -n "$HOMI_MODEL_ID"

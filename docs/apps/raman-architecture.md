@@ -26,12 +26,22 @@ The container listens on plain HTTP port `8000`. Production exposes only Caddy
 on ports `80` and `443`; Caddy forwards `https://raman.raniendu.dev` to
 `raman:8000`.
 
+Raman supports multiple Telegram bots inside one process. Bot bindings live in
+`apps/raman/spec/telegram.toml`; each bot names a default agent spec and env
+vars for its BotFather token, webhook secret, and allowed chat IDs. The named
+webhook path is `/telegram/{bot_name}/webhook`; `/telegram/webhook` remains a
+default-bot alias.
+
 ## State
 
 Raman stores SQLite thread history and DBOS workflow state under `/app/.raman`.
 Both local and production Compose mount that path from the `raman-state` named
 volume. Losing the volume loses conversation history and in-flight DBOS state,
 but does not affect the built image.
+
+Telegram thread rows are scoped by bot, so the same Telegram chat ID can talk to
+two Raman bots without sharing history. The `/agent <name>` command can still
+switch to any valid `spec/<name>/agent.toml` within that bot-scoped chat.
 
 ## Configuration
 
@@ -40,9 +50,12 @@ Production uses `RAMAN_MODEL_PROVIDER=digitalocean` and
 setting for the provider-specific model identifier, so in production it names a
 DigitalOcean serverless inference model rather than a local development model.
 The deploy workflow appends those production constants to the host env file and
-validates the DigitalOcean inference key and Telegram secrets from the GitHub
-`production` environment when `DEPLOY_RAMAN=true`. `PARALLEL_API_KEY` is
-optional unless the active Raman agent spec enables `web_search`.
+validates the DigitalOcean inference key from the GitHub `production`
+environment when `DEPLOY_RAMAN=true`. Raman Telegram secrets are supplied by
+the env names referenced in `spec/telegram.toml`; production deploy writes those
+values to `/opt/platform/.env.raman` so only Raman receives them.
+`PARALLEL_API_KEY` is optional unless the active Raman agent spec enables
+`web_search`.
 
 Local Compose builds `apps/raman` and defaults to `RAMAN_MODEL_PROVIDER=ollama`
 and `RAMAN_DEV_MODEL=gemma4:26b`, with

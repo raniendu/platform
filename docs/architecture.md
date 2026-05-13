@@ -21,6 +21,11 @@ The platform can run seven application services behind Caddy:
 
 Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. The current production setting enables DotDev, Prefect, and Raman, and keeps Flow/Airflow, Paperclip, Homi, and Vikram disabled without deleting their code, configuration, databases, or Docker volumes.
 
+Read this file for shared hosting and routing decisions. For app internals, use
+the app architecture docs below. For command-oriented procedures, use
+[local development](local-development.md), [deployment](deployment.md), or
+[operations](operations.md).
+
 App-level architecture docs:
 
 - [DotDev](apps/dotdev-architecture.md)
@@ -56,6 +61,10 @@ Local Compose starts:
 - `airflow-scheduler`
 
 Production Compose adds durable Caddy certificate volumes and uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. Raman, Homi, and Vikram keep agent state in separate Docker volumes. Optional production app services are behind Docker Compose profiles so disabled apps are not started by routine deploys. This lower-memory shape is what allows the smaller `s-1vcpu-2gb` Droplet migration.
+
+The production profile list is derived from `deploy/apps.prod.env`; do not edit
+`COMPOSE_PROFILES` manually on the host for routine changes. Change the tracked
+flag file in a PR and let the deploy workflow render the profile list.
 
 ## Networking
 

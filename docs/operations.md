@@ -1,5 +1,19 @@
 # Operations
 
+Use this runbook after a deploy, during incident response, or before production
+maintenance. Use [deployment](deployment.md) for the release workflow and
+[rollback](rollback.md) when the answer is to move back to a known-good commit
+or backup.
+
+## Triage Order
+
+1. Check GitHub Actions for the latest CI/deploy result.
+2. Check public health endpoints to identify the affected route.
+3. Check Caddy logs if multiple hostnames fail or TLS/routing looks wrong.
+4. Check the app container logs if only one service fails.
+5. Check Docker container health and restart counts before restarting anything.
+6. Preserve logs and state before deleting volumes or containers.
+
 ## Logs
 
 Local:
@@ -115,6 +129,11 @@ docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.product
 ```
 
 Homi and Vikram public checks are only expected after their DNS records exist and `DEPLOY_HOMI=true` or `DEPLOY_VIKRAM=true`.
+
+Expected disabled-app responses are part of the signal: Paperclip and Flow
+return `404` while their production flags are false. A `404` for Raman, DotDev,
+Prefect, or Jaeger while their flags are true usually means Caddy rendering,
+profiles, or DNS should be checked before app internals.
 
 Prefect API health:
 

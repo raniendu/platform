@@ -125,6 +125,17 @@ Before merging changes that will trigger `Deploy`, or before running it manually
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
+Match verification to the files changed in the PR:
+
+| Changed area | Minimum verification |
+| --- | --- |
+| App code or app dependencies | Targeted app tests and CI sync for that app |
+| Compose env, profiles, or service wiring | `docker compose ... config` for local and/or production |
+| Caddy routes or app flags | `deploy/scripts/render-prod-caddy.sh` and `deploy/scripts/prod-app-flags.sh validate` |
+| Terraform | `terraform plan`; do not run local production applies |
+| Secrets or runtime env docs | `docs/secrets.md` and the relevant `.env.example` files updated |
+| Operations behavior | `docs/operations.md` updated with the new runbook or smoke expectation |
+
 If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks. App subdomains such as `paperclip`, `raman`, `homi`, and `vikram` require `A` records pointing at the Droplet IP before their public smoke checks can pass.
 
 ## Smaller Droplet Migration

@@ -18,6 +18,15 @@ Keep `.env.local` untracked. Empty API keys are acceptable for local container s
 
 The example file includes local Paperclip Caddy credentials with user `admin` and password `paperclip_local`. Change them in `.env.local` if needed.
 
+Use one environment file per execution mode:
+
+| Mode | Env file | Use for |
+| --- | --- | --- |
+| Platform Compose | root `.env.local` | Running the shared local stack and Caddy routes |
+| Raman direct run | `apps/raman/.env` | Iterating on Raman without Compose |
+| Homi direct run | `apps/homi/.env` | Iterating on Homi without Compose |
+| Vikram direct run | `apps/vikram/.env` | Iterating on Vikram without Compose |
+
 Raman, Homi, and Vikram have separate app-level env files for direct `uv` runs:
 
 ```bash
@@ -129,6 +138,18 @@ docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local 
 
 Use `down -v` only when you intentionally want to delete local database volumes.
 
+## Choosing A Local Path
+
+- Use full Compose when changing routing, Compose env, Caddy, Paperclip,
+  Prefect, Airflow, or cross-app behavior.
+- Use direct app runs when changing Raman, Homi, or Vikram Python code and you
+  only need one FastAPI process.
+- Use app-specific tests before full local Compose when the change is isolated
+  to one app.
+- Use `docker compose ... config` before changing Compose, Caddy, or env-file
+  behavior; it catches interpolation and profile mistakes without starting
+  containers.
+
 ## Raman Direct Run
 
 Use direct mode when you are changing Raman code and do not need Caddy or the
@@ -198,6 +219,10 @@ curl -I http://localhost:8080/
 ```
 
 Paperclip should return `401` through `http://paperclip.localhost/` until Caddy basic auth credentials are supplied, and `http://localhost:3100/api/health` should reach the direct container health endpoint. Airflow may return a redirect or login response depending on auth state; the webserver should be reachable and the scheduler container should be running.
+
+When you intentionally start only a subset of local services, skip smoke checks
+for services you did not start. For production profile behavior and disabled-app
+`404` expectations, use [operations](operations.md).
 
 After Paperclip is running, generate the first local admin invite inside the container:
 

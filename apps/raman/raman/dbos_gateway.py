@@ -18,6 +18,7 @@ from raman.gateway import (
 from raman.logging import get_logger, safe_database_url, safe_metadata, thread_hash
 from raman.settings import RamanSettings
 from raman.telegram import TelegramAdapter
+from raman.telegram_config import load_telegram_config
 
 INBOUND_QUEUE = Queue("raman-inbound", concurrency=1, polling_interval_sec=0.1)
 OUTBOUND_QUEUE = Queue("raman-outbound", concurrency=1, polling_interval_sec=0.1)
@@ -158,7 +159,8 @@ async def deliver_reply_event(event_dict: dict[str, Any]) -> dict[str, Any]:
     data = event.get_data()
     if not isinstance(data, dict):
         raise ValueError("Reply event data must be an object")
-    if data["interface"] != "telegram":
+    bot_name = _telegram_bot_name(data)
+    if bot_name is None:
         logger.info(
             "dbos_reply_delivery_skipped",
             interface=data.get("interface"),
@@ -175,7 +177,11 @@ async def deliver_reply_event(event_dict: dict[str, Any]) -> dict[str, Any]:
         output_length=len(str(data["output"])),
         **safe_metadata(data.get("metadata")),
     )
-    await send_telegram_reply(int(data["external_thread_id"]), str(data["output"]))
+    await send_telegram_reply(
+        bot_name,
+        int(data["external_thread_id"]),
+        str(data["output"]),
+    )
     logger.info(
         "dbos_reply_delivery_succeeded",
         interface=data["interface"],
@@ -188,10 +194,15 @@ async def deliver_reply_event(event_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 @DBOS.step(name="raman_send_telegram_reply", retries_allowed=True, max_attempts=3)
-async def send_telegram_reply(chat_id: int, text: str) -> None:
+async def send_telegram_reply(bot_name: str, chat_id: int, text: str) -> None:
     settings = RamanSettings()
+    config = load_telegram_config(
+        settings.spec_root,
+        default_agent=settings.default_agent,
+    )
     adapter = TelegramAdapter(
         settings=settings,
+        bot=config.get_bot(bot_name),
         store=ThreadStore(settings.raman_db_path),
         enqueue_message=None,
     )
@@ -199,7 +210,10 @@ async def send_telegram_reply(chat_id: int, text: str) -> None:
 
 
 async def _send_processing_failure_reply(message: InboundMessage) -> bool:
-    if message.interface != "telegram":
+    bot_name = _telegram_bot_name(
+        {"interface": message.interface, "metadata": message.metadata}
+    )
+    if bot_name is None:
         return False
     log = logger.bind(
         interface=message.interface,
@@ -208,13 +222,34 @@ async def _send_processing_failure_reply(message: InboundMessage) -> bool:
     )
     try:
         await send_telegram_reply(
-            int(message.external_thread_id), TELEGRAM_FAILURE_REPLY
+            bot_name,
+            int(message.external_thread_id),
+            TELEGRAM_FAILURE_REPLY,
         )
     except Exception:
         log.exception("dbos_processing_failure_reply_failed")
         return False
     log.info("dbos_processing_failure_reply_delivered")
     return True
+
+
+def _telegram_bot_name(data: dict[str, Any]) -> str | None:
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        bot_name = metadata.get("telegram_bot")
+        if isinstance(bot_name, str) and bot_name:
+            return bot_name
+    interface = str(data.get("interface", ""))
+    if interface == "telegram":
+        settings = RamanSettings()
+        config = load_telegram_config(
+            settings.spec_root,
+            default_agent=settings.default_agent,
+        )
+        return config.default_bot_name
+    if interface.startswith("telegram:"):
+        return interface.split(":", 1)[1]
+    return None
 
 
 def _ensure_sqlite_parent(database_url: str) -> None:

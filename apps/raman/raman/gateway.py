@@ -34,6 +34,7 @@ class InboundMessage:
     external_thread_id: str
     prompt: str
     agent_name: str | None
+    default_agent: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -91,10 +92,38 @@ class ThreadStore:
                 """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS telegram_updates (
-                    update_id INTEGER PRIMARY KEY,
-                    created_at TEXT NOT NULL
+                    bot_name TEXT NOT NULL,
+                    update_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (bot_name, update_id)
                 )
                 """)
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(telegram_updates)")
+            }
+            if columns == {"update_id", "created_at"}:
+                conn.execute(
+                    "ALTER TABLE telegram_updates RENAME TO telegram_updates_legacy"
+                )
+                conn.execute("""
+                    CREATE TABLE telegram_updates (
+                        bot_name TEXT NOT NULL,
+                        update_id INTEGER NOT NULL,
+                        created_at TEXT NOT NULL,
+                        PRIMARY KEY (bot_name, update_id)
+                    )
+                    """)
+                conn.execute("""
+                    INSERT OR IGNORE INTO telegram_updates (
+                        bot_name,
+                        update_id,
+                        created_at
+                    )
+                    SELECT 'telegram', update_id, created_at
+                    FROM telegram_updates_legacy
+                    """)
+                conn.execute("DROP TABLE telegram_updates_legacy")
 
     def get_thread(
         self,
@@ -202,14 +231,23 @@ class ThreadStore:
                 (_utc_now(), interface, external_thread_id),
             )
 
-    def claim_telegram_update(self, update_id: int) -> bool:
+    def claim_telegram_update(
+        self, bot_name: str | int, update_id: int | None = None
+    ) -> bool:
+        if update_id is None:
+            update_id = int(bot_name)
+            bot_name = "telegram"
         with self._connect() as conn:
             cursor = conn.execute(
                 """
-                INSERT OR IGNORE INTO telegram_updates (update_id, created_at)
-                VALUES (?, ?)
+                INSERT OR IGNORE INTO telegram_updates (
+                    bot_name,
+                    update_id,
+                    created_at
+                )
+                VALUES (?, ?, ?)
                 """,
-                (update_id, _utc_now()),
+                (str(bot_name), update_id, _utc_now()),
             )
         return cursor.rowcount == 1
 
@@ -231,7 +269,7 @@ class ConversationService:
         thread = self.store.get_thread(
             message.interface,
             message.external_thread_id,
-            default_agent=self.settings.default_agent,
+            default_agent=message.default_agent or self.settings.default_agent,
         )
         agent_name = message.agent_name or thread.agent_name
         history = _load_history(thread.message_history_json)
@@ -300,6 +338,7 @@ def make_message_received_event(message: InboundMessage) -> CloudEvent:
             "external_thread_id": message.external_thread_id,
             "prompt": message.prompt,
             "agent_name": message.agent_name,
+            "default_agent": message.default_agent,
             "metadata": message.metadata,
         },
     )
@@ -345,6 +384,7 @@ def inbound_message_from_event(event: CloudEvent) -> InboundMessage:
         external_thread_id=str(data["external_thread_id"]),
         prompt=str(data["prompt"]),
         agent_name=data.get("agent_name"),
+        default_agent=data.get("default_agent"),
         metadata=dict(data.get("metadata") or {}),
     )
 

@@ -294,11 +294,13 @@ upload_production_env() {
     printf 'RAMAN_AGENT=%s\n' "$RAMAN_AGENT"
     printf 'RAMAN_PUBLIC_BASE_URL=%s\n' "$RAMAN_PUBLIC_BASE_URL"
     printf 'DO_INFERENCE_API_KEY=%s\n' "$DO_INFERENCE_API_KEY"
+    printf 'PARALLEL_API_KEY=%s\n' "${PARALLEL_API_KEY:-}"
+  } | ssh_host "$host" "cat > /opt/platform/${ENV_FILE} && chmod 600 /opt/platform/${ENV_FILE}"
+  {
     printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
     printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
     printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
-    printf 'PARALLEL_API_KEY=%s\n' "${PARALLEL_API_KEY:-}"
-  } | ssh_host "$host" "cat > /opt/platform/${ENV_FILE} && chmod 600 /opt/platform/${ENV_FILE}"
+  } | ssh_host "$host" "cat > /opt/platform/.env.raman && chmod 600 /opt/platform/.env.raman"
 }
 
 upload_ghcr_credentials() {

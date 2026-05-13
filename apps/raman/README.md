@@ -176,19 +176,21 @@ Telegram is wired as another interface through the FastAPI app:
 
 ```bash
 uv run raman-api
-curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-  --json '{"url":"'"$RAMAN_PUBLIC_BASE_URL"'/telegram/webhook","secret_token":"'"$TELEGRAM_WEBHOOK_SECRET"'"}'
+uv run python -m raman.local_webhook "$RAMAN_PUBLIC_BASE_URL" --bot raman
 ```
 
-Configure `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and
-`TELEGRAM_ALLOWED_CHAT_IDS` in `.env`. Private and group chat IDs are supported;
-unknown chats are rejected. V1 accepts text only and supports `/start`, `/help`,
-`/reset`, and `/agent <name>`. Replies are converted from markdown to
-Telegram MarkdownV2 via `telegramify-markdown` so bold, code, and bullets
-render natively. If the asynchronous DBOS workflow fails after Telegram has
-already received the webhook ACK, Raman sends a generic failure reply and keeps
-the stack trace in structured logs. See `docs/telegram_live_testing.md` for the
-full local live-testing and webhook troubleshooting runbook.
+Telegram bots are configured in `spec/telegram.toml`. Each `[[bots]]` entry
+binds a bot name to a default agent spec and names the env vars that hold its
+BotFather token, webhook secret, and allowed chat IDs. Private and group chat
+IDs are supported; unknown chats are rejected. V1 accepts text only and supports
+`/start`, `/help`, `/reset`, and `/agent <name>`. The `/agent` command can
+switch to any valid `spec/<name>/agent.toml` within that bot chat, while each
+bot keeps separate thread history. Replies are converted from markdown to
+Telegram MarkdownV2 via `telegramify-markdown` so bold, code, and bullets render
+natively. If the asynchronous DBOS workflow fails after Telegram has already
+received the webhook ACK, Raman sends a generic failure reply and keeps the
+stack trace in structured logs. See `docs/telegram_live_testing.md` for the full
+local live-testing and webhook troubleshooting runbook.
 
 ### Local Production-Model Telegram Debugging
 
@@ -221,8 +223,9 @@ Then point Telegram at the ngrok HTTPS URL:
 ```
 
 The webhook script validates the URL, checks `<ngrok-url>/healthz`, and calls
-Telegram `setWebhook` using `TELEGRAM_BOT_TOKEN` and
-`TELEGRAM_WEBHOOK_SECRET` from `.env.local`. Override the model with
+Telegram `setWebhook` using the selected bot config from `spec/telegram.toml`
+and the referenced env vars from `.env.local`. Use `--bot <name>` for one bot
+or `--all` for every configured bot. Override the model with
 `RAMAN_LOCAL_DEBUG_MODEL=<model-id>` before running the debug script.
 
 ## Defining Agents
@@ -300,10 +303,10 @@ Environment variables (see `.env.example`):
 | `DBOS_SYSTEM_DATABASE_URL`    | `sqlite:///<repo>/.raman/dbos.sqlite3` | DBOS workflow state DB. Override to use Postgres                           |
 | `RAMAN_PUBLIC_BASE_URL`       | —                                      | HTTPS base URL used when registering the Telegram webhook                  |
 | `PARALLEL_API_KEY`            | —                                      | Required if any agent spec lists `web_search` in `tools`                   |
-| `TELEGRAM_BOT_TOKEN`          | —                                      | BotFather token; required to enable the Telegram interface                 |
-| `TELEGRAM_WEBHOOK_SECRET`     | —                                      | Shared secret Telegram echoes in `X-Telegram-Bot-Api-Secret-Token`         |
-| `TELEGRAM_ALLOWED_CHAT_IDS`   | empty                                  | Comma-separated chat IDs allowed to talk to the bot. Unknown chats rejected |
-| `TELEGRAM_API_BASE_URL`       | `https://api.telegram.org`             | Telegram API host. Override for proxies or test doubles                    |
+| `TELEGRAM_BOT_TOKEN`          | —                                      | BotFather token for the default `spec/telegram.toml` bot                   |
+| `TELEGRAM_WEBHOOK_SECRET`     | —                                      | Secret for the default Telegram bot webhook header                         |
+| `TELEGRAM_ALLOWED_CHAT_IDS`   | empty                                  | Chat IDs for the default Telegram bot                                      |
+| `TELEGRAM_API_BASE_URL`       | `https://api.telegram.org`             | Telegram API host for the default bot                                      |
 | `RAMAN_RUN_EVALS`             | unset                                  | Set to `1` to enable live LLM-judge evals in `pytest`                      |
 
 ## Adding Tools

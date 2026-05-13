@@ -15,6 +15,7 @@ from raman.observability import init_observability
 from raman.settings import RamanSettings
 from raman.spec import load_spec
 from raman.telegram import TelegramAdapter
+from raman.telegram_config import TelegramConfig, load_telegram_config
 
 logger = get_logger(__name__)
 
@@ -44,7 +45,8 @@ _settings: RamanSettings | None = None
 _agents: dict[str, Agent[None, str]] = {}
 _store: ThreadStore | None = None
 _dispatcher: EventDispatcher | None = None
-_telegram_adapter: TelegramAdapter | None = None
+_telegram_config: TelegramConfig | None = None
+_telegram_adapters: dict[str, TelegramAdapter] = {}
 
 
 def _get_settings() -> RamanSettings:
@@ -76,15 +78,26 @@ def _get_dispatcher() -> EventDispatcher:
     return _dispatcher
 
 
-def _get_telegram_adapter() -> TelegramAdapter:
-    global _telegram_adapter
-    if _telegram_adapter is None:
-        _telegram_adapter = TelegramAdapter(
+def _get_telegram_config() -> TelegramConfig:
+    global _telegram_config
+    if _telegram_config is None:
+        settings = _get_settings()
+        _telegram_config = load_telegram_config(
+            settings.spec_root,
+            default_agent=settings.default_agent,
+        )
+    return _telegram_config
+
+
+def _get_telegram_adapter(bot_name: str) -> TelegramAdapter:
+    if bot_name not in _telegram_adapters:
+        _telegram_adapters[bot_name] = TelegramAdapter(
             settings=_get_settings(),
+            bot=_get_telegram_config().get_bot(bot_name),
             store=_get_store(),
             enqueue_message=_get_dispatcher().enqueue_message,
         )
-    return _telegram_adapter
+    return _telegram_adapters[bot_name]
 
 
 @asynccontextmanager
@@ -106,10 +119,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         logger.info("api_stopping")
         _agents.clear()
-        global _store, _dispatcher, _telegram_adapter
+        global _store, _dispatcher, _telegram_config
         _store = None
         _dispatcher = None
-        _telegram_adapter = None
+        _telegram_config = None
+        _telegram_adapters.clear()
         shutdown_dbos()
 
 
@@ -155,6 +169,7 @@ async def thread_message(
             external_thread_id=external_thread_id,
             prompt=req.prompt,
             agent_name=req.agent,
+            default_agent=None,
             metadata={},
         )
     )
@@ -182,20 +197,51 @@ async def telegram_webhook(
     request: Request,
     x_telegram_bot_api_secret_token: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    settings = _get_settings()
-    if not settings.telegram_webhook_secret:
+    return await _handle_telegram_webhook(
+        _get_telegram_config().default_bot_name,
+        request,
+        x_telegram_bot_api_secret_token,
+    )
+
+
+@app.post("/telegram/{bot_name}/webhook")
+async def named_telegram_webhook(
+    bot_name: str,
+    request: Request,
+    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    return await _handle_telegram_webhook(
+        bot_name,
+        request,
+        x_telegram_bot_api_secret_token,
+    )
+
+
+async def _handle_telegram_webhook(
+    bot_name: str,
+    request: Request,
+    secret_token: str | None,
+) -> dict[str, Any]:
+    try:
+        bot = _get_telegram_config().get_bot(bot_name)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Unknown Telegram bot: {bot_name}"
+        ) from exc
+    if not bot.webhook_secret:
         logger.warning("telegram_webhook_unconfigured")
         raise HTTPException(
             status_code=503,
-            detail="TELEGRAM_WEBHOOK_SECRET is not configured",
+            detail=f"Telegram webhook secret is not configured for {bot_name}",
         )
-    if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
-        logger.warning("telegram_webhook_secret_rejected")
+    if secret_token != bot.webhook_secret:
+        logger.warning("telegram_webhook_secret_rejected", telegram_bot=bot_name)
         raise HTTPException(status_code=403, detail="Invalid Telegram webhook secret")
     update = await request.json()
-    result = await _get_telegram_adapter().handle_update(update)
+    result = await _get_telegram_adapter(bot_name).handle_update(update)
     logger.info(
         "telegram_webhook_processed",
+        telegram_bot=bot_name,
         update_id=update.get("update_id"),
         status=result.status,
         workflow_id=result.workflow_id,

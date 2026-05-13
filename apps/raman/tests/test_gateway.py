@@ -37,8 +37,9 @@ def test_thread_store_persists_thread_agent_and_history(tmp_path):
 def test_thread_store_claims_telegram_updates_once(tmp_path):
     store = ThreadStore(tmp_path / "raman.sqlite3")
 
-    assert store.claim_telegram_update(42) is True
-    assert store.claim_telegram_update(42) is False
+    assert store.claim_telegram_update("bot-a", 42) is True
+    assert store.claim_telegram_update("bot-a", 42) is False
+    assert store.claim_telegram_update("bot-b", 42) is True
 
 
 def test_message_received_event_uses_cloudevent_metadata():
@@ -48,6 +49,7 @@ def test_message_received_event_uses_cloudevent_metadata():
             external_thread_id="123",
             prompt="hello",
             agent_name="raman",
+            default_agent="raman",
             metadata={"chat_type": "private"},
         )
     )
@@ -56,6 +58,7 @@ def test_message_received_event_uses_cloudevent_metadata():
     assert event["source"] == "/interfaces/telegram/threads/123"
     assert event.get_data()["prompt"] == "hello"
     assert event.get_data()["agent_name"] == "raman"
+    assert event.get_data()["default_agent"] == "raman"
 
 
 @pytest.mark.asyncio
@@ -86,15 +89,16 @@ async def test_conversation_service_runs_agent_with_persisted_history(tmp_path):
             external_thread_id="123",
             prompt="hello",
             agent_name=None,
+            default_agent="other",
             metadata={},
         )
     )
 
     assert reply.output == "reply"
-    assert reply.agent_name == "raman"
+    assert reply.agent_name == "other"
     assert calls == [("hello", [], "telegram:123")]
     assert (
-        store.get_thread("telegram", "123", default_agent="raman").message_history_json
+        store.get_thread("telegram", "123", default_agent="other").message_history_json
         == b"[]"
     )
 

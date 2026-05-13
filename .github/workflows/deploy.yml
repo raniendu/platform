@@ -538,6 +538,73 @@ jobs:
           require_env_key PREFECT_POSTGRES_PASSWORD
           require_env_key AIRFLOW_POSTGRES_PASSWORD
           require_env_key PAPERCLIP_POSTGRES_PASSWORD
+          build_raman_telegram_env_file() {
+            python - <<'PY'
+          import os
+          import re
+          import sys
+          import tomllib
+
+          env_file = os.environ.get("PLATFORM_ENV_FILE", "")
+          env_values = {}
+          for raw_line in env_file.splitlines():
+              line = raw_line.strip()
+              if not line or line.startswith("#") or "=" not in raw_line:
+                  continue
+              key, value = raw_line.split("=", 1)
+              env_values[key.strip()] = value
+
+          with open("apps/raman/spec/telegram.toml", "rb") as handle:
+              config = tomllib.load(handle)
+
+          env_name_re = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+          requested = []
+          for bot in config.get("bots", []):
+              for field in (
+                  "token_env",
+                  "webhook_secret_env",
+                  "allowed_chat_ids_env",
+              ):
+                  env_name = str(bot.get(field, "")).strip()
+                  if not env_name_re.fullmatch(env_name):
+                      print(
+                          f"::error::Invalid Raman Telegram env name in {field}: {env_name!r}",
+                          file=sys.stderr,
+                      )
+                      sys.exit(1)
+                  requested.append((env_name, True))
+              api_base_url_env = str(bot.get("api_base_url_env", "")).strip()
+              if api_base_url_env:
+                  if not env_name_re.fullmatch(api_base_url_env):
+                      print(
+                          f"::error::Invalid Raman Telegram env name in api_base_url_env: {api_base_url_env!r}",
+                          file=sys.stderr,
+                      )
+                      sys.exit(1)
+                  requested.append((api_base_url_env, False))
+
+          missing = []
+          resolved = {}
+          for env_name, required in requested:
+              value = env_values.get(env_name, os.environ.get(env_name, ""))
+              if required and not value:
+                  missing.append(env_name)
+              if value:
+                  resolved[env_name] = value
+
+          if missing:
+              print(
+                  "::error::PLATFORM_ENV_FILE must include Raman Telegram env keys: "
+                  + ", ".join(sorted(set(missing))),
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          for env_name in sorted(resolved):
+              print(f"{env_name}={resolved[env_name]}")
+          PY
+          }
+          raman_env_content=
           if [ "$DEPLOY_PREFECT" = true ] || [ "$DEPLOY_OBSERVABILITY" = true ]; then
             require_env_key PREFECT_BASIC_AUTH_USER
             require_env_key PREFECT_BASIC_AUTH_HASH
@@ -566,9 +633,7 @@ jobs:
             test -n "$RAMAN_OBSERVABILITY_DISABLE_METRICS"
             test -n "$RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS"
             test -n "$DO_INFERENCE_API_KEY"
-            test -n "$TELEGRAM_BOT_TOKEN"
-            test -n "$TELEGRAM_WEBHOOK_SECRET"
-            test -n "$TELEGRAM_ALLOWED_CHAT_IDS"
+            raman_env_content="$(build_raman_telegram_env_file)"
             if [ -z "$PARALLEL_API_KEY" ]; then
               echo "::error::PARALLEL_API_KEY is required because spec/raman enables web_search"
               exit 1
@@ -627,9 +692,6 @@ jobs:
               printf 'RAMAN_OBSERVABILITY_DISABLE_METRICS=%s\n' "$RAMAN_OBSERVABILITY_DISABLE_METRICS"
               printf 'RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS=%s\n' "$RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS"
               printf 'DO_INFERENCE_API_KEY=%s\n' "$DO_INFERENCE_API_KEY"
-              printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
-              printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
-              printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
               printf 'PARALLEL_API_KEY=%s\n' "$PARALLEL_API_KEY"
             fi
             if [ "$DEPLOY_HOMI" = true ]; then
@@ -659,6 +721,11 @@ jobs:
           } | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
             "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cat > /opt/platform/.env.production && chmod 600 /opt/platform/.env.production"
+          if [ "$DEPLOY_RAMAN" = true ]; then
+            printf '%s\n' "$raman_env_content" | ssh -i ~/.ssh/platform_key -p "${ssh_port}" \
+              "${ssh_user}@${PLATFORM_SSH_HOST}" \
+              "cat > /opt/platform/.env.raman && chmod 600 /opt/platform/.env.raman"
+          fi
 
       - name: Upload GHCR credentials
         env:

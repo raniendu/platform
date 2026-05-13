@@ -1,6 +1,6 @@
 # Deployment
 
-Production deploys are manual GitHub Actions runs that apply the shared DigitalOcean infrastructure and then update the Droplet at `/opt/platform`.
+Production deploys run through GitHub Actions after pushes to `main`, and can also be started manually with `workflow_dispatch`. The workflow applies the shared DigitalOcean infrastructure and then updates the Droplet at `/opt/platform`.
 
 Current production host:
 
@@ -21,7 +21,7 @@ Current production routes:
 - `https://paperclip.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 - `https://flow.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 
-Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags and rerun `Deploy` to start or stop a production app:
+Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags in a PR and merge to `main` to start or stop a production app:
 
 ```env
 DEPLOY_DOTDEV=true
@@ -58,7 +58,7 @@ After approval, create the GitHub repo manually or with `gh`, then add the remot
 CI/deploy workflows are under `.github/workflows/`.
 
 - `ci.yml`: runs per-app `uv sync`, targeted tests, Airflow DAG validation, and Compose config validation.
-- `deploy.yml`: manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
+- `deploy.yml`: runs on pushes to `main` and also supports manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
 - `migrate-smaller-droplet.yml`: manual, typed-confirmation migration workflow used for the completed May 2026 move from the old 80 GiB `s-2vcpu-4gb` Droplet to the current 50 GiB `s-1vcpu-2gb` Droplet. Keep it as a migration/recovery runbook, not as the routine deploy path.
 
 Expected deploy workflow:
@@ -78,7 +78,7 @@ Expected deploy workflow:
 13. Smoke test the public endpoints, including agent `/healthz` routes when enabled, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
 14. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
 
-GitHub secrets are listed in `docs/secrets.md`. Do not run `Deploy` until production secrets are configured.
+GitHub secrets are listed in `docs/secrets.md`. Do not merge production deploy changes until production secrets are configured.
 
 ## Gate 4: Terraform Apply
 
@@ -104,9 +104,9 @@ COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-co
 
 Public verification waits until Squarespace DNS cutover is complete.
 
-## Manual Deploy Preconditions
+## Deploy Preconditions
 
-Before running the `Deploy` workflow:
+Before merging changes that will trigger `Deploy`, or before running it manually:
 
 - GitHub environment `production` exists and requires approval.
 - `DIGITALOCEAN_ACCESS_TOKEN` is set in the GitHub environment so the workflow can add and remove its temporary SSH firewall rule.
@@ -148,7 +148,7 @@ If a failed stage created `platform-shared-small` before Postgres consolidation 
 
 ## Manual Redeploy
 
-From this repository:
+Deploy starts automatically after a push to `main`. To redeploy the current `main` manually:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main

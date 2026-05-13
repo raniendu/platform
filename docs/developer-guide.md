@@ -23,7 +23,7 @@ Do not commit `.env.local`, `.env.production.generated`, `.env.production.creden
 - `apps/flow/`: Airflow DAGs, image, and DAG validation script, Python 3.10+.
 - `deploy/compose/`: local and production Compose files.
 - `deploy/caddy/`: local and production routing.
-- `.github/workflows/`: CI and manual deploy workflows.
+- `.github/workflows/`: CI and production deploy workflows.
 - `infra/terraform/`: DigitalOcean Droplet and firewall.
 - `docs/`: runbooks and architecture notes.
 
@@ -190,7 +190,7 @@ RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:ci HOMI_IMAGE=ghcr.io/raniendu/platf
 
 ## Production Deploys
 
-Production deploys are manual GitHub Actions runs. The workflow applies Terraform first, then deploys the app stack:
+Production deploys start automatically after pushes to `main`. The workflow applies Terraform first, then deploys the app stack after the GitHub `production` environment approval. Manual redeploy remains available:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main

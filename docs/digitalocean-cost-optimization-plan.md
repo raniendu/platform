@@ -11,7 +11,7 @@ GitHub:
 - Repository: `raniendu/platform`
 - Default branch: `main`
 - Deploy path: `.github/workflows/deploy.yml`
-- Deploy mechanism: manual `workflow_dispatch`, Terraform adopt/plan/apply for the shared Droplet and firewall, SSH to the Droplet, upload repo and `PLATFORM_ENV_FILE`, run Docker Compose, force-recreate Caddy, then run public smoke checks.
+- Deploy mechanism: automatic `deploy.yml` run on pushes to `main`, plus manual `workflow_dispatch` redeploy support. The workflow performs Terraform adopt/plan/apply for the shared Droplet and firewall, SSHes to the Droplet, uploads the repo and `PLATFORM_ENV_FILE`, runs Docker Compose, force-recreates Caddy, then runs public smoke checks.
 
 DigitalOcean:
 

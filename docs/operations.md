@@ -64,7 +64,7 @@ COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-co
 COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
-Preferred production redeploy path:
+Production deploys start automatically after pushes to `main`. To redeploy the current `main` manually:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main
@@ -87,7 +87,7 @@ DEPLOY_HOMI=false
 DEPLOY_VIKRAM=false
 ```
 
-Change a flag in a PR and rerun the `Deploy` workflow after merge. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
+Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from that push. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
 
 ## Temporary SSH Access
 

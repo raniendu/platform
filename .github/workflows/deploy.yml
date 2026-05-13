@@ -1,6 +1,9 @@
 name: Deploy
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       allow_migration_staging_host:
@@ -214,7 +217,7 @@ jobs:
           TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
           DROPLET_NAME: platform-shared
           MIGRATION_DROPLET_NAME: platform-shared-small
-          ALLOW_MIGRATION_STAGING_HOST: ${{ inputs.allow_migration_staging_host && 'true' || 'false' }}
+          ALLOW_MIGRATION_STAGING_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_migration_staging_host && 'true' || 'false' }}
         run: |
           set -euo pipefail
 

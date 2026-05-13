@@ -27,5 +27,5 @@ COPY ./blog.py ./blog.py
 # Expose port 8501
 EXPOSE 8501
 
-# Command to run the app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8501", "app:app"]
+# Command to run the app with Gunicorn. Log to container stdout/stderr for deploy diagnostics.
+CMD ["gunicorn", "--bind", "0.0.0.0:8501", "--workers", "2", "--timeout", "30", "--access-logfile", "-", "--error-logfile", "-", "--capture-output", "app:app"]

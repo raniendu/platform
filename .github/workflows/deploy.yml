@@ -760,8 +760,61 @@ jobs:
           ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
             "cd /opt/platform && COMPOSE_PROFILES='${COMPOSE_PROFILES}' docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build --no-deps --force-recreate caddy"
 
+      - name: Check web container readiness
+        env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+          COMPOSE_PROFILES: ${{ needs.build-images.outputs.compose_profiles }}
+          DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
+        run: |
+          ssh_port="${PLATFORM_SSH_PORT:-22}"
+          ssh_user="${PLATFORM_SSH_USER:-root}"
+          ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+            "COMPOSE_PROFILES='${COMPOSE_PROFILES}' DEPLOY_DOTDEV='${DEPLOY_DOTDEV}' bash -se" <<'EOF'
+          cd /opt/platform
+
+          show_web_logs() {
+            docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep '^platform-' || true
+            COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs --tail 200 caddy || true
+            if [ "$DEPLOY_DOTDEV" = true ]; then
+              COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs --tail 200 dotdev || true
+            fi
+          }
+
+          wait_container_state() {
+            container="$1"
+            expected="$2"
+
+            for attempt in $(seq 1 24); do
+              status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || true)"
+
+              if [ "$status" = "$expected" ]; then
+                echo "${container} -> ${status}"
+                return 0
+              fi
+
+              if [ "$attempt" -eq 24 ]; then
+                echo "::error::${container} did not become ${expected}; last status=${status:-missing}"
+                show_web_logs
+                exit 1
+              fi
+
+              echo "Waiting for ${container}, attempt ${attempt}: ${status:-missing}; expected ${expected}"
+              sleep 5
+            done
+          }
+
+          wait_container_state platform-caddy running
+          if [ "$DEPLOY_DOTDEV" = true ]; then
+            wait_container_state platform-dotdev healthy
+          fi
+          EOF
+
       - name: Smoke test public endpoints
         env:
+          PLATFORM_SSH_PORT: ${{ secrets.PLATFORM_SSH_PORT }}
+          PLATFORM_SSH_USER: ${{ secrets.PLATFORM_SSH_USER }}
+          COMPOSE_PROFILES: ${{ needs.build-images.outputs.compose_profiles }}
           DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
@@ -771,6 +824,25 @@ jobs:
           DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
           DEPLOY_OBSERVABILITY: ${{ needs.build-images.outputs.deploy_observability }}
         run: |
+          smoke_failed=0
+
+          dump_remote_web_diagnostics() {
+            ssh_port="${PLATFORM_SSH_PORT:-22}"
+            ssh_user="${PLATFORM_SSH_USER:-root}"
+            ssh -i ~/.ssh/platform_key -p "${ssh_port}" "${ssh_user}@${PLATFORM_SSH_HOST}" \
+              "COMPOSE_PROFILES='${COMPOSE_PROFILES}' DEPLOY_DOTDEV='${DEPLOY_DOTDEV}' bash -se" <<'EOF'
+            cd /opt/platform
+            docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep '^platform-' || true
+            for container in platform-caddy platform-dotdev; do
+              docker inspect -f '{{.Name}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} restarts={{.RestartCount}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' "$container" 2>/dev/null || true
+            done
+            COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs --tail 200 caddy || true
+            if [ "$DEPLOY_DOTDEV" = true ]; then
+              COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs --tail 200 dotdev || true
+            fi
+          EOF
+          }
+
           check_status() {
             label="$1"
             url="$2"
@@ -792,54 +864,65 @@ jobs:
             return 1
           }
 
+          record_status() {
+            if ! check_status "$@"; then
+              smoke_failed=1
+            fi
+          }
+
           if [ "$DEPLOY_DOTDEV" = true ]; then
-            check_status "raniendu.dev" "https://raniendu.dev/" "200"
-            check_status "www.raniendu.dev" "https://www.raniendu.dev/" "301"
+            record_status "raniendu.dev" "https://raniendu.dev/" "200"
+            record_status "www.raniendu.dev" "https://www.raniendu.dev/" "301"
           else
-            check_status "raniendu.dev disabled" "https://raniendu.dev/" "404"
-            check_status "www.raniendu.dev disabled" "https://www.raniendu.dev/" "404"
+            record_status "raniendu.dev disabled" "https://raniendu.dev/" "404"
+            record_status "www.raniendu.dev disabled" "https://www.raniendu.dev/" "404"
           fi
 
           if [ "$DEPLOY_PREFECT" = true ]; then
-            check_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
+            record_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
           else
-            check_status "prefect.raniendu.dev disabled" "https://prefect.raniendu.dev/" "404"
+            record_status "prefect.raniendu.dev disabled" "https://prefect.raniendu.dev/" "404"
           fi
 
           if [ "$DEPLOY_PAPERCLIP" = true ]; then
-            check_status "paperclip.raniendu.dev" "https://paperclip.raniendu.dev/" "401"
+            record_status "paperclip.raniendu.dev" "https://paperclip.raniendu.dev/" "401"
           else
-            check_status "paperclip.raniendu.dev disabled" "https://paperclip.raniendu.dev/" "404"
+            record_status "paperclip.raniendu.dev disabled" "https://paperclip.raniendu.dev/" "404"
           fi
 
           if [ "$DEPLOY_FLOW" = true ]; then
-            check_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
+            record_status "flow.raniendu.dev" "https://flow.raniendu.dev/" "200"
           else
-            check_status "flow.raniendu.dev disabled" "https://flow.raniendu.dev/" "404"
+            record_status "flow.raniendu.dev disabled" "https://flow.raniendu.dev/" "404"
           fi
 
           if [ "$DEPLOY_RAMAN" = true ]; then
-            check_status "raman.raniendu.dev/healthz" "https://raman.raniendu.dev/healthz" "200"
+            record_status "raman.raniendu.dev/healthz" "https://raman.raniendu.dev/healthz" "200"
           else
-            check_status "raman.raniendu.dev disabled" "https://raman.raniendu.dev/" "404"
+            record_status "raman.raniendu.dev disabled" "https://raman.raniendu.dev/" "404"
           fi
 
           if [ "$DEPLOY_HOMI" = true ]; then
-            check_status "homi.raniendu.dev/healthz" "https://homi.raniendu.dev/healthz" "200"
+            record_status "homi.raniendu.dev/healthz" "https://homi.raniendu.dev/healthz" "200"
           else
             echo "homi.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_HOMI=true are configured"
           fi
 
           if [ "$DEPLOY_VIKRAM" = true ]; then
-            check_status "vikram.raniendu.dev/healthz" "https://vikram.raniendu.dev/healthz" "200"
+            record_status "vikram.raniendu.dev/healthz" "https://vikram.raniendu.dev/healthz" "200"
           else
             echo "vikram.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_VIKRAM=true are configured"
           fi
 
           if [ "$DEPLOY_OBSERVABILITY" = true ]; then
-            check_status "jaeger.raniendu.dev" "https://jaeger.raniendu.dev/" "401"
+            record_status "jaeger.raniendu.dev" "https://jaeger.raniendu.dev/" "401"
           else
             echo "jaeger.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_OBSERVABILITY=true are configured"
+          fi
+
+          if [ "$smoke_failed" -ne 0 ]; then
+            dump_remote_web_diagnostics
+            exit 1
           fi
 
       - name: Stop legacy Postgres containers after migration

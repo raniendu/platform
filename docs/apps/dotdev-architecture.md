@@ -81,6 +81,8 @@ The `Post` dataclass in `blog.py` is the main in-process content shape:
 Local Compose builds `apps/dotdev/Dockerfile` and exposes `localhost:8501` plus
 `http://dotdev.localhost` through Caddy. Production uses a SHA-pinned GHCR image
 behind `https://raniendu.dev`; `www.raniendu.dev` redirects to the apex domain.
+Both local and production Compose use `/healthz` for the DotDev container
+healthcheck.
 
 ## Validation
 

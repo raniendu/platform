@@ -304,6 +304,12 @@ def inject_current_year():
     return {"current_year": datetime.datetime.now().year}
 
 
+@app.route("/healthz")
+def healthz():
+    """Return a lightweight health response for container readiness checks."""
+    return jsonify({"status": "ok"})
+
+
 @app.route("/")
 def home():
     """Render the home page.

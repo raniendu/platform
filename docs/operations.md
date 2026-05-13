@@ -71,7 +71,7 @@ gh workflow run deploy.yml --repo raniendu/platform --ref main
 gh run watch --repo raniendu/platform --exit-status
 ```
 
-The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, runs public smoke checks, and cleans up temporary access.
+The GitHub workflow applies Terraform, handles temporary SSH firewall access, pulls SHA-pinned images, recreates Caddy, waits for Caddy and DotDev readiness, runs public smoke checks, and cleans up temporary access. Public smoke checks continue after individual failures and then dump Caddy/DotDev diagnostics before the job exits.
 
 ## Production App Flags
 
@@ -105,6 +105,7 @@ The `s-1vcpu-2gb` migration is complete. Use `Deploy` for routine releases. Keep
 
 ```bash
 curl -I https://raniendu.dev/
+curl https://raniendu.dev/healthz
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
 curl -I https://raman.raniendu.dev/healthz

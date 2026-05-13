@@ -11,6 +11,7 @@ from raman.agent import build_agent
 from raman.dbos_gateway import EventDispatcher, launch_dbos, shutdown_dbos
 from raman.gateway import InboundMessage, ThreadStore
 from raman.logging import configure_logging, get_logger, thread_hash
+from raman.observability import init_observability
 from raman.settings import RamanSettings
 from raman.spec import load_spec
 from raman.telegram import TelegramAdapter
@@ -90,6 +91,7 @@ def _get_telegram_adapter() -> TelegramAdapter:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = _get_settings()
     configure_logging(settings.log_level)
+    init_observability(settings)
     logger.info(
         "api_starting",
         default_agent=settings.default_agent,

@@ -6,8 +6,8 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 
 - `PREFECT_POSTGRES_PASSWORD`: Prefect PostgreSQL password.
 - `PLATFORM_POSTGRES_PASSWORD`: Shared production PostgreSQL superuser password for the consolidated Postgres container.
-- `PREFECT_BASIC_AUTH_USER`: Caddy username for Prefect UI/API.
-- `PREFECT_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash.
+- `PREFECT_BASIC_AUTH_USER`: Caddy username for Prefect UI/API and the Jaeger UI when `DEPLOY_OBSERVABILITY=true`.
+- `PREFECT_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Prefect and the Jaeger UI when `DEPLOY_OBSERVABILITY=true`.
 - `PAPERCLIP_POSTGRES_PASSWORD`: Paperclip PostgreSQL role password.
 - `PAPERCLIP_BASIC_AUTH_USER`: Caddy username for Paperclip.
 - `PAPERCLIP_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Paperclip. Use credentials separate from Prefect.
@@ -72,7 +72,7 @@ Use `.env.production.credentials` for human-readable production login values:
 grep '^PAPERCLIP_BASIC_AUTH_' .env.production.credentials
 ```
 
-For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD` from `.env.production.credentials`. `PAPERCLIP_BETTER_AUTH_SECRET` is not a browser login password; it is an internal Paperclip auth/session secret.
+For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD` from `.env.production.credentials`. For `https://prefect.raniendu.dev` and `https://jaeger.raniendu.dev`, use the Prefect basic-auth credentials. `PAPERCLIP_BETTER_AUTH_SECRET` is not a browser login password; it is an internal Paperclip auth/session secret.
 
 ## Optional Provider Keys
 

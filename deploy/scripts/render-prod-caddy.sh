@@ -16,6 +16,7 @@ DEPLOY_PAPERCLIP=
 DEPLOY_RAMAN=
 DEPLOY_HOMI=
 DEPLOY_VIKRAM=
+DEPLOY_OBSERVABILITY=
 
 # shellcheck disable=SC1090
 . "$flags_file"
@@ -40,6 +41,7 @@ validate_bool DEPLOY_PAPERCLIP
 validate_bool DEPLOY_RAMAN
 validate_bool DEPLOY_HOMI
 validate_bool DEPLOY_VIKRAM
+validate_bool DEPLOY_OBSERVABILITY
 
 mkdir -p "$target_dir"
 find "$target_dir" -type f -name '*.caddy' -delete
@@ -150,4 +152,21 @@ vikram.raniendu.dev {
 EOF
 else
   :
+fi
+
+if [ "$DEPLOY_OBSERVABILITY" = true ]; then
+  cat > "${target_dir}/80-jaeger.caddy" <<'EOF'
+jaeger.raniendu.dev {
+	basic_auth {
+		{$PREFECT_BASIC_AUTH_USER} {$PREFECT_BASIC_AUTH_HASH}
+	}
+	reverse_proxy jaeger:16686
+}
+EOF
+else
+  cat > "${target_dir}/80-jaeger.caddy" <<'EOF'
+jaeger.raniendu.dev {
+	respond "Observability is not deployed." 404
+}
+EOF
 fi

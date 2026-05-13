@@ -61,6 +61,7 @@ load_flags() {
   DEPLOY_RAMAN=
   DEPLOY_HOMI=
   DEPLOY_VIKRAM=
+  DEPLOY_OBSERVABILITY=
 
   # shellcheck disable=SC1090
   . "$flags_file"
@@ -72,6 +73,7 @@ load_flags() {
   normalize_bool DEPLOY_RAMAN
   normalize_bool DEPLOY_HOMI
   normalize_bool DEPLOY_VIKRAM
+  normalize_bool DEPLOY_OBSERVABILITY
 }
 
 build_lists() {
@@ -135,6 +137,14 @@ build_lists() {
     disabled_services+=(vikram)
     disabled_containers+=(platform-vikram)
   fi
+
+  if [ "$DEPLOY_OBSERVABILITY" = true ]; then
+    profiles+=(observability)
+    enabled_pull_services+=(jaeger)
+  else
+    disabled_services+=(jaeger)
+    disabled_containers+=(platform-jaeger)
+  fi
 }
 
 load_flags
@@ -153,6 +163,7 @@ case "$command" in
       printf 'deploy_raman=%s\n' "$DEPLOY_RAMAN"
       printf 'deploy_homi=%s\n' "$DEPLOY_HOMI"
       printf 'deploy_vikram=%s\n' "$DEPLOY_VIKRAM"
+      printf 'deploy_observability=%s\n' "$DEPLOY_OBSERVABILITY"
       printf 'compose_profiles=%s\n' "$(join_by , "${profiles[@]}")"
       printf 'enabled_pull_services=%s\n' "$(join_by ' ' "${enabled_pull_services[@]}")"
       printf 'disabled_services=%s\n' "$(join_by ' ' "${disabled_services[@]}")"

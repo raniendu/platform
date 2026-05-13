@@ -26,6 +26,22 @@ docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.product
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f airflow-scheduler
 ```
 
+## Traces
+
+Local Jaeger v2:
+
+```bash
+RAMAN_OBSERVABILITY_ENABLED=true docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build raman jaeger
+open http://localhost:16686
+```
+
+Production Jaeger is enabled when `DEPLOY_OBSERVABILITY=true` is set in
+`deploy/apps.prod.env`; the deploy workflow writes
+`RAMAN_OBSERVABILITY_ENABLED` from that flag so production Raman exports traces
+to `http://jaeger:4318`. The Jaeger UI is exposed at
+`https://jaeger.raniendu.dev` behind Caddy basic auth using the Prefect basic
+auth credentials. Add the `jaeger` DNS A record before deploying this route.
+
 ## Restarts
 
 Restart one service:

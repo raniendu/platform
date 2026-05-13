@@ -150,6 +150,26 @@ Set `RAMAN_LOG_LEVEL=DEBUG` to include debug-level events. The structured logs
 hash chat/thread IDs and avoid raw prompt text, replies, tokens, and webhook
 secrets.
 
+## Tracing
+
+Raman can export OpenTelemetry traces through OpenLIT. Tracing is off by default
+and should be enabled explicitly:
+
+```bash
+RAMAN_OBSERVABILITY_ENABLED=true
+RAMAN_OTLP_ENDPOINT=http://jaeger:4318
+```
+
+Local platform Compose includes Jaeger v2 at `http://localhost:16686`.
+Production Compose includes a gated `observability` profile. When
+`DEPLOY_OBSERVABILITY=true`, the deploy workflow enables Raman tracing and sends
+production traces to `http://jaeger:4318`; the Jaeger UI is exposed at
+`https://jaeger.raniendu.dev` behind Caddy basic auth. Message-content capture
+is off by default and is forced off in production even if
+`RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT=true` is set. Raman disables the
+OpenLIT `mistral` instrumentor by default because this app does not use that SDK
+and the installed package can produce noisy startup instrumentation failures.
+
 ## Telegram
 
 Telegram is wired as another interface through the FastAPI app:
@@ -272,6 +292,10 @@ Environment variables (see `.env.example`):
 | `RAMAN_AGENT`                 | `raman`                                | Default agent spec to load                                                 |
 | `RAMAN_SPEC_ROOT`             | `<repo>/spec`                          | Spec folder location                                                       |
 | `RAMAN_LOG_LEVEL`             | `INFO`                                 | Structured JSON log level for API, Telegram, DBOS, and agent handoffs      |
+| `RAMAN_OBSERVABILITY_ENABLED` | `false`                                | Enable OpenLIT/OpenTelemetry tracing                                       |
+| `RAMAN_OTLP_ENDPOINT`         | —                                      | OTLP endpoint, e.g. `http://jaeger:4318` in Compose                         |
+| `RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT` | `false`                    | Capture prompt/reply content in traces. Forced off in production            |
+| `RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS` | `mistral`                 | Comma-separated OpenLIT instrumentors to skip                               |
 | `RAMAN_DB_PATH`               | `<repo>/.raman/raman.sqlite3`          | SQLite path for the threaded conversation store                            |
 | `DBOS_SYSTEM_DATABASE_URL`    | `sqlite:///<repo>/.raman/dbos.sqlite3` | DBOS workflow state DB. Override to use Postgres                           |
 | `RAMAN_PUBLIC_BASE_URL`       | —                                      | HTTPS base URL used when registering the Telegram webhook                  |

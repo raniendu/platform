@@ -9,6 +9,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import structlog
 
+try:
+    from opentelemetry import trace
+except ImportError:  # pragma: no cover - openlit depends on opentelemetry.
+    trace = None  # type: ignore[assignment]
+
 
 def configure_logging(log_level: str = "INFO") -> None:
     logging.basicConfig(
@@ -22,6 +27,7 @@ def configure_logging(log_level: str = "INFO") -> None:
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso", utc=True),
+            add_trace_context,
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
@@ -64,6 +70,20 @@ def safe_database_url(database_url: str) -> str:
     port = f":{parts.port}" if parts.port is not None else ""
     netloc = f"{username}:***@{hostname}{port}"
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
+def add_trace_context(
+    logger: Any,
+    method_name: str,
+    event_dict: dict[str, Any],
+) -> dict[str, Any]:
+    if trace is None:
+        return event_dict
+    span_context = trace.get_current_span().get_span_context()
+    if span_context.is_valid:
+        event_dict["trace_id"] = f"{span_context.trace_id:032x}"
+        event_dict["span_id"] = f"{span_context.span_id:016x}"
+    return event_dict
 
 
 def _hash_value(value: str) -> str:

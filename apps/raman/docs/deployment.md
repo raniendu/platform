@@ -56,6 +56,10 @@ Optional:
 | `DBOS_SYSTEM_DATABASE_URL` | `sqlite:///app/.raman/dbos.sqlite3` | Override to use another DBOS state store. |
 | `RAMAN_AGENT` | `raman` | Default agent spec to load on startup. |
 | `RAMAN_LOG_LEVEL` | `INFO` | Structured JSON log level for stdout logs. |
+| `RAMAN_OBSERVABILITY_ENABLED` | `false` | Enable OpenLIT/OpenTelemetry tracing. |
+| `RAMAN_OTLP_ENDPOINT` | unset | OTLP endpoint. Use `http://jaeger:4318` with the Compose Jaeger service. |
+| `RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT` | `false` | Capture prompt/reply content in traces. Forced off in production. |
+| `RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS` | `mistral` | Comma-separated OpenLIT instrumentors to skip. |
 
 ## Runtime State
 
@@ -77,6 +81,23 @@ In production, the logs are the Raman container stdout on the Droplet. Inspect
 them with the production Compose project over SSH. The logs intentionally use
 hashed chat/thread IDs and lengths instead of raw prompt text, replies, tokens,
 or webhook secrets.
+
+## Runtime Traces
+
+Raman can initialize OpenLIT and export OpenTelemetry traces when
+`RAMAN_OBSERVABILITY_ENABLED=true`. Local Compose includes a pinned Jaeger v2
+all-in-one service:
+
+```bash
+RAMAN_OBSERVABILITY_ENABLED=true docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build raman jaeger
+open http://localhost:16686
+```
+
+Production Compose includes Jaeger behind the `observability` profile. When
+`DEPLOY_OBSERVABILITY=true`, the deploy workflow enables Raman tracing and sets
+`RAMAN_OTLP_ENDPOINT=http://jaeger:4318` for production. The Jaeger UI is exposed
+at `https://jaeger.raniendu.dev` behind Caddy basic auth using the Prefect basic
+auth credentials. Add the `jaeger` DNS A record before deploying this route.
 
 ## Local Compose
 

@@ -15,6 +15,7 @@ Current production routes:
 - `https://raniendu.dev` -> DotDev
 - `https://prefect.raniendu.dev` -> Prefect behind Caddy basic auth
 - `https://raman.raniendu.dev` -> Raman agent health and Telegram webhook endpoint
+- `https://jaeger.raniendu.dev` -> Jaeger UI behind Caddy basic auth when `DEPLOY_OBSERVABILITY=true`
 - `https://homi.raniendu.dev` -> Homi only when DNS exists and `DEPLOY_HOMI=true`
 - `https://vikram.raniendu.dev` -> Vikram only when DNS exists and `DEPLOY_VIKRAM=true`
 - `https://paperclip.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
@@ -30,6 +31,7 @@ DEPLOY_PAPERCLIP=false
 DEPLOY_RAMAN=true
 DEPLOY_HOMI=false
 DEPLOY_VIKRAM=false
+DEPLOY_OBSERVABILITY=true
 ```
 
 The initial local, GitHub, Terraform, and DNS gates have passed. Keep the gate notes below for rebuilds or disaster recovery.
@@ -117,8 +119,8 @@ Before running the `Deploy` workflow:
 - When `DEPLOY_VIKRAM=true`, configure `GOOGLE_API_KEY`, `VIKRAM_TELEGRAM_BOT_TOKEN`, `VIKRAM_TELEGRAM_WEBHOOK_SECRET`, and `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`. `VIKRAM_PARALLEL_API_KEY` is optional unless Vikram enables web search.
 - `DO_INFERENCE_API_KEY` should be a DigitalOcean model access key scoped to `gemma-4-31B-it` for the production Raman deployment. Serverless inference does not require a Terraform-managed endpoint or dedicated GPU resource.
 - The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, `PAPERCLIP_IMAGE`, `RAMAN_IMAGE`, `HOMI_IMAGE`, and `VIKRAM_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
-- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_PAPERCLIP`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, and `DEPLOY_VIKRAM`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
-- The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=gemma-4-31B-it`, `RAMAN_AGENT=raman`, and `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`) plus the Raman GitHub secrets to the host env file at deploy time.
+- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_PAPERCLIP`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, `DEPLOY_VIKRAM`, and `DEPLOY_OBSERVABILITY`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
+- The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=gemma-4-31B-it`, `RAMAN_AGENT=raman`, `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`, and Raman observability settings derived from `DEPLOY_OBSERVABILITY`) plus the Raman GitHub secrets to the host env file at deploy time.
 - The deploy workflow appends Homi and Vikram production constants and their app-specific secrets only when their deploy flags are enabled.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
@@ -161,10 +163,11 @@ The workflow is expected to report these smoke statuses:
 - `www.raniendu.dev` -> `301`
 - `prefect.raniendu.dev/api/health` -> `401`
 - `raman.raniendu.dev/healthz` -> `200`
+- `jaeger.raniendu.dev` -> `401`
 - `paperclip.raniendu.dev` -> `404`
 - `flow.raniendu.dev` -> `404`
 
-`401` for Prefect is expected because Caddy basic auth is protecting that route. Paperclip and Flow return `404` while their production app flags are disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
+`401` for Prefect and Jaeger is expected because Caddy basic auth is protecting those routes. Paperclip and Flow return `404` while their production app flags are disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
 
 The production browser credentials for the Paperclip Caddy prompt live in `.env.production.credentials` as `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD`. The deploy env file and GitHub `PLATFORM_ENV_FILE` use `PAPERCLIP_BASIC_AUTH_HASH`; do not try to sign in with `PAPERCLIP_BETTER_AUTH_SECRET`, which is only an internal Paperclip auth/session secret.
 

@@ -17,6 +17,7 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `TELEGRAM_BOT_TOKEN`: Raman Telegram bot token from BotFather.
 - `TELEGRAM_WEBHOOK_SECRET`: Raman Telegram webhook secret. Generate with `openssl rand -hex 32`.
 - `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Raman Telegram interface.
+- `PARALLEL_API_KEY`: Raman web-search provider key. Required because the current `spec/raman` enables `web_search`.
 - `HOMI_TELEGRAM_BOT_TOKEN`: Homi Telegram bot token from BotFather, only required when `DEPLOY_HOMI=true`.
 - `HOMI_TELEGRAM_WEBHOOK_SECRET`: Homi Telegram webhook secret, only required when `DEPLOY_HOMI=true`.
 - `HOMI_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Homi Telegram interface.
@@ -78,7 +79,7 @@ For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC
 - `OPENAI_API_KEY`: Optional Paperclip provider key.
 - `ANTHROPIC_API_KEY`: Optional Paperclip provider key.
 - `GEMINI_API_KEY`: Optional Paperclip provider key when also configured for Prefect.
-- `PARALLEL_API_KEY`: Optional shared web-search provider key for Raman, Homi, and Vikram when the active agent spec enables `web_search`.
+- `PARALLEL_API_KEY`: Shared web-search provider key for Raman, Homi, and Vikram. Required for Raman's current production spec; optional only for agents that do not enable `web_search`.
 - `HOMI_PARALLEL_API_KEY`: Optional Homi-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
 - `VIKRAM_PARALLEL_API_KEY`: Optional Vikram-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
 

@@ -21,6 +21,9 @@ from raman.telegram import TelegramAdapter
 
 INBOUND_QUEUE = Queue("raman-inbound", concurrency=1, polling_interval_sec=0.1)
 OUTBOUND_QUEUE = Queue("raman-outbound", concurrency=1, polling_interval_sec=0.1)
+TELEGRAM_FAILURE_REPLY = (
+    "I hit an internal error while processing that. The issue has been logged."
+)
 logger = get_logger(__name__)
 
 _configured = False
@@ -119,8 +122,16 @@ async def process_inbound_message_event(event_dict: dict[str, Any]) -> dict[str,
         reply = await ConversationService(settings=settings, store=store).send_message(
             message
         )
-    except Exception:
-        log.exception("dbos_inbound_workflow_failed")
+    except Exception as exc:
+        log.exception(
+            "dbos_inbound_workflow_failed",
+            error_type=type(exc).__name__,
+        )
+        delivered = await _send_processing_failure_reply(message)
+        log.info(
+            "dbos_processing_failure_reply_attempted",
+            delivered=delivered,
+        )
         raise
     reply_event = make_reply_requested_event(message, reply)
     if reply.interface == "telegram":
@@ -185,6 +196,25 @@ async def send_telegram_reply(chat_id: int, text: str) -> None:
         enqueue_message=None,
     )
     await adapter.send_message(chat_id, text)
+
+
+async def _send_processing_failure_reply(message: InboundMessage) -> bool:
+    if message.interface != "telegram":
+        return False
+    log = logger.bind(
+        interface=message.interface,
+        thread_hash=thread_hash(message.interface, message.external_thread_id),
+        **safe_metadata(message.metadata),
+    )
+    try:
+        await send_telegram_reply(
+            int(message.external_thread_id), TELEGRAM_FAILURE_REPLY
+        )
+    except Exception:
+        log.exception("dbos_processing_failure_reply_failed")
+        return False
+    log.info("dbos_processing_failure_reply_delivered")
+    return True
 
 
 def _ensure_sqlite_parent(database_url: str) -> None:

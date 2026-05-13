@@ -68,6 +68,11 @@ The handler returns the workflow ID immediately. The actual agent run
 happens inside the DBOS workflow. Poll `GET /events/{workflow_id}` for
 status and result.
 
+If the inbound workflow fails after the webhook ACK, Telegram cannot surface
+that exception directly. For Telegram-originated messages, Raman sends a
+generic failure reply before re-raising the workflow error so the DBOS status
+and structured logs still show the real failure.
+
 ### Modules at a glance
 
 - `raman/api.py` — exposes the HTTP routes.

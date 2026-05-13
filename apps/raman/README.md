@@ -165,8 +165,10 @@ Configure `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and
 unknown chats are rejected. V1 accepts text only and supports `/start`, `/help`,
 `/reset`, and `/agent <name>`. Replies are converted from markdown to
 Telegram MarkdownV2 via `telegramify-markdown` so bold, code, and bullets
-render natively. See `docs/telegram_live_testing.md` for the full local
-live-testing and webhook troubleshooting runbook.
+render natively. If the asynchronous DBOS workflow fails after Telegram has
+already received the webhook ACK, Raman sends a generic failure reply and keeps
+the stack trace in structured logs. See `docs/telegram_live_testing.md` for the
+full local live-testing and webhook troubleshooting runbook.
 
 ### Local Production-Model Telegram Debugging
 

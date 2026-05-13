@@ -4,6 +4,7 @@ from structlog.testing import capture_logs
 from raman.gateway import EnqueuedEvent, ThreadStore
 from raman.settings import RamanSettings
 from raman.telegram import TelegramAdapter, format_for_telegram
+from raman.telegram_config import TelegramBotConfig
 
 
 def expected(text: str) -> list[str]:
@@ -35,6 +36,19 @@ def make_settings(**overrides):
     }
     values.update(overrides)
     return RamanSettings(_env_file=None, **values)
+
+
+def make_bot_config(**overrides):
+    values = {
+        "name": "bot-a",
+        "default_agent": "raman",
+        "bot_token": "token",
+        "webhook_secret": "secret",
+        "allowed_chat_ids": "123",
+        "api_base_url": "https://api.telegram.org",
+    }
+    values.update(overrides)
+    return TelegramBotConfig(**values)
 
 
 def text_update(text, *, chat_id=123, update_id=1, chat_type="private"):
@@ -76,6 +90,30 @@ async def test_telegram_enqueues_allowed_text_message(tmp_path):
     assert enqueued[0].external_thread_id == "123"
     assert enqueued[0].prompt == "hello"
     assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_telegram_enqueues_bot_scoped_message_with_default_agent(tmp_path):
+    enqueued = []
+
+    async def enqueue(message):
+        enqueued.append(message)
+        return EnqueuedEvent(workflow_id="wf-1", status="queued")
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(name="bot-a", default_agent="research"),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=enqueue,
+    )
+
+    result = await adapter.handle_update(text_update("hello"))
+
+    assert result.status == "queued"
+    assert enqueued[0].interface == "telegram:bot-a"
+    assert enqueued[0].external_thread_id == "123"
+    assert enqueued[0].default_agent == "research"
+    assert enqueued[0].metadata["telegram_bot"] == "bot-a"
 
 
 @pytest.mark.asyncio
@@ -195,6 +233,32 @@ async def test_telegram_agent_command_persists_existing_spec(tmp_path):
     assert result.status == "handled"
     assert (
         store.get_thread("telegram", "123", default_agent="alfred").agent_name
+        == "raman"
+    )
+    assert sent == [(123, chunk) for chunk in expected("Agent set to raman.")]
+
+
+@pytest.mark.asyncio
+async def test_telegram_agent_command_persists_in_bot_scoped_thread(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+    sent = []
+
+    async def send_text(chat_id, text):
+        sent.append((chat_id, text))
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(name="bot-a", default_agent="research"),
+        store=store,
+        enqueue_message=None,
+        send_text=send_text,
+    )
+
+    result = await adapter.handle_update(text_update("/agent raman"))
+
+    assert result.status == "handled"
+    assert (
+        store.get_thread("telegram:bot-a", "123", default_agent="research").agent_name
         == "raman"
     )
     assert sent == [(123, chunk) for chunk in expected("Agent set to raman.")]

@@ -10,6 +10,7 @@ import telegramify_markdown
 from raman.gateway import InboundMessage, MessageEnqueuer, ThreadStore
 from raman.logging import chat_hash, get_logger
 from raman.settings import RamanSettings
+from raman.telegram_config import LEGACY_BOT_NAME, TelegramBotConfig
 
 MAX_TELEGRAM_MESSAGE = 4096
 TELEGRAM_PARSE_MODE = "MarkdownV2"
@@ -39,11 +40,21 @@ class TelegramAdapter:
         self,
         *,
         settings: RamanSettings,
+        bot: TelegramBotConfig | None = None,
         store: ThreadStore,
         enqueue_message: MessageEnqueuer | None,
         send_text: SendText | None = None,
     ):
         self.settings = settings
+        self.bot = bot or TelegramBotConfig(
+            name=LEGACY_BOT_NAME,
+            default_agent=settings.default_agent,
+            bot_token=settings.telegram_bot_token or "",
+            webhook_secret=settings.telegram_webhook_secret or "",
+            allowed_chat_ids=settings.telegram_allowed_chat_ids,
+            api_base_url=settings.telegram_api_base_url,
+            legacy=True,
+        )
         self.store = store
         self.enqueue_message = enqueue_message
         self._send_text = send_text
@@ -63,10 +74,10 @@ class TelegramAdapter:
             text_length=len(message.text),
             has_from_id=message.from_id is not None,
         )
-        if not self.store.claim_telegram_update(message.update_id):
+        if not self.store.claim_telegram_update(self.bot.name, message.update_id):
             log.info("telegram_update_duplicate")
             return TelegramWebhookResult(status="duplicate")
-        if message.chat_id not in self.settings.telegram_allowed_chat_id_set:
+        if message.chat_id not in self.bot.allowed_chat_id_set:
             log.warning("telegram_chat_rejected")
             await self.send_message(message.chat_id, "This bot is private.")
             return TelegramWebhookResult(status="rejected")
@@ -79,11 +90,13 @@ class TelegramAdapter:
             raise RuntimeError("Telegram enqueue_message callback is not configured")
         enqueued = await self.enqueue_message(
             InboundMessage(
-                interface="telegram",
+                interface=self.bot.interface,
                 external_thread_id=str(message.chat_id),
                 prompt=message.text,
                 agent_name=None,
+                default_agent=self.bot.default_agent,
                 metadata={
+                    "telegram_bot": self.bot.name,
                     "chat_type": message.chat_type,
                     "from_id": message.from_id,
                     "update_id": message.update_id,
@@ -118,16 +131,16 @@ class TelegramAdapter:
                 )
             log.info("telegram_send_succeeded")
             return
-        if not self.settings.telegram_bot_token:
+        if not self.bot.bot_token:
             log.error("telegram_send_unconfigured")
-            raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
-        async with httpx.AsyncClient(
-            base_url=self.settings.telegram_api_base_url
-        ) as client:
+            raise RuntimeError(
+                f"Telegram bot token is not configured for {self.bot.name}"
+            )
+        async with httpx.AsyncClient(base_url=self.bot.api_base_url) as client:
             for index, chunk in enumerate(chunks, start=1):
                 try:
                     response = await client.post(
-                        f"/bot{self.settings.telegram_bot_token}/sendMessage",
+                        f"/bot{self.bot.bot_token}/sendMessage",
                         json={
                             "chat_id": chat_id,
                             "text": chunk,
@@ -168,7 +181,7 @@ class TelegramAdapter:
             )
             return TelegramWebhookResult(status="handled")
         if command == "/reset":
-            self.store.reset_history("telegram", str(message.chat_id))
+            self.store.reset_history(self.bot.interface, str(message.chat_id))
             await self.send_message(message.chat_id, "Conversation reset.")
             return TelegramWebhookResult(status="handled")
         if command == "/agent":
@@ -180,7 +193,7 @@ class TelegramAdapter:
             if not spec_path.exists():
                 await self.send_message(message.chat_id, f"Unknown agent: {agent_name}")
                 return TelegramWebhookResult(status="handled")
-            self.store.set_agent("telegram", str(message.chat_id), agent_name)
+            self.store.set_agent(self.bot.interface, str(message.chat_id), agent_name)
             await self.send_message(message.chat_id, f"Agent set to {agent_name}.")
             return TelegramWebhookResult(status="handled")
         await self.send_message(message.chat_id, f"Unknown command: {command}")
@@ -198,10 +211,10 @@ class TelegramAdapter:
         if chat_id is None or update_id is None:
             log.info("telegram_update_ignored", reason="missing_chat_or_update_id")
             return TelegramWebhookResult(status="ignored")
-        if not self.store.claim_telegram_update(int(update_id)):
+        if not self.store.claim_telegram_update(self.bot.name, int(update_id)):
             log.info("telegram_update_duplicate")
             return TelegramWebhookResult(status="duplicate")
-        if chat_id not in self.settings.telegram_allowed_chat_id_set:
+        if chat_id not in self.bot.allowed_chat_id_set:
             log.warning("telegram_chat_rejected")
             await self.send_message(chat_id, "This bot is private.")
             return TelegramWebhookResult(status="rejected")

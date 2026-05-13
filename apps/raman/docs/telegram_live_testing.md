@@ -129,8 +129,9 @@ Message your bot in Telegram, then run:
 curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates" | jq
 ```
 
-Use `.message.chat.id` as `TELEGRAM_ALLOWED_CHAT_IDS`. Restart `uv run
-raman-api` after editing `.env`.
+Use `.message.chat.id` as the env var named by `allowed_chat_ids_env` in
+`spec/telegram.toml` for the bot you are testing. For the default bot, that is
+`TELEGRAM_ALLOWED_CHAT_IDS`. Restart `uv run raman-api` after editing `.env`.
 
 ## 5. Expose Localhost Over HTTPS
 
@@ -146,8 +147,8 @@ Set the HTTPS forwarding URL in `.env`:
 RAMAN_PUBLIC_BASE_URL=https://<ngrok-host>
 ```
 
-Do not include `/telegram/webhook` in `RAMAN_PUBLIC_BASE_URL`; the setup command
-adds that path.
+Do not include `/telegram/webhook` or `/telegram/<bot>/webhook` in
+`RAMAN_PUBLIC_BASE_URL`; the setup command adds the selected bot path.
 
 ## 6. Validate the Webhook URL Before Setting It
 
@@ -155,13 +156,14 @@ If this command prints an empty value, a placeholder, `localhost`, `127.0.0.1`,
 or `http://`, Telegram will reject it:
 
 ```bash
-printf 'Webhook URL: %s/telegram/webhook\n' "$RAMAN_PUBLIC_BASE_URL"
+printf 'Default webhook URL: %s/telegram/raman/webhook\n' "$RAMAN_PUBLIC_BASE_URL"
 ```
 
 Good examples:
 
 ```text
 https://abc123.ngrok-free.app/telegram/webhook
+https://abc123.ngrok-free.app/telegram/raman/webhook
 https://bot.example.com/telegram/webhook
 ```
 
@@ -182,8 +184,10 @@ HTTPS URLs work because they use port `443`.
 Preferred local helper from the platform repo root:
 
 ```bash
-./apps/raman/scripts/set-local-telegram-webhook.sh "$RAMAN_PUBLIC_BASE_URL"
+./apps/raman/scripts/set-local-telegram-webhook.sh "$RAMAN_PUBLIC_BASE_URL" --bot raman
 ```
+
+Use `--all` to register every bot in `spec/telegram.toml`.
 
 Manual equivalent:
 
@@ -197,7 +201,7 @@ set +a
 curl -sS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
   -H "Content-Type: application/json" \
   -d "$(jq -n \
-    --arg url "$RAMAN_PUBLIC_BASE_URL/telegram/webhook" \
+    --arg url "$RAMAN_PUBLIC_BASE_URL/telegram/raman/webhook" \
     --arg secret "$TELEGRAM_WEBHOOK_SECRET" \
     '{url: $url, secret_token: $secret, drop_pending_updates: true}')"
 ```
@@ -241,7 +245,7 @@ Quick diagnosis:
 
 ```bash
 echo "$RAMAN_PUBLIC_BASE_URL"
-printf '%s\n' "$RAMAN_PUBLIC_BASE_URL/telegram/webhook"
+printf '%s\n' "$RAMAN_PUBLIC_BASE_URL/telegram/raman/webhook"
 curl -sS "$RAMAN_PUBLIC_BASE_URL/healthz"
 ```
 

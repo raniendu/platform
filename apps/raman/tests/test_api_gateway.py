@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from raman import api
 from raman.gateway import EnqueuedEvent
 from raman.settings import RamanSettings
+from raman.telegram_config import TelegramBotConfig, TelegramConfig
 
 
 class FakeDispatcher:
@@ -55,16 +56,21 @@ def test_event_status_endpoint_returns_dispatcher_status(monkeypatch):
 
 
 def test_telegram_webhook_rejects_bad_secret(monkeypatch):
-    monkeypatch.setattr(
-        api,
-        "_settings",
-        RamanSettings(
-            _env_file=None,
-            telegram_bot_token="token",
-            telegram_webhook_secret="secret",
-            telegram_allowed_chat_ids="123",
-        ),
+    config = TelegramConfig(
+        default_bot_name="raman",
+        bots={
+            "raman": TelegramBotConfig(
+                name="raman",
+                default_agent="raman",
+                bot_token="token",
+                webhook_secret="secret",
+                allowed_chat_ids="123",
+                api_base_url="https://api.telegram.org",
+            )
+        },
     )
+    monkeypatch.setattr(api, "_settings", RamanSettings(_env_file=None))
+    monkeypatch.setattr(api, "_get_telegram_config", lambda: config)
 
     with TestClient(api.app) as client:
         response = client.post(
@@ -74,3 +80,80 @@ def test_telegram_webhook_rejects_bad_secret(monkeypatch):
         )
 
     assert response.status_code == 403
+
+
+def test_named_telegram_webhook_dispatches_to_selected_bot(monkeypatch):
+    class FakeAdapter:
+        def __init__(self):
+            self.updates = []
+
+        async def handle_update(self, update):
+            self.updates.append(update)
+            return type("Result", (), {"status": "queued", "workflow_id": "wf-1"})()
+
+    adapter = FakeAdapter()
+    config = TelegramConfig(
+        default_bot_name="raman",
+        bots={
+            "research": TelegramBotConfig(
+                name="research",
+                default_agent="research",
+                bot_token="token",
+                webhook_secret="secret",
+                allowed_chat_ids="123",
+                api_base_url="https://api.telegram.org",
+            )
+        },
+    )
+    monkeypatch.setattr(api, "_settings", RamanSettings(_env_file=None))
+    monkeypatch.setattr(api, "_get_telegram_config", lambda: config)
+    monkeypatch.setattr(api, "_get_telegram_adapter", lambda bot_name: adapter)
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            "/telegram/research/webhook",
+            headers={"X-Telegram-Bot-Api-Secret-Token": "secret"},
+            json={"update_id": 1},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "queued", "workflow_id": "wf-1"}
+    assert adapter.updates == [{"update_id": 1}]
+
+
+def test_legacy_telegram_webhook_uses_default_bot(monkeypatch):
+    class FakeAdapter:
+        async def handle_update(self, update):
+            return type("Result", (), {"status": "handled", "workflow_id": None})()
+
+    config = TelegramConfig(
+        default_bot_name="raman",
+        bots={
+            "raman": TelegramBotConfig(
+                name="raman",
+                default_agent="raman",
+                bot_token="token",
+                webhook_secret="secret",
+                allowed_chat_ids="123",
+                api_base_url="https://api.telegram.org",
+            )
+        },
+    )
+    called = []
+    monkeypatch.setattr(api, "_settings", RamanSettings(_env_file=None))
+    monkeypatch.setattr(api, "_get_telegram_config", lambda: config)
+    monkeypatch.setattr(
+        api,
+        "_get_telegram_adapter",
+        lambda bot_name: called.append(bot_name) or FakeAdapter(),
+    )
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            "/telegram/webhook",
+            headers={"X-Telegram-Bot-Api-Secret-Token": "secret"},
+            json={"update_id": 1},
+        )
+
+    assert response.status_code == 200
+    assert called == ["raman"]

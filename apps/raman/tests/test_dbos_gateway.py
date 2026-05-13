@@ -18,8 +18,8 @@ from raman.gateway import (
 async def test_processing_failure_reply_is_sent_for_telegram(monkeypatch):
     sent = []
 
-    async def fake_send_telegram_reply(chat_id, text):
-        sent.append((chat_id, text))
+    async def fake_send_telegram_reply(bot_name, chat_id, text):
+        sent.append((bot_name, chat_id, text))
 
     monkeypatch.setattr(
         "raman.dbos_gateway.send_telegram_reply", fake_send_telegram_reply
@@ -31,12 +31,13 @@ async def test_processing_failure_reply_is_sent_for_telegram(monkeypatch):
             external_thread_id="123",
             prompt="do not echo",
             agent_name=None,
-            metadata={"update_id": 42},
+            default_agent="raman",
+            metadata={"telegram_bot": "raman", "update_id": 42},
         )
     )
 
     assert delivered is True
-    assert sent == [(123, TELEGRAM_FAILURE_REPLY)]
+    assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY)]
     assert "do not echo" not in TELEGRAM_FAILURE_REPLY
 
 
@@ -44,8 +45,8 @@ async def test_processing_failure_reply_is_sent_for_telegram(monkeypatch):
 async def test_processing_failure_reply_is_skipped_for_non_telegram(monkeypatch):
     sent = []
 
-    async def fake_send_telegram_reply(chat_id, text):
-        sent.append((chat_id, text))
+    async def fake_send_telegram_reply(bot_name, chat_id, text):
+        sent.append((bot_name, chat_id, text))
 
     monkeypatch.setattr(
         "raman.dbos_gateway.send_telegram_reply", fake_send_telegram_reply
@@ -57,6 +58,7 @@ async def test_processing_failure_reply_is_skipped_for_non_telegram(monkeypatch)
             external_thread_id="123",
             prompt="hello",
             agent_name=None,
+            default_agent=None,
             metadata={},
         )
     )
@@ -67,7 +69,7 @@ async def test_processing_failure_reply_is_skipped_for_non_telegram(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_processing_failure_reply_send_errors_do_not_escape(monkeypatch):
-    async def fake_send_telegram_reply(chat_id, text):
+    async def fake_send_telegram_reply(bot_name, chat_id, text):
         raise RuntimeError("telegram send failed")
 
     monkeypatch.setattr(
@@ -80,7 +82,8 @@ async def test_processing_failure_reply_send_errors_do_not_escape(monkeypatch):
             external_thread_id="123",
             prompt="hello",
             agent_name=None,
-            metadata={},
+            default_agent="raman",
+            metadata={"telegram_bot": "raman"},
         )
     )
 
@@ -98,8 +101,8 @@ async def test_inbound_workflow_sends_failure_reply_before_reraising(monkeypatch
         async def send_message(self, message):
             raise RuntimeError("agent failed")
 
-    async def fake_send_telegram_reply(chat_id, text):
-        sent.append((chat_id, text))
+    async def fake_send_telegram_reply(bot_name, chat_id, text):
+        sent.append((bot_name, chat_id, text))
 
     monkeypatch.setattr("raman.gateway.ConversationService", FailingConversationService)
     monkeypatch.setattr(
@@ -110,7 +113,8 @@ async def test_inbound_workflow_sends_failure_reply_before_reraising(monkeypatch
         external_thread_id="123",
         prompt="do not echo",
         agent_name=None,
-        metadata={"update_id": 42},
+        default_agent="raman",
+        metadata={"telegram_bot": "raman", "update_id": 42},
     )
 
     with pytest.raises(RuntimeError, match="agent failed"):
@@ -118,4 +122,4 @@ async def test_inbound_workflow_sends_failure_reply_before_reraising(monkeypatch
             cloud_event_to_dict(make_message_received_event(message))
         )
 
-    assert sent == [(123, TELEGRAM_FAILURE_REPLY)]
+    assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY)]

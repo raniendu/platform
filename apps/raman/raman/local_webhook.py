@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -9,8 +10,10 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from raman.settings import RamanSettings
+from raman.telegram_config import TelegramBotConfig, load_telegram_config
 
 WEBHOOK_PATH = "/telegram/webhook"
+NAMED_WEBHOOK_RE = re.compile(r"^/telegram/[A-Za-z0-9_-]+/webhook$")
 SUPPORTED_TELEGRAM_PORTS = {80, 88, 443, 8443}
 
 
@@ -19,6 +22,9 @@ def normalize_public_base_url(raw_url: str) -> str:
     if value.endswith(WEBHOOK_PATH):
         value = value[: -len(WEBHOOK_PATH)].rstrip("/")
     parts = urlsplit(value)
+    if NAMED_WEBHOOK_RE.fullmatch(parts.path):
+        value = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+        parts = urlsplit(value)
     host = parts.hostname or ""
     if parts.scheme != "https":
         raise ValueError("Telegram webhooks require an https:// public URL.")
@@ -26,37 +32,54 @@ def normalize_public_base_url(raw_url: str) -> str:
         raise ValueError("Telegram cannot call localhost; use an HTTPS tunnel URL.")
     if parts.path not in {"", "/"}:
         raise ValueError(
-            "Pass the ngrok base URL only, or the exact /telegram/webhook URL."
+            "Pass the ngrok base URL only, or an exact Telegram webhook URL."
         )
     if parts.port is not None and parts.port not in SUPPORTED_TELEGRAM_PORTS:
         raise ValueError("Telegram supports webhook ports 443, 80, 88, and 8443.")
     return urlunsplit((parts.scheme, parts.netloc, "", "", ""))
 
 
-def webhook_url(public_base_url: str) -> str:
+def webhook_url(public_base_url: str, *, bot_name: str | None = None) -> str:
+    if bot_name:
+        return (
+            f"{normalize_public_base_url(public_base_url)}/telegram/{bot_name}/webhook"
+        )
     return f"{normalize_public_base_url(public_base_url)}{WEBHOOK_PATH}"
 
 
 def build_set_webhook_request(
-    settings: RamanSettings,
+    target: RamanSettings | TelegramBotConfig,
     public_base_url: str,
     *,
     drop_pending_updates: bool,
 ) -> Request:
-    if not settings.telegram_bot_token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN is required.")
-    if not settings.telegram_webhook_secret:
-        raise RuntimeError("TELEGRAM_WEBHOOK_SECRET is required.")
+    if isinstance(target, TelegramBotConfig):
+        bot_token = target.bot_token
+        webhook_secret = target.webhook_secret
+        api_base_url = target.api_base_url
+        target_webhook_url = (
+            f"{normalize_public_base_url(public_base_url)}{target.webhook_path}"
+        )
+        bot_label = target.name
+    else:
+        bot_token = target.telegram_bot_token
+        webhook_secret = target.telegram_webhook_secret
+        api_base_url = target.telegram_api_base_url
+        target_webhook_url = webhook_url(public_base_url)
+        bot_label = "legacy"
+    if not bot_token:
+        raise RuntimeError(f"Telegram bot token is required for {bot_label}.")
+    if not webhook_secret:
+        raise RuntimeError(f"Telegram webhook secret is required for {bot_label}.")
     body = urlencode(
         {
-            "url": webhook_url(public_base_url),
-            "secret_token": settings.telegram_webhook_secret,
+            "url": target_webhook_url,
+            "secret_token": webhook_secret,
             "drop_pending_updates": "true" if drop_pending_updates else "false",
         }
     ).encode("utf-8")
     return Request(
-        f"{settings.telegram_api_base_url.rstrip('/')}"
-        f"/bot{settings.telegram_bot_token}/setWebhook",
+        f"{api_base_url.rstrip('/')}" f"/bot{bot_token}/setWebhook",
         data=body,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
@@ -72,14 +95,14 @@ def check_health(public_base_url: str, *, timeout: float) -> None:
 
 
 def set_webhook(
-    settings: RamanSettings,
+    target: RamanSettings | TelegramBotConfig,
     public_base_url: str,
     *,
     drop_pending_updates: bool,
     timeout: float,
 ) -> dict[str, Any]:
     request = build_set_webhook_request(
-        settings,
+        target,
         public_base_url,
         drop_pending_updates=drop_pending_updates,
     )
@@ -93,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "public_base_url",
-        help="ngrok HTTPS base URL, or the full /telegram/webhook URL.",
+        help="ngrok HTTPS base URL, or the full Telegram webhook URL.",
     )
     parser.add_argument(
         "--env-file",
@@ -105,6 +128,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_false",
         dest="drop_pending_updates",
         help="Do not ask Telegram to discard pending updates when switching.",
+    )
+    parser.add_argument(
+        "--bot",
+        help="Configured Telegram bot name to register. Defaults to default_bot.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Register webhooks for all configured Telegram bots.",
     )
     parser.add_argument(
         "--skip-health-check",
@@ -124,22 +156,34 @@ def main(argv: list[str] | None = None) -> int:
         settings = RamanSettings(_env_file=args.env_file)
         if not args.skip_health_check:
             check_health(base_url, timeout=args.timeout)
-        result = set_webhook(
-            settings,
-            base_url,
-            drop_pending_updates=args.drop_pending_updates,
-            timeout=args.timeout,
+        config = load_telegram_config(
+            settings.spec_root,
+            default_agent=settings.default_agent,
         )
+        if args.all:
+            selected_bots = list(config.bots.values())
+        else:
+            selected_bots = [config.get_bot(args.bot or config.default_bot_name)]
+        results = [
+            {
+                "bot": bot.name,
+                "webhook_url": f"{base_url}{bot.webhook_path}",
+                "telegram_result": set_webhook(
+                    bot,
+                    base_url,
+                    drop_pending_updates=args.drop_pending_updates,
+                    timeout=args.timeout,
+                ),
+            }
+            for bot in selected_bots
+        ]
     except (HTTPError, URLError, OSError, RuntimeError, ValueError) as exc:
         print(f"Failed to set Raman local webhook: {exc}", file=sys.stderr)
         return 1
 
     print(
         json.dumps(
-            {
-                "webhook_url": webhook_url(base_url),
-                "telegram_result": result,
-            },
+            results[0] if len(results) == 1 else {"webhooks": results},
             indent=2,
             sort_keys=True,
         )

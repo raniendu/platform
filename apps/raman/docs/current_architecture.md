@@ -36,7 +36,7 @@ flowchart LR
         chat["/chat<br/>stateless"]
         thread["/threads/...<br/>durable"]
         events["/events/{wf_id}"]
-        wh["/telegram/webhook"]
+        wh["/telegram/{bot}/webhook<br/>/telegram/webhook alias"]
     end
 
     subgraph runtime[In-process workers]
@@ -90,7 +90,7 @@ The CLI (`uv run raman`) bypasses the HTTP layer entirely — it calls
 | Module | Role |
 |---|---|
 | `raman/cli.py` | `uv run raman` entrypoint. Loads spec, builds agent, drops into Pydantic AI's interactive CLI. |
-| `raman/api.py` | FastAPI app + lifespan. Routes: `/chat`, `/threads/{interface}/{thread}/messages`, `/events/{workflow_id}`, `/telegram/webhook`, `/healthz`. Caches one `Agent` per spec in module-level `_agents`. |
+| `raman/api.py` | FastAPI app + lifespan. Routes: `/chat`, `/threads/{interface}/{thread}/messages`, `/events/{workflow_id}`, `/telegram/{bot}/webhook`, legacy `/telegram/webhook`, `/healthz`. Caches one `Agent` per spec in module-level `_agents`. |
 | `raman/agent.py` | `build_agent(spec, settings)` — single chokepoint that turns a spec into a `pydantic_ai.Agent[None, str]`. Wires instructions, identity/datetime injectors, and tools. |
 | `raman/spec.py` | `AgentSpec` Pydantic model + `load_spec(name, root)`. Reads `agent.toml`, assembles instructions in order: system prompt → shared context → local context. |
 | `raman/context.py` | Runtime instruction injectors (`agent_identity`, `current_datetime`). |
@@ -172,7 +172,7 @@ is *not* idempotent at the cost level.
 sequenceDiagram
     autonumber
     participant TG as Telegram
-    participant API as /telegram/webhook
+    participant API as /telegram/{bot}/webhook
     participant Adapter as TelegramAdapter
     participant Store as ThreadStore
     participant Disp as EventDispatcher
@@ -181,10 +181,10 @@ sequenceDiagram
     participant OutQ as OUTBOUND_QUEUE
     participant Deliver as deliver_reply_event
 
-    TG->>API: POST /telegram/webhook (X-Telegram-Bot-Api-Secret-Token)
-    API->>API: validate secret header (403 on mismatch)
+    TG->>API: POST /telegram/{bot}/webhook (X-Telegram-Bot-Api-Secret-Token)
+    API->>API: load spec/telegram.toml bot and validate secret header
     API->>Adapter: handle_update(payload)
-    Adapter->>Store: claim_telegram_update(update_id)
+    Adapter->>Store: claim_telegram_update(bot, update_id)
     alt duplicate
         Store-->>Adapter: false
         Adapter-->>API: {status:"duplicate"}
@@ -275,7 +275,7 @@ just calls out the structural seams.
 | Agent selection | `RAMAN_AGENT`, `RAMAN_SPEC_ROOT` | CLI default agent + API lifespan preload. |
 | Threaded persistence | `RAMAN_DB_PATH` | `ThreadStore.__init__` (path; parents are created). |
 | Workflow persistence | `DBOS_SYSTEM_DATABASE_URL` | `configure_dbos`; falls back to `sqlite:///<RAMAN_DB_PATH parent>/dbos.sqlite3`. |
-| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_API_BASE_URL`, `RAMAN_PUBLIC_BASE_URL` | `TelegramAdapter`, plus the webhook handler in `raman.api`. |
+| Telegram | `apps/raman/spec/telegram.toml` plus the env names it references, `RAMAN_PUBLIC_BASE_URL` | `telegram_config`, `TelegramAdapter`, plus the webhook handler in `raman.api`. |
 | Tool secrets | `PARALLEL_API_KEY` | `raman.tools._parallel_client` (lazy, raises with a clear error if unset). |
 
 ---

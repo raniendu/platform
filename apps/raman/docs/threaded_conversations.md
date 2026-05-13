@@ -19,7 +19,7 @@ debug the common failure modes.
 | ------------------------------------------------------- | ---------------------------------------------------- |
 | One-shot question, no follow-up, you'll handle history  | `POST /chat`                                         |
 | Multi-turn conversation tied to a user/channel/thread   | `POST /threads/{interface}/{thread}/messages`        |
-| Telegram (already wired)                                | `POST /telegram/webhook` → threaded, automatic       |
+| Telegram (already wired)                                | `POST /telegram/{bot}/webhook` → threaded, automatic |
 | Adding a new chat surface (Slack, Discord, web UI)      | Threaded — model your interface as a new `interface` |
 
 `/chat` is fine for scripting, evals, and HTTP probes. The threaded surface

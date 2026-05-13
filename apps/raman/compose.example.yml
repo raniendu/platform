@@ -9,7 +9,7 @@
 #
 # Required env (in .env or shell):
 #   RAMAN_DEV_MODEL=qwen3              # whatever Ollama tag you have pulled
-#   TELEGRAM_BOT_TOKEN=...             # only if testing the Telegram path
+#   TELEGRAM_BOT_TOKEN=...             # only if testing the default Telegram bot
 #   TELEGRAM_WEBHOOK_SECRET=...
 #   TELEGRAM_ALLOWED_CHAT_IDS=...
 
@@ -22,6 +22,9 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/raniendu/platform/raman:local
     container_name: raman
+    env_file:
+      - path: ${RAMAN_CONTAINER_ENV_FILE:-.env}
+        required: false
     environment:
       RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-ollama}
       RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-qwen3}
@@ -29,9 +32,6 @@ services:
       DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:-}
       RAMAN_AGENT: ${RAMAN_AGENT:-raman}
       PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
-      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
     volumes:
       - raman-state:/app/.raman
     ports:

@@ -14,9 +14,9 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PAPERCLIP_BETTER_AUTH_SECRET`: Paperclip Better Auth secret.
 - `PAPERCLIP_AGENT_JWT_SECRET`: Paperclip agent JWT signing secret.
 - `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`. Scope the production key to `gemma-4-31B-it`.
-- `TELEGRAM_BOT_TOKEN`: Raman Telegram bot token from BotFather.
-- `TELEGRAM_WEBHOOK_SECRET`: Raman Telegram webhook secret. Generate with `openssl rand -hex 32`.
-- `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Raman Telegram interface.
+- `TELEGRAM_BOT_TOKEN`: Raman default Telegram bot token from BotFather; this env name is referenced by `apps/raman/spec/telegram.toml`.
+- `TELEGRAM_WEBHOOK_SECRET`: Raman default Telegram webhook secret. Generate with `openssl rand -hex 32`.
+- `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the default Raman Telegram bot.
 - `PARALLEL_API_KEY`: Raman web-search provider key. Required because the current `spec/raman` enables `web_search`.
 - `HOMI_TELEGRAM_BOT_TOKEN`: Homi Telegram bot token from BotFather, only required when `DEPLOY_HOMI=true`.
 - `HOMI_TELEGRAM_WEBHOOK_SECRET`: Homi Telegram webhook secret, only required when `DEPLOY_HOMI=true`.
@@ -103,4 +103,4 @@ When a Caddy bcrypt hash is stored in a Compose `--env-file`, escape dollar sign
 
 ## Production Env File
 
-`PLATFORM_ENV_FILE` should contain shared production values such as database passwords, Caddy auth hashes, and app provider keys. Do not include comments with secret values in this secret; keep it as plain `KEY=value` lines. The deploy workflow appends image refs, app deploy flags, and agent runtime values to the host env file during deployment.
+`PLATFORM_ENV_FILE` should contain shared production values such as database passwords, Caddy auth hashes, app provider keys, and Raman Telegram bot keys referenced by `apps/raman/spec/telegram.toml`. Do not include comments with secret values in this secret; keep it as plain `KEY=value` lines. The deploy workflow appends image refs, app deploy flags, and agent runtime values to the host env file during deployment, and writes Raman Telegram entries to `/opt/platform/.env.raman` for the Raman container.

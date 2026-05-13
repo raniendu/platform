@@ -40,10 +40,14 @@ Required for Telegram:
 
 | Variable | Notes |
 |---|---|
-| `TELEGRAM_BOT_TOKEN` | From BotFather. |
+| `TELEGRAM_BOT_TOKEN` | From BotFather for the default `spec/telegram.toml` bot. |
 | `TELEGRAM_WEBHOOK_SECRET` | Random string echoed in `X-Telegram-Bot-Api-Secret-Token`; generate with `openssl rand -hex 32`. |
-| `TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat IDs allowed to use the bot. |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat IDs allowed to use the default bot. |
 | `RAMAN_PUBLIC_BASE_URL` | Public HTTPS base URL, currently `https://raman.raniendu.dev`. |
+
+Additional Raman Telegram bots are declared in `spec/telegram.toml`; their
+`token_env`, `webhook_secret_env`, and `allowed_chat_ids_env` names must be
+present in the local env file or production Raman env file.
 
 Optional:
 
@@ -101,7 +105,9 @@ auth credentials. Add the `jaeger` DNS A record before deploying this route.
 
 ## Local Compose
 
-The root local Compose file builds this directory and reads root `.env.local`:
+The root local Compose file builds this directory and reads root `.env.local`.
+The Raman service also passes `.env.local` into the container so any additional
+Telegram env names referenced by `spec/telegram.toml` are available at runtime:
 
 ```bash
 cp .env.example .env.local

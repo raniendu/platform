@@ -40,6 +40,9 @@ services:
     image: ${RAMAN_IMAGE:?RAMAN_IMAGE is required}
     container_name: platform-raman
     profiles: ["raman"]
+    env_file:
+      - path: ${RAMAN_CONTAINER_ENV_FILE:-/opt/platform/.env.raman}
+        required: false
     environment:
       RAMAN_MODEL_PROVIDER: ${RAMAN_MODEL_PROVIDER:-digitalocean}
       RAMAN_DEV_MODEL: ${RAMAN_DEV_MODEL:-gemma-4-31B-it}
@@ -54,9 +57,6 @@ services:
       RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS: ${RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS:-mistral}
       RAMAN_PUBLIC_BASE_URL: ${RAMAN_PUBLIC_BASE_URL:-https://raman.raniendu.dev}
       PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
-      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
       ENVIRONMENT: production
     volumes:
       - raman-state:/app/.raman

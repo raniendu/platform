@@ -84,6 +84,7 @@ Production Caddy routes are rendered during deploy from `deploy/apps.prod.env`:
 - `https://prefect.raniendu.dev` -> Prefect when `DEPLOY_PREFECT=true`, otherwise `404`
 - `https://paperclip.raniendu.dev` -> Paperclip when `DEPLOY_PAPERCLIP=true`, otherwise `404`
 - `https://raman.raniendu.dev` -> Raman when `DEPLOY_RAMAN=true`, otherwise `404`
+- `https://jaeger.raniendu.dev` -> Jaeger when `DEPLOY_OBSERVABILITY=true`, protected by Caddy basic auth
 - `https://homi.raniendu.dev` -> Homi when DNS exists and `DEPLOY_HOMI=true`
 - `https://vikram.raniendu.dev` -> Vikram when DNS exists and `DEPLOY_VIKRAM=true`
 - `https://flow.raniendu.dev` -> Airflow when `DEPLOY_FLOW=true`, otherwise `404`

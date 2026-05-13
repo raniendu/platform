@@ -26,6 +26,22 @@ docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.product
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f airflow-scheduler
 ```
 
+## Traces
+
+Local Jaeger v2:
+
+```bash
+RAMAN_OBSERVABILITY_ENABLED=true docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build raman jaeger
+open http://localhost:16686
+```
+
+Production Jaeger is enabled when `DEPLOY_OBSERVABILITY=true` is set in
+`deploy/apps.prod.env`; the deploy workflow writes
+`RAMAN_OBSERVABILITY_ENABLED` from that flag so production Raman exports traces
+to `http://jaeger:4318`. The Jaeger UI is exposed at
+`https://jaeger.raniendu.dev` behind Caddy basic auth using the Prefect basic
+auth credentials. Add the `jaeger` DNS A record before deploying this route.
+
 ## Restarts
 
 Restart one service:
@@ -48,7 +64,7 @@ COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-co
 COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
 ```
 
-Preferred production redeploy path:
+Production deploys start automatically after pushes to `main`. To redeploy the current `main` manually:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main
@@ -71,7 +87,7 @@ DEPLOY_HOMI=false
 DEPLOY_VIKRAM=false
 ```
 
-Change a flag in a PR and rerun the `Deploy` workflow after merge. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
+Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from that push. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
 
 ## Temporary SSH Access
 

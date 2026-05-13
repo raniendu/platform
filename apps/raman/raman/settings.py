@@ -69,6 +69,26 @@ class RamanSettings(BaseSettings):
         default="https://api.telegram.org", validation_alias="TELEGRAM_API_BASE_URL"
     )
     log_level: str = Field(default="INFO", validation_alias="RAMAN_LOG_LEVEL")
+    environment: str = Field(default="local", validation_alias="ENVIRONMENT")
+    observability_enabled: bool = Field(
+        default=False, validation_alias="RAMAN_OBSERVABILITY_ENABLED"
+    )
+    observability_service_name: str = Field(
+        default="raman", validation_alias="RAMAN_OBSERVABILITY_SERVICE_NAME"
+    )
+    observability_otlp_endpoint: str | None = Field(
+        default=None, validation_alias="RAMAN_OTLP_ENDPOINT"
+    )
+    observability_capture_message_content: bool = Field(
+        default=False,
+        validation_alias="RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT",
+    )
+    observability_disable_metrics: bool = Field(
+        default=False, validation_alias="RAMAN_OBSERVABILITY_DISABLE_METRICS"
+    )
+    observability_disabled_instrumentors: str = Field(
+        default="mistral", validation_alias="RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS"
+    )
 
     @property
     def normalized_ollama_base_url(self) -> str:
@@ -91,6 +111,15 @@ class RamanSettings(BaseSettings):
         if self.dbos_system_database_url:
             return self.dbos_system_database_url
         return f"sqlite:///{self.raman_db_path.parent / 'dbos.sqlite3'}"
+
+    @property
+    def observability_disabled_instrumentor_list(self) -> list[str] | None:
+        values = [
+            value.strip()
+            for value in self.observability_disabled_instrumentors.split(",")
+            if value.strip()
+        ]
+        return values or None
 
 
 def build_model(settings: RamanSettings | None = None) -> Model:

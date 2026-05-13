@@ -1,6 +1,6 @@
 # Deployment
 
-Production deploys are manual GitHub Actions runs that apply the shared DigitalOcean infrastructure and then update the Droplet at `/opt/platform`.
+Production deploys run through GitHub Actions after pushes to `main`, and can also be started manually with `workflow_dispatch`. The workflow applies the shared DigitalOcean infrastructure and then updates the Droplet at `/opt/platform`.
 
 Current production host:
 
@@ -15,12 +15,13 @@ Current production routes:
 - `https://raniendu.dev` -> DotDev
 - `https://prefect.raniendu.dev` -> Prefect behind Caddy basic auth
 - `https://raman.raniendu.dev` -> Raman agent health and Telegram webhook endpoint
+- `https://jaeger.raniendu.dev` -> Jaeger UI behind Caddy basic auth when `DEPLOY_OBSERVABILITY=true`
 - `https://homi.raniendu.dev` -> Homi only when DNS exists and `DEPLOY_HOMI=true`
 - `https://vikram.raniendu.dev` -> Vikram only when DNS exists and `DEPLOY_VIKRAM=true`
 - `https://paperclip.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 - `https://flow.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 
-Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags and rerun `Deploy` to start or stop a production app:
+Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags in a PR and merge to `main` to start or stop a production app:
 
 ```env
 DEPLOY_DOTDEV=true
@@ -30,6 +31,7 @@ DEPLOY_PAPERCLIP=false
 DEPLOY_RAMAN=true
 DEPLOY_HOMI=false
 DEPLOY_VIKRAM=false
+DEPLOY_OBSERVABILITY=true
 ```
 
 The initial local, GitHub, Terraform, and DNS gates have passed. Keep the gate notes below for rebuilds or disaster recovery.
@@ -56,7 +58,7 @@ After approval, create the GitHub repo manually or with `gh`, then add the remot
 CI/deploy workflows are under `.github/workflows/`.
 
 - `ci.yml`: runs per-app `uv sync`, targeted tests, Airflow DAG validation, and Compose config validation.
-- `deploy.yml`: manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
+- `deploy.yml`: runs on pushes to `main` and also supports manual `workflow_dispatch` infrastructure apply and deploy to the shared Droplet.
 - `migrate-smaller-droplet.yml`: manual, typed-confirmation migration workflow used for the completed May 2026 move from the old 80 GiB `s-2vcpu-4gb` Droplet to the current 50 GiB `s-1vcpu-2gb` Droplet. Keep it as a migration/recovery runbook, not as the routine deploy path.
 
 Expected deploy workflow:
@@ -76,7 +78,7 @@ Expected deploy workflow:
 13. Smoke test the public endpoints, including agent `/healthz` routes when enabled, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
 14. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
 
-GitHub secrets are listed in `docs/secrets.md`. Do not run `Deploy` until production secrets are configured.
+GitHub secrets are listed in `docs/secrets.md`. Do not merge production deploy changes until production secrets are configured.
 
 ## Gate 4: Terraform Apply
 
@@ -102,9 +104,9 @@ COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-co
 
 Public verification waits until Squarespace DNS cutover is complete.
 
-## Manual Deploy Preconditions
+## Deploy Preconditions
 
-Before running the `Deploy` workflow:
+Before merging changes that will trigger `Deploy`, or before running it manually:
 
 - GitHub environment `production` exists and requires approval.
 - `DIGITALOCEAN_ACCESS_TOKEN` is set in the GitHub environment so the workflow can add and remove its temporary SSH firewall rule.
@@ -117,8 +119,8 @@ Before running the `Deploy` workflow:
 - When `DEPLOY_VIKRAM=true`, configure `GOOGLE_API_KEY`, `VIKRAM_TELEGRAM_BOT_TOKEN`, `VIKRAM_TELEGRAM_WEBHOOK_SECRET`, and `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`. `VIKRAM_PARALLEL_API_KEY` is optional unless Vikram enables web search.
 - `DO_INFERENCE_API_KEY` should be a DigitalOcean model access key scoped to `gemma-4-31B-it` for the production Raman deployment. Serverless inference does not require a Terraform-managed endpoint or dedicated GPU resource.
 - The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, `PAPERCLIP_IMAGE`, `RAMAN_IMAGE`, `HOMI_IMAGE`, and `VIKRAM_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
-- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_PAPERCLIP`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, and `DEPLOY_VIKRAM`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
-- The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=gemma-4-31B-it`, `RAMAN_AGENT=raman`, and `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`) plus the Raman GitHub secrets to the host env file at deploy time.
+- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_PAPERCLIP`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, `DEPLOY_VIKRAM`, and `DEPLOY_OBSERVABILITY`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
+- The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=gemma-4-31B-it`, `RAMAN_AGENT=raman`, `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`, and Raman observability settings derived from `DEPLOY_OBSERVABILITY`) plus the Raman GitHub secrets to the host env file at deploy time.
 - The deploy workflow appends Homi and Vikram production constants and their app-specific secrets only when their deploy flags are enabled.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
@@ -146,7 +148,7 @@ If a failed stage created `platform-shared-small` before Postgres consolidation 
 
 ## Manual Redeploy
 
-From this repository:
+Deploy starts automatically after a push to `main`. To redeploy the current `main` manually:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main
@@ -161,10 +163,11 @@ The workflow is expected to report these smoke statuses:
 - `www.raniendu.dev` -> `301`
 - `prefect.raniendu.dev/api/health` -> `401`
 - `raman.raniendu.dev/healthz` -> `200`
+- `jaeger.raniendu.dev` -> `401`
 - `paperclip.raniendu.dev` -> `404`
 - `flow.raniendu.dev` -> `404`
 
-`401` for Prefect is expected because Caddy basic auth is protecting that route. Paperclip and Flow return `404` while their production app flags are disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
+`401` for Prefect and Jaeger is expected because Caddy basic auth is protecting those routes. Paperclip and Flow return `404` while their production app flags are disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
 
 The production browser credentials for the Paperclip Caddy prompt live in `.env.production.credentials` as `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD`. The deploy env file and GitHub `PLATFORM_ENV_FILE` use `PAPERCLIP_BASIC_AUTH_HASH`; do not try to sign in with `PAPERCLIP_BETTER_AUTH_SECRET`, which is only an internal Paperclip auth/session secret.
 

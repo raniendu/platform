@@ -46,6 +46,12 @@ services:
       DO_INFERENCE_API_KEY: ${DO_INFERENCE_API_KEY:-}
       RAMAN_AGENT: ${RAMAN_AGENT:-raman}
       RAMAN_LOG_LEVEL: ${RAMAN_LOG_LEVEL:-INFO}
+      RAMAN_OBSERVABILITY_ENABLED: ${RAMAN_OBSERVABILITY_ENABLED:-false}
+      RAMAN_OBSERVABILITY_SERVICE_NAME: ${RAMAN_OBSERVABILITY_SERVICE_NAME:-raman}
+      RAMAN_OTLP_ENDPOINT: ${RAMAN_OTLP_ENDPOINT:-http://jaeger:4318}
+      RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT: ${RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT:-false}
+      RAMAN_OBSERVABILITY_DISABLE_METRICS: ${RAMAN_OBSERVABILITY_DISABLE_METRICS:-false}
+      RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS: ${RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS:-mistral}
       RAMAN_PUBLIC_BASE_URL: ${RAMAN_PUBLIC_BASE_URL:-http://raman.localhost}
       PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -56,6 +62,17 @@ services:
       - "8000:8000"
     volumes:
       - raman-state:/app/.raman
+    networks:
+      - platform
+    restart: unless-stopped
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.17.0
+    container_name: platform-jaeger-local
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
     networks:
       - platform
     restart: unless-stopped

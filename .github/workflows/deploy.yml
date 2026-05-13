@@ -1,6 +1,9 @@
 name: Deploy
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       allow_migration_staging_host:
@@ -33,6 +36,7 @@ jobs:
       deploy_raman: ${{ steps.app_flags.outputs.deploy_raman }}
       deploy_homi: ${{ steps.app_flags.outputs.deploy_homi }}
       deploy_vikram: ${{ steps.app_flags.outputs.deploy_vikram }}
+      deploy_observability: ${{ steps.app_flags.outputs.deploy_observability }}
       compose_profiles: ${{ steps.app_flags.outputs.compose_profiles }}
       enabled_pull_services: ${{ steps.app_flags.outputs.enabled_pull_services }}
       disabled_services: ${{ steps.app_flags.outputs.disabled_services }}
@@ -213,7 +217,7 @@ jobs:
           TF_VAR_allowed_ssh_cidrs: ${{ vars.ALLOWED_SSH_CIDRS || secrets.ALLOWED_SSH_CIDRS || '[]' }}
           DROPLET_NAME: platform-shared
           MIGRATION_DROPLET_NAME: platform-shared-small
-          ALLOW_MIGRATION_STAGING_HOST: ${{ inputs.allow_migration_staging_host && 'true' || 'false' }}
+          ALLOW_MIGRATION_STAGING_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_migration_staging_host && 'true' || 'false' }}
         run: |
           set -euo pipefail
 
@@ -467,6 +471,12 @@ jobs:
           RAMAN_DEV_MODEL: gemma-4-31B-it
           RAMAN_AGENT: raman
           RAMAN_PUBLIC_BASE_URL: https://raman.raniendu.dev
+          RAMAN_OBSERVABILITY_ENABLED: ${{ needs.build-images.outputs.deploy_observability }}
+          RAMAN_OBSERVABILITY_SERVICE_NAME: raman
+          RAMAN_OTLP_ENDPOINT: http://jaeger:4318
+          RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT: "false"
+          RAMAN_OBSERVABILITY_DISABLE_METRICS: "false"
+          RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS: mistral
           HOMI_MODEL_ID: us.anthropic.claude-sonnet-4-20250514-v1:0
           HOMI_AWS_REGION: us-west-2
           HOMI_AGENT: homi
@@ -499,6 +509,7 @@ jobs:
           DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
           DEPLOY_HOMI: ${{ needs.build-images.outputs.deploy_homi }}
           DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
+          DEPLOY_OBSERVABILITY: ${{ needs.build-images.outputs.deploy_observability }}
         run: |
           test -n "$PLATFORM_ENV_FILE"
           test -n "$DOTDEV_IMAGE"
@@ -515,6 +526,7 @@ jobs:
           test -n "$DEPLOY_RAMAN"
           test -n "$DEPLOY_HOMI"
           test -n "$DEPLOY_VIKRAM"
+          test -n "$DEPLOY_OBSERVABILITY"
           require_env_key() {
             key="$1"
             if ! printf '%s\n' "$PLATFORM_ENV_FILE" | grep -Eq "^${key}="; then
@@ -526,7 +538,7 @@ jobs:
           require_env_key PREFECT_POSTGRES_PASSWORD
           require_env_key AIRFLOW_POSTGRES_PASSWORD
           require_env_key PAPERCLIP_POSTGRES_PASSWORD
-          if [ "$DEPLOY_PREFECT" = true ]; then
+          if [ "$DEPLOY_PREFECT" = true ] || [ "$DEPLOY_OBSERVABILITY" = true ]; then
             require_env_key PREFECT_BASIC_AUTH_USER
             require_env_key PREFECT_BASIC_AUTH_HASH
           fi
@@ -547,6 +559,12 @@ jobs:
             test -n "$RAMAN_DEV_MODEL"
             test -n "$RAMAN_AGENT"
             test -n "$RAMAN_PUBLIC_BASE_URL"
+            test -n "$RAMAN_OBSERVABILITY_ENABLED"
+            test -n "$RAMAN_OBSERVABILITY_SERVICE_NAME"
+            test -n "$RAMAN_OTLP_ENDPOINT"
+            test -n "$RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT"
+            test -n "$RAMAN_OBSERVABILITY_DISABLE_METRICS"
+            test -n "$RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS"
             test -n "$DO_INFERENCE_API_KEY"
             test -n "$TELEGRAM_BOT_TOKEN"
             test -n "$TELEGRAM_WEBHOOK_SECRET"
@@ -589,6 +607,7 @@ jobs:
             printf 'DEPLOY_RAMAN=%s\n' "$DEPLOY_RAMAN"
             printf 'DEPLOY_HOMI=%s\n' "$DEPLOY_HOMI"
             printf 'DEPLOY_VIKRAM=%s\n' "$DEPLOY_VIKRAM"
+            printf 'DEPLOY_OBSERVABILITY=%s\n' "$DEPLOY_OBSERVABILITY"
             printf 'DOTDEV_IMAGE=%s\n' "$DOTDEV_IMAGE"
             printf 'PREFECT_IMAGE=%s\n' "$PREFECT_IMAGE"
             printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
@@ -601,6 +620,12 @@ jobs:
               printf 'RAMAN_DEV_MODEL=%s\n' "$RAMAN_DEV_MODEL"
               printf 'RAMAN_AGENT=%s\n' "$RAMAN_AGENT"
               printf 'RAMAN_PUBLIC_BASE_URL=%s\n' "$RAMAN_PUBLIC_BASE_URL"
+              printf 'RAMAN_OBSERVABILITY_ENABLED=%s\n' "$RAMAN_OBSERVABILITY_ENABLED"
+              printf 'RAMAN_OBSERVABILITY_SERVICE_NAME=%s\n' "$RAMAN_OBSERVABILITY_SERVICE_NAME"
+              printf 'RAMAN_OTLP_ENDPOINT=%s\n' "$RAMAN_OTLP_ENDPOINT"
+              printf 'RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT=%s\n' "$RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT"
+              printf 'RAMAN_OBSERVABILITY_DISABLE_METRICS=%s\n' "$RAMAN_OBSERVABILITY_DISABLE_METRICS"
+              printf 'RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS=%s\n' "$RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS"
               printf 'DO_INFERENCE_API_KEY=%s\n' "$DO_INFERENCE_API_KEY"
               printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
               printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
@@ -744,6 +769,7 @@ jobs:
           DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
           DEPLOY_HOMI: ${{ needs.build-images.outputs.deploy_homi }}
           DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
+          DEPLOY_OBSERVABILITY: ${{ needs.build-images.outputs.deploy_observability }}
         run: |
           check_status() {
             label="$1"
@@ -808,6 +834,12 @@ jobs:
             check_status "vikram.raniendu.dev/healthz" "https://vikram.raniendu.dev/healthz" "200"
           else
             echo "vikram.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_VIKRAM=true are configured"
+          fi
+
+          if [ "$DEPLOY_OBSERVABILITY" = true ]; then
+            check_status "jaeger.raniendu.dev" "https://jaeger.raniendu.dev/" "401"
+          else
+            echo "jaeger.raniendu.dev disabled; skipping public smoke check until DNS and DEPLOY_OBSERVABILITY=true are configured"
           fi
 
       - name: Stop legacy Postgres containers after migration

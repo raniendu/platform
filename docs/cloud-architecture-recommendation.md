@@ -38,6 +38,7 @@ Caddy on one Droplet
   |-- prefect.raniendu.dev  -> prefect-server:4200, Caddy basic auth
   |-- paperclip.raniendu.dev -> paperclip:3100, Caddy basic auth
   |-- raman.raniendu.dev    -> raman:8000
+  |-- jaeger.raniendu.dev   -> jaeger:16686, Caddy basic auth
   |-- flow.raniendu.dev     -> airflow-webserver:8080
 
 Docker Compose network
@@ -46,6 +47,7 @@ Docker Compose network
   |-- prefect-worker
   |-- paperclip
   |-- raman
+  |-- jaeger
   |-- platform-postgres
   |-- airflow-webserver
   |-- airflow-scheduler

@@ -16,7 +16,7 @@ Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2g
 - `deploy/compose/` - shared local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
-- `.github/workflows/` - CI and manual production deploy workflows.
+- `.github/workflows/` - CI and production deploy workflows.
 - `docs/` - architecture, developer guide, cloud recommendation, local development, deployment, DNS, secrets, rollback, operations, cost comparison, and deprecation docs.
 - `scripts/` - root helpers for uv, tests, and local Compose.
 
@@ -120,7 +120,7 @@ Public routes:
 - Raman: `https://raman.raniendu.dev`
 - Airflow: `https://flow.raniendu.dev`
 
-Manual redeploy:
+Deploys run automatically after pushes to `main`. Manual redeploy remains available:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main

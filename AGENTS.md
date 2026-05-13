@@ -14,7 +14,7 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
 - `deploy/caddy/`: local and production Caddy routing.
 - `infra/terraform/`: DigitalOcean Droplet and firewall infrastructure.
 - `docs/`: architecture, developer guide, deployment, DNS, secrets, rollback, operations, cloud recommendation, DigitalOcean cost comparison, and deprecation docs.
-- `.github/workflows/`: CI and manual production deploy workflows.
+- `.github/workflows/`: CI and production deploy workflows.
 
 ## Tooling Rules
 
@@ -37,7 +37,7 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
 - Current production host is `platform-shared` at `174.138.71.121`, size `s-1vcpu-2gb`.
 - Terraform lives in `infra/terraform`; do not run local `terraform apply` for production infrastructure.
 - Local `doctl` usage is read-only only. DigitalOcean write operations must run through reviewed PRs and GitHub Actions.
-- The production deploy workflow is manual: `.github/workflows/deploy.yml`.
+- The production deploy workflow runs on pushes to `main` and can also be started manually with `workflow_dispatch`: `.github/workflows/deploy.yml`.
 - The deploy workflow temporarily allowlists the GitHub runner `/32` in the DigitalOcean firewall, deploys over SSH, recreates Caddy, runs public smoke checks, then removes the temporary rule. Do not replace this with `0.0.0.0/0` SSH access.
 - Production DNS is managed manually in Squarespace. Apex/root must be an `A` record to the Droplet IP, not an `ALIAS` record to an IP address.
 - Do not change or delete old production resources unless the user explicitly approves the specific decommissioning step.

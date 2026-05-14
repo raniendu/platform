@@ -16,8 +16,8 @@ Do not commit `.env.local`, `.env.production.generated`, `.env.production.creden
 
 - `apps/dotdev/`: Flask site, Python 3.13.
 - `apps/raman/`: Pydantic AI agent with FastAPI, Telegram webhook, and threaded SQLite/DBOS state, Python 3.13.
-- `apps/homi/`: Strands SDK agent with the same FastAPI, Telegram, and threaded SQLite/DBOS surface as Raman, Python 3.13.
-- `apps/vikram/`: Google ADK agent with the same FastAPI, Telegram, and threaded SQLite/DBOS surface as Raman, Python 3.13.
+- `apps/homi/`: Strands SDK agent with a FastAPI, Telegram, and threaded SQLite/DBOS surface, Python 3.13.
+- `apps/vikram/`: Google ADK agent with a FastAPI, Telegram, and threaded SQLite/DBOS surface, Python 3.13.
 - `apps/prefect/`: Prefect server/worker image and flows, Python 3.10+.
 - `apps/paperclip/`: Dockerfile that builds upstream Paperclip.
 - `apps/flow/`: Airflow DAGs, image, and DAG validation script, Python 3.10+.
@@ -26,6 +26,11 @@ Do not commit `.env.local`, `.env.production.generated`, `.env.production.creden
 - `.github/workflows/`: CI and production deploy workflows.
 - `infra/terraform/`: DigitalOcean Droplet and firewall.
 - `docs/`: runbooks and architecture notes.
+
+Use the [documentation map](README.md) to find the right runbook. When behavior
+changes, update the closest runbook in the same PR: app docs for app internals,
+shared docs for deployment, secrets, DNS, Terraform, Compose, Caddy, or
+operations.
 
 ## Local Setup
 
@@ -187,6 +192,10 @@ docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local 
 bash deploy/scripts/render-prod-caddy.sh deploy/apps.prod.env deploy/caddy/prod-sites
 RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:ci HOMI_IMAGE=ghcr.io/raniendu/platform/homi:ci VIKRAM_IMAGE=ghcr.io/raniendu/platform/vikram:ci COMPOSE_PROFILES=dotdev,prefect,raman docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.example config
 ```
+
+Docs-only changes should still run at least `git diff --check`. If a docs change
+touches deployment commands, env names, app flags, Caddy routes, or Compose
+examples, also run the matching validation command from the affected runbook.
 
 ## Production Deploys
 

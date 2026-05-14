@@ -17,7 +17,7 @@ Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2g
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
 - `.github/workflows/` - CI and production deploy workflows.
-- `docs/` - architecture, developer guide, cloud recommendation, local development, deployment, DNS, secrets, rollback, operations, cost comparison, and deprecation docs.
+- `docs/` - documentation map, architecture, local development, deployment, operations, DNS, secrets, rollback, cost, and app architecture docs.
 - `scripts/` - root helpers for uv, tests, and local Compose.
 
 ## Quick Start
@@ -51,12 +51,18 @@ Local service URLs:
 - DotDev: `http://dotdev.localhost`
 - Prefect: `http://prefect.localhost`
 - Raman: `http://raman.localhost`
+- Homi: `http://homi.localhost`
+- Vikram: `http://vikram.localhost`
+- Paperclip: `http://paperclip.localhost`
 - Airflow: `http://flow.localhost`
 
 Direct container ports are also exposed for smoke checks:
 
 - DotDev: `http://localhost:8501`
 - Raman: `http://localhost:8000/healthz`
+- Homi: `http://localhost:8001/healthz`
+- Vikram: `http://localhost:8002/healthz`
+- Paperclip: `http://localhost:3100/api/health`
 - Prefect: `http://localhost:4200/api/health`
 - Airflow: `http://localhost:8080`
 
@@ -118,7 +124,11 @@ Public routes:
 - DotDev: `https://raniendu.dev`
 - Prefect: `https://prefect.raniendu.dev`
 - Raman: `https://raman.raniendu.dev`
-- Airflow: `https://flow.raniendu.dev`
+- Jaeger: `https://jaeger.raniendu.dev` when observability is enabled
+- Homi: `https://homi.raniendu.dev` when enabled
+- Vikram: `https://vikram.raniendu.dev` when enabled
+- Paperclip: `https://paperclip.raniendu.dev` when enabled
+- Airflow: `https://flow.raniendu.dev` when enabled
 
 Deploys run automatically after pushes to `main`. Manual redeploy remains available:
 
@@ -131,6 +141,8 @@ The deploy workflow temporarily allowlists the GitHub runner for SSH, uploads th
 
 Do not use local DigitalOcean CLI commands for infrastructure writes. Local `doctl` is read-only; reviewed PRs and GitHub Actions are the production write path.
 
-Cloud provider architecture and cost tradeoffs are summarized in `docs/cloud-architecture-recommendation.md`.
-Developer workflows are covered in `docs/developer-guide.md`. DigitalOcean cost comparison, cost optimization, and old-resource deprecation are covered in `docs/digitalocean-cost-comparison.md`, `docs/digitalocean-cost-optimization-plan.md`, and `docs/deprecation-plan.md`.
-App-level architecture docs live under `docs/apps/`, and datastore ownership is documented in `docs/database/`.
+Use [docs/README.md](docs/README.md) as the documentation map. Cloud provider
+architecture and cost tradeoffs are summarized in
+`docs/cloud-architecture-recommendation.md`. Developer workflows are covered in
+`docs/developer-guide.md`. App-level architecture docs live under `docs/apps/`,
+and datastore ownership is documented in `docs/database/`.

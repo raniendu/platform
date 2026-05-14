@@ -2,27 +2,29 @@
 
 > Snapshot taken May 2026 — re-verify version numbers and prices when the file
 > is more than a quarter old. Status callouts (`[done]`, `[in progress]`)
-> reflect the codebase as of 2026-05-09.
+> reflect the codebase as of 2026-05-13.
 >
-> Companion to `library_examples.md`. That file says "here's what each library
-> in `pyproject.toml` could do." This file says "here are four directions raman
-> could grow, and what the architecture looks like in each."
+> Companion to [current_architecture.md](current_architecture.md). That file
+> describes the shipped runtime; this file describes directions Raman could
+> grow and what the architecture looks like in each.
 
-## Implementation status (2026-05-09)
+## Implementation status (2026-05-13)
 
 Since the original snapshot, the gateway + Telegram interface landed (see
-`docs/superpowers/plans/2026-05-10-telegram-interface-gateway.md`):
+[current_architecture.md](current_architecture.md)):
 
 - **Gateway layer.** `raman/gateway.py` (thread store, `ConversationService`,
   CloudEvent helpers) and `raman/dbos_gateway.py` (DBOS workflows + queues)
   sit alongside the stateless `POST /chat`.
 - **Persistence.** SQLite at `.raman/raman.sqlite3` keyed on
-  `(interface, external_thread_id)`; serialized Pydantic AI message history.
+  `(interface, external_thread_id)`; Telegram bot identity is included in the
+  interface name for bot-scoped histories; serialized Pydantic AI message
+  history.
 - **DBOS in-process.** Inbound and outbound queues with `concurrency=1`,
   workflows for message processing and reply delivery.
-- **Telegram adapter.** `raman/telegram.py` — webhook secret enforcement,
-  chat allowlist, `/start /help /reset /agent`, httpx send with 4096-char
-  chunking.
+- **Telegram adapter.** `raman/telegram.py` and `raman/telegram_config.py` —
+  TOML-backed multi-bot config, webhook secret enforcement, chat allowlist,
+  `/start /help /reset /agent`, httpx send with 4096-char chunking.
 - **HTTP surface.** `POST /threads/{interface}/{thread}/messages` and
   `GET /events/{workflow_id}` for non-Telegram callers; `POST /chat`
   unchanged.
@@ -84,10 +86,11 @@ What's in the box, exactly:
 | `raman/agent.py` | `build_agent(spec, settings)` — returns a `pydantic_ai.Agent[None, str]`. Single chokepoint for agent construction. |
 | `raman/context.py` | Builds the runtime context block injected into the system prompt (timezone-aware date, etc.). |
 | `raman/cli.py` | `uv run raman` interactive entrypoint. |
-| `raman/api.py` | `POST /chat` (stateless), `POST /threads/{interface}/{thread}/messages` (durable, queued), `GET /events/{workflow_id}`, `POST /telegram/webhook`, `GET /healthz`. Caches one `Agent` per spec in `_agents`. |
+| `raman/api.py` | `POST /chat` (stateless), `POST /threads/{interface}/{thread}/messages` (durable, queued), `GET /events/{workflow_id}`, `POST /telegram/{bot}/webhook`, legacy `POST /telegram/webhook`, `GET /healthz`. Caches one `Agent` per spec in `_agents`. |
 | `raman/gateway.py` | `ThreadStore` (SQLite, keyed on `(interface, external_thread_id)`), `ConversationService` (loads history → runs agent → persists `result.all_messages_json()`), CloudEvent helpers. |
 | `raman/dbos_gateway.py` | `EventDispatcher`, `INBOUND_QUEUE`/`OUTBOUND_QUEUE` (concurrency=1), `process_inbound_message_event` and `deliver_reply_event` workflows. |
-| `raman/telegram.py` | `TelegramAdapter` — webhook parse + dedupe, allowlist enforcement, `/start /help /reset /agent` commands, httpx send with 4096-char chunking. |
+| `raman/telegram.py` | `TelegramAdapter` — webhook parse + bot-scoped dedupe, allowlist enforcement, `/start /help /reset /agent` commands, httpx send with 4096-char chunking. |
+| `raman/telegram_config.py` | Loads `spec/telegram.toml` and resolves bot-specific token, webhook secret, allowlist, and API base URL env names. |
 | `raman/tools.py` | `TOOL_REGISTRY` dict; only `web_search` (Parallel) registered. |
 | `raman/settings.py` | `RamanSettings` — env-driven. Includes Telegram, DBOS, and SQLite path config. |
 | `pyproject.toml` | Includes `prefect`, `dbos`, `mcp`, `cloudevents`, `dlt`, `duckdb`, `openlit`, OTel. `dbos` and `cloudevents` are now in use; the rest is still scaffolding. |
@@ -542,11 +545,9 @@ sequenceDiagram
 | **LangGraph** as workflow runtime | Stateful agentic loops with branching | Use for *agentic* loops, not for cron jobs | Bundled with your app | Your workflow is not LLM-heavy |
 | **Inngest** | Event-driven serverless workflows | Slick if you live in Vercel-land | Free tier; $20+/mo at scale | You want to stay self-hosted |
 
-DBOS + Prefect compose cleanly: Prefect is the scheduler/UI, DBOS is the
-durability layer for individual steps. From `library_examples.md` (already
-internalized): "Prefect schedules a flow, inside which a DBOS workflow does the
-durable bit." Don't pick one to the exclusion of the other if you want both
-properties.
+DBOS + Prefect compose cleanly: Prefect can own scheduler/UI concerns while
+DBOS owns durable execution for individual steps inside the app process. Don't
+pick one to the exclusion of the other if you want both properties.
 
 ### Migration path
 
@@ -568,9 +569,8 @@ properties.
 
 - **Don't introduce Prefect for one cron job.** A `@DBOS.scheduled` decorator
   inside your existing FastAPI process is one line and zero new infra.
-- **Don't run two retry layers in series.** Pick the outermost-that-can-prove-
-  safe-to-retry. Per `library_examples.md`: "the outermost layer that can
-  prove the call is safe to retry owns the policy."
+- **Don't run two retry layers in series.** Pick the outermost layer that can
+  prove the call is safe to retry and let that layer own the policy.
 - **Skip self-hosted Temporal.** It's a clustered Cassandra/Postgres + worker
   pool deployment that requires real operational attention. Magnificent at
   scale, miserable for one user.

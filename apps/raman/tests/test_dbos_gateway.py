@@ -1,4 +1,5 @@
 from inspect import unwrap
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +9,7 @@ from raman.dbos_gateway import (
     process_inbound_message_event,
 )
 from raman.gateway import (
+    ConversationReply,
     InboundMessage,
     cloud_event_to_dict,
     make_message_received_event,
@@ -39,6 +41,51 @@ async def test_processing_failure_reply_is_sent_for_telegram(monkeypatch):
     assert delivered is True
     assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY)]
     assert "do not echo" not in TELEGRAM_FAILURE_REPLY
+
+
+@pytest.mark.asyncio
+async def test_inbound_workflow_enqueues_replies_for_named_telegram_bot(monkeypatch):
+    outbound_events = []
+
+    class SucceedingConversationService:
+        def __init__(self, *, settings, store):
+            pass
+
+        async def send_message(self, message):
+            return ConversationReply(
+                interface=message.interface,
+                external_thread_id=message.external_thread_id,
+                agent_name="raman",
+                output="hello from raman",
+            )
+
+    class FakeOutboundQueue:
+        async def enqueue_async(self, workflow, event_dict):
+            outbound_events.append((workflow, event_dict))
+            return SimpleNamespace(workflow_id="outbound-1")
+
+    monkeypatch.setattr(
+        "raman.gateway.ConversationService", SucceedingConversationService
+    )
+    monkeypatch.setattr("raman.dbos_gateway.OUTBOUND_QUEUE", FakeOutboundQueue())
+    message = InboundMessage(
+        interface="telegram:raman",
+        external_thread_id="123",
+        prompt="hello",
+        agent_name=None,
+        default_agent="raman",
+        metadata={"telegram_bot": "raman", "update_id": 42},
+    )
+
+    result = await unwrap(process_inbound_message_event)(
+        cloud_event_to_dict(make_message_received_event(message))
+    )
+
+    assert result["output"] == "hello from raman"
+    assert len(outbound_events) == 1
+    _, event_dict = outbound_events[0]
+    assert event_dict["data"]["interface"] == "telegram:raman"
+    assert event_dict["data"]["metadata"]["telegram_bot"] == "raman"
 
 
 @pytest.mark.asyncio

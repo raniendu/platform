@@ -135,7 +135,7 @@ async def process_inbound_message_event(event_dict: dict[str, Any]) -> dict[str,
         )
         raise
     reply_event = make_reply_requested_event(message, reply)
-    if reply.interface == "telegram":
+    if reply.interface == "telegram" or reply.interface.startswith("telegram:"):
         handle = await OUTBOUND_QUEUE.enqueue_async(
             deliver_reply_event,
             cloud_event_to_dict(reply_event),

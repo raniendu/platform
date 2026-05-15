@@ -89,6 +89,14 @@ class RamanSettings(BaseSettings):
     observability_disabled_instrumentors: str = Field(
         default="mistral", validation_alias="RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS"
     )
+    context_window_tokens: int = Field(
+        default=256_000,
+        validation_alias="RAMAN_CONTEXT_WINDOW_TOKENS",
+    )
+    context_warning_ratio: float = Field(
+        default=0.85,
+        validation_alias="RAMAN_CONTEXT_WARNING_RATIO",
+    )
 
     @property
     def normalized_ollama_base_url(self) -> str:

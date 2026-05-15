@@ -318,6 +318,8 @@ Environment variables (see `.env.example`):
 | `RAMAN_OTLP_ENDPOINT`         | —                                      | OTLP endpoint, e.g. `http://jaeger:4318` in Compose                         |
 | `RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT` | `false`                    | Capture prompt/reply content in traces. Forced off in production            |
 | `RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS` | `mistral`                 | Comma-separated OpenLIT instrumentors to skip                               |
+| `RAMAN_CONTEXT_WINDOW_TOKENS` | `256000`                              | Model input context budget used for conversation warnings                   |
+| `RAMAN_CONTEXT_WARNING_RATIO` | `0.85`                                | Warn users when reported input tokens reach this fraction of context        |
 | `RAMAN_DB_PATH`               | `<repo>/.raman/raman.sqlite3`          | SQLite path for the threaded conversation store                            |
 | `DBOS_SYSTEM_DATABASE_URL`    | `sqlite:///<repo>/.raman/dbos.sqlite3` | DBOS workflow state DB. Override to use Postgres                           |
 | `RAMAN_PUBLIC_BASE_URL`       | —                                      | HTTPS base URL used when registering the Telegram webhook                  |

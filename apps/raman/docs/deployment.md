@@ -78,6 +78,8 @@ Optional:
 | `RAMAN_OTLP_ENDPOINT` | unset | OTLP endpoint. Use `http://jaeger:4318` with the Compose Jaeger service. |
 | `RAMAN_OBSERVABILITY_CAPTURE_MESSAGE_CONTENT` | `false` | Capture prompt/reply content in traces. Forced off in production. |
 | `RAMAN_OBSERVABILITY_DISABLED_INSTRUMENTORS` | `mistral` | Comma-separated OpenLIT instrumentors to skip. |
+| `RAMAN_CONTEXT_WINDOW_TOKENS` | `256000` | Model input context budget used for conversation warnings. |
+| `RAMAN_CONTEXT_WARNING_RATIO` | `0.85` | Warn users when reported input tokens reach this fraction of context. |
 
 ## Runtime State
 

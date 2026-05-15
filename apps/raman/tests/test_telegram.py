@@ -586,6 +586,47 @@ async def test_telegram_group_agent_command_fails_closed_when_admin_check_fails(
 
 
 @pytest.mark.asyncio
+async def test_telegram_group_agent_command_allows_admin_to_select_gobind(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    async def get_chat_member(chat_id, user_id):
+        return {"status": "creator"}
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=store,
+        enqueue_message=None,
+        send_text=send_text,
+        get_chat_member=get_chat_member,
+    )
+
+    result = await adapter.handle_update(
+        text_update(
+            "/agent@RamanBot gobind",
+            chat_id=-100123,
+            chat_type="supergroup",
+            message_id=61,
+        )
+    )
+
+    assert result.status == "handled"
+    assert (
+        store.get_thread("telegram:raman", "-100123", default_agent="raman").agent_name
+        == "gobind"
+    )
+    assert sent == [(-100123, chunk, 61) for chunk in expected("Agent set to gobind.")]
+
+
+@pytest.mark.asyncio
 async def test_telegram_group_admin_check_logs_do_not_include_bot_token(tmp_path):
     sent = []
 

@@ -15,6 +15,16 @@ def test_load_real_raman_spec():
     assert "personal AI assistant" in spec.instructions
 
 
+def test_load_real_gobind_spec():
+    settings = RamanSettings(_env_file=None)
+    spec = load_spec("gobind", settings.spec_root)
+
+    assert spec.name == "gobind"
+    assert spec.description.startswith("Group assistant")
+    assert spec.tools == ["web_search"]
+    assert "You are Gobind" in spec.instructions
+
+
 def _write_agent_spec(agent_dir: Path, body: str) -> None:
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "agent.toml").write_text(body)

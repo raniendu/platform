@@ -1,8 +1,8 @@
-name = "Gobind"
-description = "Group assistant agent for Telegram group chats."
+name = "Leo"
+description = "Group assistant agent for Telegram chats."
 system_prompt = "system_prompt.md"
 
-# Local resources — relative to spec/gobind/
+# Local resources — relative to spec/leo/
 context_files = []
 skills = []
 

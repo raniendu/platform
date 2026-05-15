@@ -22,6 +22,10 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `GOBIND_TELEGRAM_WEBHOOK_SECRET`: Gobind Telegram webhook secret. Generate with `openssl rand -hex 32`.
 - `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Gobind Telegram bot.
 - `GOBIND_TELEGRAM_BOT_USERNAME`: Gobind Telegram bot username without `@`; required for group mentions and reply-to-bot detection.
+- `LEO_TELEGRAM_BOT_TOKEN`: Leo Telegram bot token from BotFather; this env name is referenced by `apps/raman/spec/telegram.toml`.
+- `LEO_TELEGRAM_WEBHOOK_SECRET`: Leo Telegram webhook secret. Generate with `openssl rand -hex 32`.
+- `LEO_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Leo Telegram bot.
+- `LEO_TELEGRAM_BOT_USERNAME`: Leo Telegram bot username without `@`; required for group mentions and reply-to-bot detection.
 - `PARALLEL_API_KEY`: Raman web-search provider key. Required because the current `spec/raman` enables `web_search`.
 - `HOMI_TELEGRAM_BOT_TOKEN`: Homi Telegram bot token from BotFather, only required when `DEPLOY_HOMI=true`.
 - `HOMI_TELEGRAM_WEBHOOK_SECRET`: Homi Telegram webhook secret, only required when `DEPLOY_HOMI=true`.

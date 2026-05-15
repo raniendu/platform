@@ -34,9 +34,8 @@ In a third terminal, use the HTTPS forwarding URL from ngrok:
 That command validates the URL, checks `<ngrok-url>/healthz`, then calls
 Telegram `setWebhook` with `TELEGRAM_BOT_TOKEN` and
 `TELEGRAM_WEBHOOK_SECRET` from `.env.local`. It does not print either secret.
-Pass `--bot gobind` to test the Gobind bot with
-`GOBIND_TELEGRAM_BOT_TOKEN` and `GOBIND_TELEGRAM_WEBHOOK_SECRET`, or `--all` to
-register every configured bot.
+Pass `--bot gobind` or `--bot leo` to test a named bot with its prefixed
+Telegram env vars, or `--all` to register every configured bot.
 
 Useful overrides:
 
@@ -190,8 +189,8 @@ Preferred local helper from the platform repo root:
 ./apps/raman/scripts/set-local-telegram-webhook.sh "$RAMAN_PUBLIC_BASE_URL" --bot raman
 ```
 
-Use `--bot gobind` for the Gobind bot, or `--all` to register every bot in
-`spec/telegram.toml`.
+Use `--bot gobind` or `--bot leo` for a named bot, or `--all` to register every
+bot in `spec/telegram.toml`.
 
 Manual equivalent:
 
@@ -233,8 +232,9 @@ For group chats, add the group chat ID to `TELEGRAM_ALLOWED_CHAT_IDS` and set
 `TELEGRAM_BOT_USERNAME` to the bot username without `@`. Raman only answers in
 groups when mentioned, replied to, or invoked with a command. `/reset` and
 `/agent` require the sender to be a Telegram chat admin. If the bot does not see
-group messages, check the bot's privacy mode in BotFather. For Gobind, use
-`GOBIND_TELEGRAM_ALLOWED_CHAT_IDS` and `GOBIND_TELEGRAM_BOT_USERNAME`.
+group messages, check the bot's privacy mode in BotFather. For named bots, use
+the matching prefixed variables such as `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS` or
+`LEO_TELEGRAM_ALLOWED_CHAT_IDS`.
 
 ## Debugging `invalid webhook URL specified`
 

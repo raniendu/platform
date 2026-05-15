@@ -17,3 +17,12 @@ webhook_secret_env = "GOBIND_TELEGRAM_WEBHOOK_SECRET"
 allowed_chat_ids_env = "GOBIND_TELEGRAM_ALLOWED_CHAT_IDS"
 api_base_url_env = "GOBIND_TELEGRAM_API_BASE_URL"
 username_env = "GOBIND_TELEGRAM_BOT_USERNAME"
+
+[[bots]]
+name = "leo"
+default_agent = "leo"
+token_env = "LEO_TELEGRAM_BOT_TOKEN"
+webhook_secret_env = "LEO_TELEGRAM_WEBHOOK_SECRET"
+allowed_chat_ids_env = "LEO_TELEGRAM_ALLOWED_CHAT_IDS"
+api_base_url_env = "LEO_TELEGRAM_API_BASE_URL"
+username_env = "LEO_TELEGRAM_BOT_USERNAME"

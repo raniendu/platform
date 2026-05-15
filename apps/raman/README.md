@@ -183,8 +183,9 @@ Telegram bots are configured in `spec/telegram.toml`. Each `[[bots]]` entry
 binds a bot name to a default agent spec and names the env vars that hold its
 BotFather token, webhook secret, allowed chat IDs, and optional bot username.
 Private and group chat IDs are supported; unknown chats are rejected.
-The checked-in config includes `raman` and `gobind`; Gobind uses the same
-FastAPI service and is reached at `/telegram/gobind/webhook`.
+The checked-in config includes `raman`, `gobind`, and `leo`; each uses the same
+FastAPI service and named webhook path such as `/telegram/gobind/webhook` or
+`/telegram/leo/webhook`.
 
 Private chats respond to every text message. Group and supergroup chats stay
 quiet unless the message mentions `@<bot username>`, replies to one of the
@@ -331,6 +332,11 @@ Environment variables (see `.env.example`):
 | `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS` | empty                              | Chat IDs allowed to use Gobind                                             |
 | `GOBIND_TELEGRAM_BOT_USERNAME` | —                                     | Gobind bot username, without `@`; required for group mentions and replies  |
 | `GOBIND_TELEGRAM_API_BASE_URL` | `https://api.telegram.org`            | Telegram API host for Gobind                                               |
+| `LEO_TELEGRAM_BOT_TOKEN`      | —                                      | BotFather token for the Leo Telegram bot                                   |
+| `LEO_TELEGRAM_WEBHOOK_SECRET` | —                                      | Secret for the Leo Telegram webhook header                                 |
+| `LEO_TELEGRAM_ALLOWED_CHAT_IDS` | empty                                | Chat IDs allowed to use Leo                                                |
+| `LEO_TELEGRAM_BOT_USERNAME`   | —                                      | Leo bot username, without `@`; required for group mentions and replies     |
+| `LEO_TELEGRAM_API_BASE_URL`   | `https://api.telegram.org`             | Telegram API host for Leo                                                  |
 | `RAMAN_RUN_EVALS`             | unset                                  | Set to `1` to enable live LLM-judge evals in `pytest`                      |
 
 ## Adding Tools

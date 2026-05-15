@@ -25,7 +25,7 @@ def clean_settings(monkeypatch, **overrides) -> RamanSettings:
 
 def test_agent_is_configured_as_pydantic_ai_agent():
     assert isinstance(agent, Agent)
-    assert agent.name == "raman"
+    assert agent.name == "Raman"
 
 
 def test_build_agent_uses_requested_settings(monkeypatch):
@@ -38,7 +38,7 @@ def test_build_agent_uses_requested_settings(monkeypatch):
     )
 
     assert isinstance(local_agent, Agent)
-    assert local_agent.name == "raman"
+    assert local_agent.name == "Raman"
     assert isinstance(local_agent.model, OllamaModel)
     assert local_agent.model.model_name == "qwen3"
 

@@ -181,13 +181,25 @@ uv run python -m raman.local_webhook "$RAMAN_PUBLIC_BASE_URL" --bot raman
 
 Telegram bots are configured in `spec/telegram.toml`. Each `[[bots]]` entry
 binds a bot name to a default agent spec and names the env vars that hold its
-BotFather token, webhook secret, and allowed chat IDs. Private and group chat
-IDs are supported; unknown chats are rejected. V1 accepts text only and supports
-`/start`, `/help`, `/reset`, and `/agent <name>`. The `/agent` command can
-switch to any valid `spec/<name>/agent.toml` within that bot chat, while each
-bot keeps separate thread history. Replies are converted from markdown to
-Telegram MarkdownV2 via `telegramify-markdown` so bold, code, and bullets render
-natively. If the asynchronous DBOS workflow fails after Telegram has already
+BotFather token, webhook secret, allowed chat IDs, and optional bot username.
+Private and group chat IDs are supported; unknown chats are rejected.
+
+Private chats respond to every text message. Group and supergroup chats stay
+quiet unless the message mentions `@<bot username>`, replies to one of the
+bot's messages, or invokes a command for the bot. Raman strips `@<bot username>`
+from the prompt before sending it to the model, prefixes group prompts with the
+sender display name, and replies with Telegram `reply_to_message_id` so the
+answer is attached to the triggering group message. Group history is shared by
+chat ID; sender names are context for the model, not separate private memory.
+
+V1 accepts text only and supports `/start`, `/help`, `/reset`, and
+`/agent <name>`. In groups, `/reset` and `/agent` require the sender to be a
+Telegram chat admin; admin status is verified with Telegram `getChatMember`.
+The `/agent` command can switch to any valid `spec/<name>/agent.toml` within
+that bot chat, while each bot keeps separate thread history. Replies are
+converted from markdown to Telegram MarkdownV2 via `telegramify-markdown` so
+bold, code, and bullets render natively. If the asynchronous DBOS workflow
+fails after Telegram has already
 received the webhook ACK, Raman sends a generic failure reply and keeps the
 stack trace in structured logs. See `docs/telegram_live_testing.md` for the full
 local live-testing and webhook troubleshooting runbook.
@@ -306,6 +318,7 @@ Environment variables (see `.env.example`):
 | `TELEGRAM_BOT_TOKEN`          | —                                      | BotFather token for the default `spec/telegram.toml` bot                   |
 | `TELEGRAM_WEBHOOK_SECRET`     | —                                      | Secret for the default Telegram bot webhook header                         |
 | `TELEGRAM_ALLOWED_CHAT_IDS`   | empty                                  | Chat IDs for the default Telegram bot                                      |
+| `TELEGRAM_BOT_USERNAME`       | —                                      | Bot username, without `@`; required for group mentions and reply detection |
 | `TELEGRAM_API_BASE_URL`       | `https://api.telegram.org`             | Telegram API host for the default bot                                      |
 | `RAMAN_RUN_EVALS`             | unset                                  | Set to `1` to enable live LLM-judge evals in `pytest`                      |
 

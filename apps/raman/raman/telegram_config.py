@@ -11,6 +11,7 @@ DEFAULT_TELEGRAM_API_BASE_URL = "https://api.telegram.org"
 LEGACY_BOT_NAME = "telegram"
 TELEGRAM_CONFIG_FILE = "telegram.toml"
 BOT_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+BOT_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ class TelegramBotConfig:
     bot_token: str
     webhook_secret: str
     allowed_chat_ids: str
+    username: str | None = None
     api_base_url: str = DEFAULT_TELEGRAM_API_BASE_URL
     legacy: bool = False
 
@@ -29,6 +31,13 @@ class TelegramBotConfig:
                 f"Invalid Telegram bot name: {self.name!r}. "
                 "Use only letters, numbers, underscore, or hyphen."
             )
+        username = normalize_bot_username(self.username)
+        if username is not None and not BOT_USERNAME_RE.fullmatch(username):
+            raise ValueError(
+                f"Invalid Telegram bot username: {self.username!r}. "
+                "Use only letters, numbers, or underscore."
+            )
+        object.__setattr__(self, "username", username)
 
     @property
     def interface(self) -> str:
@@ -107,6 +116,7 @@ def legacy_telegram_config(*, default_agent: str = "raman") -> TelegramConfig:
         bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
         webhook_secret=os.getenv("TELEGRAM_WEBHOOK_SECRET", ""),
         allowed_chat_ids=os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", ""),
+        username=normalize_bot_username(os.getenv("TELEGRAM_BOT_USERNAME")),
         api_base_url=os.getenv("TELEGRAM_API_BASE_URL", DEFAULT_TELEGRAM_API_BASE_URL),
         legacy=True,
     )
@@ -121,6 +131,7 @@ def _bot_from_table(item: dict[str, Any]) -> TelegramBotConfig:
         bot_token=os.getenv(_required_str(item, "token_env"), ""),
         webhook_secret=os.getenv(_required_str(item, "webhook_secret_env"), ""),
         allowed_chat_ids=os.getenv(_required_str(item, "allowed_chat_ids_env"), ""),
+        username=_optional_env(item, "username_env"),
         api_base_url=_api_base_url(item),
     )
 
@@ -135,8 +146,27 @@ def _api_base_url(item: dict[str, Any]) -> str:
     return os.getenv(env_name, DEFAULT_TELEGRAM_API_BASE_URL)
 
 
+def _optional_env(item: dict[str, Any], key: str) -> str | None:
+    raw_env = item.get(key)
+    if raw_env is None:
+        return None
+    env_name = str(raw_env).strip()
+    if not env_name:
+        return None
+    return normalize_bot_username(os.getenv(env_name))
+
+
 def _required_str(item: dict[str, Any], key: str) -> str:
     value = str(item.get(key, "")).strip()
     if not value:
         raise ValueError(f"Telegram bot config must define {key}.")
     return value
+
+
+def normalize_bot_username(value: str | None) -> str | None:
+    if value is None:
+        return None
+    username = value.strip()
+    if username.startswith("@"):
+        username = username[1:]
+    return username or None

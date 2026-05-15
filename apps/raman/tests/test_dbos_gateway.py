@@ -6,6 +6,7 @@ import pytest
 from raman.dbos_gateway import (
     TELEGRAM_FAILURE_REPLY,
     _send_processing_failure_reply,
+    deliver_reply_event,
     process_inbound_message_event,
 )
 from raman.gateway import (
@@ -13,6 +14,7 @@ from raman.gateway import (
     InboundMessage,
     cloud_event_to_dict,
     make_message_received_event,
+    make_reply_requested_event,
 )
 
 
@@ -20,8 +22,10 @@ from raman.gateway import (
 async def test_processing_failure_reply_is_sent_for_telegram(monkeypatch):
     sent = []
 
-    async def fake_send_telegram_reply(bot_name, chat_id, text):
-        sent.append((bot_name, chat_id, text))
+    async def fake_send_telegram_reply(
+        bot_name, chat_id, text, reply_to_message_id=None
+    ):
+        sent.append((bot_name, chat_id, text, reply_to_message_id))
 
     monkeypatch.setattr(
         "raman.dbos_gateway.send_telegram_reply", fake_send_telegram_reply
@@ -39,7 +43,7 @@ async def test_processing_failure_reply_is_sent_for_telegram(monkeypatch):
     )
 
     assert delivered is True
-    assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY)]
+    assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY, None)]
     assert "do not echo" not in TELEGRAM_FAILURE_REPLY
 
 
@@ -92,8 +96,10 @@ async def test_inbound_workflow_enqueues_replies_for_named_telegram_bot(monkeypa
 async def test_processing_failure_reply_is_skipped_for_non_telegram(monkeypatch):
     sent = []
 
-    async def fake_send_telegram_reply(bot_name, chat_id, text):
-        sent.append((bot_name, chat_id, text))
+    async def fake_send_telegram_reply(
+        bot_name, chat_id, text, reply_to_message_id=None
+    ):
+        sent.append((bot_name, chat_id, text, reply_to_message_id))
 
     monkeypatch.setattr(
         "raman.dbos_gateway.send_telegram_reply", fake_send_telegram_reply
@@ -116,7 +122,9 @@ async def test_processing_failure_reply_is_skipped_for_non_telegram(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_processing_failure_reply_send_errors_do_not_escape(monkeypatch):
-    async def fake_send_telegram_reply(bot_name, chat_id, text):
+    async def fake_send_telegram_reply(
+        bot_name, chat_id, text, reply_to_message_id=None
+    ):
         raise RuntimeError("telegram send failed")
 
     monkeypatch.setattr(
@@ -148,8 +156,10 @@ async def test_inbound_workflow_sends_failure_reply_before_reraising(monkeypatch
         async def send_message(self, message):
             raise RuntimeError("agent failed")
 
-    async def fake_send_telegram_reply(bot_name, chat_id, text):
-        sent.append((bot_name, chat_id, text))
+    async def fake_send_telegram_reply(
+        bot_name, chat_id, text, reply_to_message_id=None
+    ):
+        sent.append((bot_name, chat_id, text, reply_to_message_id))
 
     monkeypatch.setattr("raman.gateway.ConversationService", FailingConversationService)
     monkeypatch.setattr(
@@ -169,4 +179,73 @@ async def test_inbound_workflow_sends_failure_reply_before_reraising(monkeypatch
             cloud_event_to_dict(make_message_received_event(message))
         )
 
-    assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY)]
+    assert sent == [("raman", 123, TELEGRAM_FAILURE_REPLY, None)]
+
+
+@pytest.mark.asyncio
+async def test_reply_delivery_preserves_telegram_reply_to_message_id(monkeypatch):
+    sent = []
+
+    async def fake_send_telegram_reply(
+        bot_name, chat_id, text, reply_to_message_id=None
+    ):
+        sent.append((bot_name, chat_id, text, reply_to_message_id))
+
+    monkeypatch.setattr(
+        "raman.dbos_gateway.send_telegram_reply", fake_send_telegram_reply
+    )
+    message = InboundMessage(
+        interface="telegram:raman",
+        external_thread_id="-100123",
+        prompt="hello",
+        agent_name=None,
+        default_agent="raman",
+        metadata={
+            "telegram_bot": "raman",
+            "reply_to_message_id": 55,
+            "update_id": 42,
+        },
+    )
+    reply = ConversationReply(
+        interface="telegram:raman",
+        external_thread_id="-100123",
+        agent_name="raman",
+        output="hello back",
+    )
+
+    result = await unwrap(deliver_reply_event)(
+        cloud_event_to_dict(make_reply_requested_event(message, reply))
+    )
+
+    assert result == {"delivered": True}
+    assert sent == [("raman", -100123, "hello back", 55)]
+
+
+@pytest.mark.asyncio
+async def test_processing_failure_reply_preserves_telegram_reply_to_message_id(
+    monkeypatch,
+):
+    sent = []
+
+    async def fake_send_telegram_reply(
+        bot_name, chat_id, text, reply_to_message_id=None
+    ):
+        sent.append((bot_name, chat_id, text, reply_to_message_id))
+
+    monkeypatch.setattr(
+        "raman.dbos_gateway.send_telegram_reply", fake_send_telegram_reply
+    )
+
+    delivered = await _send_processing_failure_reply(
+        InboundMessage(
+            interface="telegram:raman",
+            external_thread_id="-100123",
+            prompt="do not echo",
+            agent_name=None,
+            default_agent="raman",
+            metadata={"telegram_bot": "raman", "reply_to_message_id": 55},
+        )
+    )
+
+    assert delivered is True
+    assert sent == [("raman", -100123, TELEGRAM_FAILURE_REPLY, 55)]

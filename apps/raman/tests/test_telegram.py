@@ -1,3 +1,4 @@
+import httpx
 import pytest
 from structlog.testing import capture_logs
 
@@ -51,15 +52,41 @@ def make_bot_config(**overrides):
     return TelegramBotConfig(**values)
 
 
-def text_update(text, *, chat_id=123, update_id=1, chat_type="private"):
+def text_update(
+    text,
+    *,
+    chat_id=123,
+    update_id=1,
+    chat_type="private",
+    message_id=10,
+    from_id=999,
+    from_username=None,
+    from_first_name=None,
+    from_last_name=None,
+    reply_to_message_id=None,
+    reply_to_from_username=None,
+):
+    raw_from = {"id": from_id}
+    if from_username is not None:
+        raw_from["username"] = from_username
+    if from_first_name is not None:
+        raw_from["first_name"] = from_first_name
+    if from_last_name is not None:
+        raw_from["last_name"] = from_last_name
+    raw_message = {
+        "message_id": message_id,
+        "text": text,
+        "chat": {"id": chat_id, "type": chat_type},
+        "from": raw_from,
+    }
+    if reply_to_message_id is not None:
+        raw_message["reply_to_message"] = {
+            "message_id": reply_to_message_id,
+            "from": {"username": reply_to_from_username},
+        }
     return {
         "update_id": update_id,
-        "message": {
-            "message_id": 10,
-            "text": text,
-            "chat": {"id": chat_id, "type": chat_type},
-            "from": {"id": 999},
-        },
+        "message": raw_message,
     }
 
 
@@ -72,8 +99,8 @@ async def test_telegram_enqueues_allowed_text_message(tmp_path):
         enqueued.append(message)
         return EnqueuedEvent(workflow_id="wf-1", status="queued")
 
-    async def send_text(chat_id, text):
-        sent.append((chat_id, text))
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
 
     adapter = TelegramAdapter(
         settings=make_settings(),
@@ -142,8 +169,8 @@ async def test_telegram_logs_update_lifecycle_without_message_text(tmp_path):
 async def test_telegram_rejects_unknown_chat(tmp_path):
     sent = []
 
-    async def send_text(chat_id, text):
-        sent.append((chat_id, text))
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
 
     adapter = TelegramAdapter(
         settings=make_settings(),
@@ -155,15 +182,15 @@ async def test_telegram_rejects_unknown_chat(tmp_path):
     result = await adapter.handle_update(text_update("hello", chat_id=999))
 
     assert result.status == "rejected"
-    assert sent == [(999, chunk) for chunk in expected("This bot is private.")]
+    assert sent == [(999, chunk, None) for chunk in expected("This bot is private.")]
 
 
 @pytest.mark.asyncio
 async def test_telegram_rejects_allowed_non_text_message(tmp_path):
     sent = []
 
-    async def send_text(chat_id, text):
-        sent.append((chat_id, text))
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
 
     adapter = TelegramAdapter(
         settings=make_settings(),
@@ -184,7 +211,9 @@ async def test_telegram_rejects_allowed_non_text_message(tmp_path):
     )
 
     assert result.status == "rejected"
-    assert sent == [(123, chunk) for chunk in expected("Text messages only for now.")]
+    assert sent == [
+        (123, chunk, None) for chunk in expected("Text messages only for now.")
+    ]
 
 
 @pytest.mark.asyncio
@@ -193,8 +222,8 @@ async def test_telegram_reset_command_clears_history(tmp_path):
     store.set_history("telegram", "123", agent_name="raman", message_history_json=b"[]")
     sent = []
 
-    async def send_text(chat_id, text):
-        sent.append((chat_id, text))
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
 
     adapter = TelegramAdapter(
         settings=make_settings(),
@@ -210,7 +239,7 @@ async def test_telegram_reset_command_clears_history(tmp_path):
         store.get_thread("telegram", "123", default_agent="raman").message_history_json
         is None
     )
-    assert sent == [(123, chunk) for chunk in expected("Conversation reset.")]
+    assert sent == [(123, chunk, None) for chunk in expected("Conversation reset.")]
 
 
 @pytest.mark.asyncio
@@ -218,8 +247,8 @@ async def test_telegram_agent_command_persists_existing_spec(tmp_path):
     store = ThreadStore(tmp_path / "raman.sqlite3")
     sent = []
 
-    async def send_text(chat_id, text):
-        sent.append((chat_id, text))
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
 
     adapter = TelegramAdapter(
         settings=make_settings(),
@@ -235,7 +264,7 @@ async def test_telegram_agent_command_persists_existing_spec(tmp_path):
         store.get_thread("telegram", "123", default_agent="alfred").agent_name
         == "raman"
     )
-    assert sent == [(123, chunk) for chunk in expected("Agent set to raman.")]
+    assert sent == [(123, chunk, None) for chunk in expected("Agent set to raman.")]
 
 
 @pytest.mark.asyncio
@@ -243,8 +272,8 @@ async def test_telegram_agent_command_persists_in_bot_scoped_thread(tmp_path):
     store = ThreadStore(tmp_path / "raman.sqlite3")
     sent = []
 
-    async def send_text(chat_id, text):
-        sent.append((chat_id, text))
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
 
     adapter = TelegramAdapter(
         settings=make_settings(),
@@ -261,4 +290,418 @@ async def test_telegram_agent_command_persists_in_bot_scoped_thread(tmp_path):
         store.get_thread("telegram:bot-a", "123", default_agent="research").agent_name
         == "raman"
     )
-    assert sent == [(123, chunk) for chunk in expected("Agent set to raman.")]
+    assert sent == [(123, chunk, None) for chunk in expected("Agent set to raman.")]
+
+
+@pytest.mark.asyncio
+async def test_telegram_ignores_group_text_without_trigger(tmp_path):
+    enqueued = []
+    sent = []
+
+    async def enqueue(message):
+        enqueued.append(message)
+        return EnqueuedEvent(workflow_id="wf-1", status="queued")
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=enqueue,
+        send_text=send_text,
+    )
+
+    result = await adapter.handle_update(
+        text_update("normal group chatter", chat_id=-100123, chat_type="supergroup")
+    )
+
+    assert result.status == "ignored"
+    assert enqueued == []
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_telegram_enqueues_group_mention_with_clean_prompt_and_sender_context(
+    tmp_path,
+):
+    enqueued = []
+
+    async def enqueue(message):
+        enqueued.append(message)
+        return EnqueuedEvent(workflow_id="wf-1", status="queued")
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=enqueue,
+    )
+
+    result = await adapter.handle_update(
+        text_update(
+            "@RamanBot who is president?",
+            chat_id=-100123,
+            chat_type="group",
+            message_id=55,
+            from_username="raniendu",
+            from_first_name="Rani",
+            from_last_name="Endu",
+        )
+    )
+
+    assert result.status == "queued"
+    assert enqueued[0].external_thread_id == "-100123"
+    assert (
+        enqueued[0].prompt
+        == "Telegram group message from Rani Endu (@raniendu):\nwho is president?"
+    )
+    assert enqueued[0].metadata["reply_to_message_id"] == 55
+    assert enqueued[0].metadata["telegram_trigger"] == "mention"
+
+
+@pytest.mark.asyncio
+async def test_telegram_enqueues_group_reply_to_bot_with_reply_metadata(tmp_path):
+    enqueued = []
+
+    async def enqueue(message):
+        enqueued.append(message)
+        return EnqueuedEvent(workflow_id="wf-1", status="queued")
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=enqueue,
+    )
+
+    result = await adapter.handle_update(
+        text_update(
+            "yes",
+            chat_id=-100123,
+            chat_type="supergroup",
+            message_id=56,
+            from_first_name="Rani",
+            reply_to_message_id=11,
+            reply_to_from_username="RamanBot",
+        )
+    )
+
+    assert result.status == "queued"
+    assert enqueued[0].prompt == "Telegram group message from Rani:\nyes"
+    assert enqueued[0].metadata["reply_to_message_id"] == 56
+    assert enqueued[0].metadata["telegram_trigger"] == "reply"
+
+
+@pytest.mark.asyncio
+async def test_telegram_ignores_group_command_addressed_to_another_bot(tmp_path):
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=None,
+        send_text=send_text,
+    )
+
+    result = await adapter.handle_update(
+        text_update("/help@OtherBot", chat_id=-100123, chat_type="supergroup")
+    )
+
+    assert result.status == "ignored"
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_telegram_group_reset_command_requires_chat_admin(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+    store.set_history(
+        "telegram:raman",
+        "-100123",
+        agent_name="raman",
+        message_history_json=b"[]",
+    )
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    async def get_chat_member(chat_id, user_id):
+        return {"status": "member"}
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=store,
+        enqueue_message=None,
+        send_text=send_text,
+        get_chat_member=get_chat_member,
+    )
+
+    result = await adapter.handle_update(
+        text_update(
+            "/reset@RamanBot",
+            chat_id=-100123,
+            chat_type="supergroup",
+            message_id=57,
+        )
+    )
+
+    assert result.status == "handled"
+    assert (
+        store.get_thread(
+            "telegram:raman", "-100123", default_agent="raman"
+        ).message_history_json
+        == b"[]"
+    )
+    assert sent == [
+        (
+            -100123,
+            chunk,
+            57,
+        )
+        for chunk in expected("Only Telegram chat admins can use /reset in groups.")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_telegram_group_reset_command_allows_chat_admin(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+    store.set_history(
+        "telegram:raman",
+        "-100123",
+        agent_name="raman",
+        message_history_json=b"[]",
+    )
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    async def get_chat_member(chat_id, user_id):
+        return {"status": "administrator"}
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=store,
+        enqueue_message=None,
+        send_text=send_text,
+        get_chat_member=get_chat_member,
+    )
+
+    result = await adapter.handle_update(
+        text_update(
+            "/reset@RamanBot",
+            chat_id=-100123,
+            chat_type="supergroup",
+            message_id=58,
+        )
+    )
+
+    assert result.status == "handled"
+    assert (
+        store.get_thread(
+            "telegram:raman", "-100123", default_agent="raman"
+        ).message_history_json
+        is None
+    )
+    assert sent == [(-100123, chunk, 58) for chunk in expected("Conversation reset.")]
+
+
+@pytest.mark.asyncio
+async def test_telegram_group_agent_command_fails_closed_when_admin_check_fails(
+    tmp_path,
+):
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    async def get_chat_member(chat_id, user_id):
+        raise RuntimeError("telegram unavailable")
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=None,
+        send_text=send_text,
+        get_chat_member=get_chat_member,
+    )
+
+    result = await adapter.handle_update(
+        text_update(
+            "/agent@RamanBot raman",
+            chat_id=-100123,
+            chat_type="supergroup",
+            message_id=59,
+        )
+    )
+
+    assert result.status == "handled"
+    assert sent == [
+        (
+            -100123,
+            chunk,
+            59,
+        )
+        for chunk in expected(
+            "I couldn't verify Telegram admin status. Try again later."
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_telegram_group_admin_check_logs_do_not_include_bot_token(tmp_path):
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    async def get_chat_member(chat_id, user_id):
+        request = httpx.Request(
+            "POST",
+            "https://api.telegram.org/botsecret-token/getChatMember",
+        )
+        raise httpx.RequestError("connection failed", request=request)
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            bot_token="secret-token",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=None,
+        send_text=send_text,
+        get_chat_member=get_chat_member,
+    )
+
+    with capture_logs() as logs:
+        result = await adapter.handle_update(
+            text_update(
+                "/reset@RamanBot",
+                chat_id=-100123,
+                chat_type="supergroup",
+                message_id=60,
+            )
+        )
+
+    assert result.status == "handled"
+    assert "secret-token" not in repr(logs)
+
+
+@pytest.mark.asyncio
+async def test_fetch_chat_member_http_errors_do_not_include_bot_token(
+    monkeypatch, tmp_path
+):
+    class FailingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def post(self, url, json):
+            request = httpx.Request(
+                "POST",
+                f"https://api.telegram.org{url}",
+            )
+            raise httpx.HTTPStatusError(
+                "server error for https://api.telegram.org/botsecret-token/getChatMember",
+                request=request,
+                response=httpx.Response(500, request=request),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", FailingClient)
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            bot_token="secret-token",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=None,
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await adapter._fetch_chat_member(-100123, 999)
+
+    assert "secret-token" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_telegram_group_logs_do_not_include_prompt_or_sender_names(tmp_path):
+    async def enqueue(message):
+        return EnqueuedEvent(workflow_id="wf-1", status="queued")
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        bot=make_bot_config(
+            name="raman",
+            allowed_chat_ids="-100123",
+            username="RamanBot",
+        ),
+        store=ThreadStore(tmp_path / "raman.sqlite3"),
+        enqueue_message=enqueue,
+        send_text=None,
+    )
+
+    with capture_logs() as logs:
+        result = await adapter.handle_update(
+            text_update(
+                "@RamanBot do not log this text",
+                chat_id=-100123,
+                chat_type="group",
+                from_username="raniendu",
+                from_first_name="Rani",
+                from_last_name="Endu",
+            )
+        )
+
+    assert result.status == "queued"
+    log_output = repr(logs)
+    assert "do not log this text" not in log_output
+    assert "Rani" not in log_output
+    assert "raniendu" not in log_output

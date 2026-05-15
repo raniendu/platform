@@ -48,11 +48,20 @@ Required for Telegram:
 | `GOBIND_TELEGRAM_WEBHOOK_SECRET` | Random string echoed in `X-Telegram-Bot-Api-Secret-Token` for Gobind. |
 | `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat IDs allowed to use Gobind. |
 | `GOBIND_TELEGRAM_BOT_USERNAME` | Gobind bot username without `@`; required for group mentions and reply-to-bot detection. |
+| `LEO_TELEGRAM_BOT_TOKEN` | From BotFather for the checked-in Leo bot. |
+| `LEO_TELEGRAM_WEBHOOK_SECRET` | Random string echoed in `X-Telegram-Bot-Api-Secret-Token` for Leo. |
+| `LEO_TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat IDs allowed to use Leo. |
+| `LEO_TELEGRAM_BOT_USERNAME` | Leo bot username without `@`; required for group mentions and reply-to-bot detection. |
 | `RAMAN_PUBLIC_BASE_URL` | Public HTTPS base URL, currently `https://raman.raniendu.dev`. |
 
 Additional Raman Telegram bots are declared in `spec/telegram.toml`; their
 `token_env`, `webhook_secret_env`, and `allowed_chat_ids_env` names must be
 present in the local env file or production Raman env file.
+
+The platform deploy workflow registers every configured Raman Telegram webhook
+after the public Raman health check passes. It runs the webhook helper inside
+the deployed Raman container with `--all --skip-health-check --no-drop-pending`,
+so production deploys refresh Telegram URLs without dropping queued updates.
 
 Optional:
 

@@ -150,3 +150,23 @@ def test_checked_in_telegram_config_includes_gobind_bot(monkeypatch):
     assert bot.username == "raniendu_gobind_bot"
     assert bot.interface == "telegram:gobind"
     assert bot.webhook_path == "/telegram/gobind/webhook"
+
+
+def test_checked_in_telegram_config_includes_leo_bot(monkeypatch):
+    spec_root = REPO_ROOT / "apps" / "raman" / "spec"
+    monkeypatch.setenv("LEO_TELEGRAM_BOT_TOKEN", "leo-token")
+    monkeypatch.setenv("LEO_TELEGRAM_WEBHOOK_SECRET", "leo-secret")
+    monkeypatch.setenv("LEO_TELEGRAM_ALLOWED_CHAT_IDS", "-1003368981977,920165401")
+    monkeypatch.setenv("LEO_TELEGRAM_BOT_USERNAME", "@raniendu_leo_bot")
+
+    config = load_telegram_config(spec_root)
+    bot = config.get_bot("leo")
+
+    assert bot.name == "leo"
+    assert bot.default_agent == "leo"
+    assert bot.bot_token == "leo-token"
+    assert bot.webhook_secret == "leo-secret"
+    assert bot.allowed_chat_id_set == {-1003368981977, 920165401}
+    assert bot.username == "raniendu_leo_bot"
+    assert bot.interface == "telegram:leo"
+    assert bot.webhook_path == "/telegram/leo/webhook"

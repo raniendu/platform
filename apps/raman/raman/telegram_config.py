@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -80,10 +81,13 @@ def load_telegram_config(
     spec_root: Path,
     *,
     default_agent: str = "raman",
+    env: Mapping[str, str | None] | None = None,
 ) -> TelegramConfig:
+    if env is None:
+        env = os.environ
     config_path = spec_root / TELEGRAM_CONFIG_FILE
     if not config_path.exists():
-        return legacy_telegram_config(default_agent=default_agent)
+        return legacy_telegram_config(default_agent=default_agent, env=env)
 
     raw = tomllib.loads(config_path.read_text())
     default_bot_name = str(raw.get("default_bot", "")).strip()
@@ -97,7 +101,7 @@ def load_telegram_config(
     for item in raw_bots:
         if not isinstance(item, dict):
             raise ValueError("Each Telegram bot config must be a table.")
-        bot = _bot_from_table(item)
+        bot = _bot_from_table(item, env)
         if bot.name in bots:
             raise ValueError(f"Duplicate Telegram bot name: {bot.name}")
         bots[bot.name] = bot
@@ -109,51 +113,68 @@ def load_telegram_config(
     return TelegramConfig(default_bot_name=default_bot_name, bots=bots)
 
 
-def legacy_telegram_config(*, default_agent: str = "raman") -> TelegramConfig:
+def legacy_telegram_config(
+    *, default_agent: str = "raman", env: Mapping[str, str | None] | None = None
+) -> TelegramConfig:
+    if env is None:
+        env = os.environ
     bot = TelegramBotConfig(
         name=LEGACY_BOT_NAME,
         default_agent=default_agent,
-        bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
-        webhook_secret=os.getenv("TELEGRAM_WEBHOOK_SECRET", ""),
-        allowed_chat_ids=os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", ""),
-        username=normalize_bot_username(os.getenv("TELEGRAM_BOT_USERNAME")),
-        api_base_url=os.getenv("TELEGRAM_API_BASE_URL", DEFAULT_TELEGRAM_API_BASE_URL),
+        bot_token=_env_value(env, "TELEGRAM_BOT_TOKEN"),
+        webhook_secret=_env_value(env, "TELEGRAM_WEBHOOK_SECRET"),
+        allowed_chat_ids=_env_value(env, "TELEGRAM_ALLOWED_CHAT_IDS"),
+        username=normalize_bot_username(_env_value(env, "TELEGRAM_BOT_USERNAME")),
+        api_base_url=_env_value(
+            env, "TELEGRAM_API_BASE_URL", DEFAULT_TELEGRAM_API_BASE_URL
+        ),
         legacy=True,
     )
     return TelegramConfig(default_bot_name=bot.name, bots={bot.name: bot})
 
 
-def _bot_from_table(item: dict[str, Any]) -> TelegramBotConfig:
+def _bot_from_table(
+    item: dict[str, Any], env: Mapping[str, str | None]
+) -> TelegramBotConfig:
     name = _required_str(item, "name")
     return TelegramBotConfig(
         name=name,
         default_agent=_required_str(item, "default_agent"),
-        bot_token=os.getenv(_required_str(item, "token_env"), ""),
-        webhook_secret=os.getenv(_required_str(item, "webhook_secret_env"), ""),
-        allowed_chat_ids=os.getenv(_required_str(item, "allowed_chat_ids_env"), ""),
-        username=_optional_env(item, "username_env"),
-        api_base_url=_api_base_url(item),
+        bot_token=_env_value(env, _required_str(item, "token_env")),
+        webhook_secret=_env_value(env, _required_str(item, "webhook_secret_env")),
+        allowed_chat_ids=_env_value(env, _required_str(item, "allowed_chat_ids_env")),
+        username=_optional_env(item, "username_env", env),
+        api_base_url=_api_base_url(item, env),
     )
 
 
-def _api_base_url(item: dict[str, Any]) -> str:
+def _api_base_url(item: dict[str, Any], env: Mapping[str, str | None]) -> str:
     raw_env = item.get("api_base_url_env")
     if raw_env is None:
         return DEFAULT_TELEGRAM_API_BASE_URL
     env_name = str(raw_env).strip()
     if not env_name:
         return DEFAULT_TELEGRAM_API_BASE_URL
-    return os.getenv(env_name, DEFAULT_TELEGRAM_API_BASE_URL)
+    return _env_value(env, env_name, DEFAULT_TELEGRAM_API_BASE_URL)
 
 
-def _optional_env(item: dict[str, Any], key: str) -> str | None:
+def _optional_env(
+    item: dict[str, Any], key: str, env: Mapping[str, str | None]
+) -> str | None:
     raw_env = item.get(key)
     if raw_env is None:
         return None
     env_name = str(raw_env).strip()
     if not env_name:
         return None
-    return normalize_bot_username(os.getenv(env_name))
+    return normalize_bot_username(_env_value(env, env_name))
+
+
+def _env_value(env: Mapping[str, str | None], key: str, default: str = "") -> str:
+    value = env.get(key)
+    if value is None:
+        return default
+    return value
 
 
 def _required_str(item: dict[str, Any], key: str) -> str:

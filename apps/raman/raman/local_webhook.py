@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
+
+from pydantic_settings import DotEnvSettingsSource
 
 from raman.settings import RamanSettings
 from raman.telegram_config import TelegramBotConfig, load_telegram_config
@@ -110,9 +114,27 @@ def set_webhook(
         return json.loads(response.read().decode("utf-8"))
 
 
+def env_for_config(env_file: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    env_path = Path(env_file)
+    if env_path.exists():
+        source = DotEnvSettingsSource(
+            RamanSettings,
+            env_file=env_path,
+            env_file_encoding="utf-8",
+            case_sensitive=True,
+            env_ignore_empty=True,
+        )
+        values.update(
+            {key: value for key, value in source.env_vars.items() if value is not None}
+        )
+    values.update(os.environ)
+    return values
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Point the Raman Telegram webhook at a local HTTPS tunnel."
+        description="Point a configured Raman Telegram webhook at a public HTTPS URL."
     )
     parser.add_argument(
         "public_base_url",
@@ -159,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
         config = load_telegram_config(
             settings.spec_root,
             default_agent=settings.default_agent,
+            env=env_for_config(args.env_file),
         )
         if args.all:
             selected_bots = list(config.bots.values())
@@ -178,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             for bot in selected_bots
         ]
     except (HTTPError, URLError, OSError, RuntimeError, ValueError) as exc:
-        print(f"Failed to set Raman local webhook: {exc}", file=sys.stderr)
+        print(f"Failed to set Raman Telegram webhook: {exc}", file=sys.stderr)
         return 1
 
     print(

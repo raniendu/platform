@@ -1,4 +1,4 @@
-name = "raman"
+name = "Raman"
 description = "Personal assistant agent for Raniendu."
 system_prompt = "system_prompt.md"
 

@@ -2,6 +2,7 @@ from urllib.parse import parse_qs
 
 import pytest
 
+from raman import local_webhook
 from raman.local_webhook import (
     build_set_webhook_request,
     normalize_public_base_url,
@@ -97,3 +98,86 @@ def test_build_set_webhook_request_uses_selected_bot():
         "secret_token": ["secret-token"],
         "drop_pending_updates": ["false"],
     }
+
+
+def test_main_loads_named_bot_values_from_env_file(monkeypatch, tmp_path, capsys):
+    env_file = write_gobind_webhook_env_file(tmp_path)
+    for key in (
+        "GOBIND_TELEGRAM_BOT_TOKEN",
+        "GOBIND_TELEGRAM_WEBHOOK_SECRET",
+        "GOBIND_TELEGRAM_ALLOWED_CHAT_IDS",
+        "GOBIND_TELEGRAM_BOT_USERNAME",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(local_webhook, "check_health", lambda *args, **kwargs: None)
+
+    selected_bots = []
+
+    def fake_set_webhook(bot, *args, **kwargs):
+        selected_bots.append(bot)
+        return {"ok": True, "result": True}
+
+    monkeypatch.setattr(local_webhook, "set_webhook", fake_set_webhook)
+
+    exit_code = local_webhook.main(
+        ["https://raman.raniendu.dev", "--env-file", str(env_file), "--bot", "gobind"]
+    )
+
+    assert exit_code == 0
+    assert selected_bots[0].bot_token == "bot-token"
+    assert selected_bots[0].webhook_secret == "secret-token"
+    assert selected_bots[0].allowed_chat_id_set == {123}
+    assert selected_bots[0].username == "raniendu_gobind_bot"
+    assert (
+        "https://raman.raniendu.dev/telegram/gobind/webhook" in capsys.readouterr().out
+    )
+
+
+def test_main_keeps_process_env_over_env_file_for_named_bot(monkeypatch, tmp_path):
+    env_file = write_gobind_webhook_env_file(tmp_path)
+    monkeypatch.setenv("GOBIND_TELEGRAM_BOT_TOKEN", "shell-token")
+    monkeypatch.setattr(local_webhook, "check_health", lambda *args, **kwargs: None)
+
+    selected_bots = []
+
+    def fake_set_webhook(bot, *args, **kwargs):
+        selected_bots.append(bot)
+        return {"ok": True, "result": True}
+
+    monkeypatch.setattr(local_webhook, "set_webhook", fake_set_webhook)
+
+    exit_code = local_webhook.main(
+        ["https://raman.raniendu.dev", "--env-file", str(env_file), "--bot", "gobind"]
+    )
+
+    assert exit_code == 0
+    assert selected_bots[0].bot_token == "shell-token"
+
+
+def write_gobind_webhook_env_file(tmp_path):
+    spec_root = tmp_path / "spec"
+    spec_root.mkdir()
+    (spec_root / "telegram.toml").write_text("""
+default_bot = "gobind"
+
+[[bots]]
+name = "gobind"
+default_agent = "gobind"
+token_env = "GOBIND_TELEGRAM_BOT_TOKEN"
+webhook_secret_env = "GOBIND_TELEGRAM_WEBHOOK_SECRET"
+allowed_chat_ids_env = "GOBIND_TELEGRAM_ALLOWED_CHAT_IDS"
+username_env = "GOBIND_TELEGRAM_BOT_USERNAME"
+""")
+    env_file = tmp_path / ".env.local"
+    env_file.write_text(
+        "\n".join(
+            [
+                f"RAMAN_SPEC_ROOT={spec_root}",
+                "GOBIND_TELEGRAM_BOT_TOKEN=bot-token",
+                "GOBIND_TELEGRAM_WEBHOOK_SECRET=secret-token",
+                "GOBIND_TELEGRAM_ALLOWED_CHAT_IDS=123",
+                "GOBIND_TELEGRAM_BOT_USERNAME=raniendu_gobind_bot",
+            ]
+        )
+    )
+    return env_file

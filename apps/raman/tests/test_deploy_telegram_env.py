@@ -8,6 +8,7 @@ def test_deploy_workflow_copies_optional_telegram_username_env():
 
     body = deploy_workflow.read_text()
 
+    assert "TELEGRAM_BOT_USERNAME: ${{ secrets.TELEGRAM_BOT_USERNAME }}" in body
     assert 'bot.get("username_env", "")' in body
     assert "requested.append((username_env, False))" in body
 

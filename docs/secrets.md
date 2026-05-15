@@ -17,6 +17,7 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `TELEGRAM_BOT_TOKEN`: Raman default Telegram bot token from BotFather; this env name is referenced by `apps/raman/spec/telegram.toml`.
 - `TELEGRAM_WEBHOOK_SECRET`: Raman default Telegram webhook secret. Generate with `openssl rand -hex 32`.
 - `TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the default Raman Telegram bot.
+- `TELEGRAM_BOT_USERNAME`: Raman default Telegram bot username without `@`; required for group mentions and reply-to-bot detection.
 - `PARALLEL_API_KEY`: Raman web-search provider key. Required because the current `spec/raman` enables `web_search`.
 - `HOMI_TELEGRAM_BOT_TOKEN`: Homi Telegram bot token from BotFather, only required when `DEPLOY_HOMI=true`.
 - `HOMI_TELEGRAM_WEBHOOK_SECRET`: Homi Telegram webhook secret, only required when `DEPLOY_HOMI=true`.

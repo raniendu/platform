@@ -181,6 +181,7 @@ async def deliver_reply_event(event_dict: dict[str, Any]) -> dict[str, Any]:
         bot_name,
         int(data["external_thread_id"]),
         str(data["output"]),
+        reply_to_message_id=_reply_to_message_id(data.get("metadata")),
     )
     logger.info(
         "dbos_reply_delivery_succeeded",
@@ -194,7 +195,12 @@ async def deliver_reply_event(event_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 @DBOS.step(name="raman_send_telegram_reply", retries_allowed=True, max_attempts=3)
-async def send_telegram_reply(bot_name: str, chat_id: int, text: str) -> None:
+async def send_telegram_reply(
+    bot_name: str,
+    chat_id: int,
+    text: str,
+    reply_to_message_id: int | None = None,
+) -> None:
     settings = RamanSettings()
     config = load_telegram_config(
         settings.spec_root,
@@ -206,7 +212,7 @@ async def send_telegram_reply(bot_name: str, chat_id: int, text: str) -> None:
         store=ThreadStore(settings.raman_db_path),
         enqueue_message=None,
     )
-    await adapter.send_message(chat_id, text)
+    await adapter.send_message(chat_id, text, reply_to_message_id=reply_to_message_id)
 
 
 async def _send_processing_failure_reply(message: InboundMessage) -> bool:
@@ -225,6 +231,7 @@ async def _send_processing_failure_reply(message: InboundMessage) -> bool:
             bot_name,
             int(message.external_thread_id),
             TELEGRAM_FAILURE_REPLY,
+            reply_to_message_id=_reply_to_message_id(message.metadata),
         )
     except Exception:
         log.exception("dbos_processing_failure_reply_failed")
@@ -250,6 +257,18 @@ def _telegram_bot_name(data: dict[str, Any]) -> str | None:
     if interface.startswith("telegram:"):
         return interface.split(":", 1)[1]
     return None
+
+
+def _reply_to_message_id(metadata: Any) -> int | None:
+    if not isinstance(metadata, dict):
+        return None
+    value = metadata.get("reply_to_message_id")
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _ensure_sqlite_parent(database_url: str) -> None:

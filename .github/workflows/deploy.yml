@@ -582,6 +582,15 @@ jobs:
                       )
                       sys.exit(1)
                   requested.append((api_base_url_env, False))
+              username_env = str(bot.get("username_env", "")).strip()
+              if username_env:
+                  if not env_name_re.fullmatch(username_env):
+                      print(
+                          f"::error::Invalid Raman Telegram env name in username_env: {username_env!r}",
+                          file=sys.stderr,
+                      )
+                      sys.exit(1)
+                  requested.append((username_env, False))
 
           missing = []
           resolved = {}

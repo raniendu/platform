@@ -42,6 +42,10 @@ but does not affect the built image.
 Telegram thread rows are scoped by bot, so the same Telegram chat ID can talk to
 two Raman bots without sharing history. The `/agent <name>` command can still
 switch to any valid `spec/<name>/agent.toml` within that bot-scoped chat.
+In group chats, Raman only responds when mentioned, replied to, or invoked by a
+command. Group history is shared by Telegram chat ID, while sender display names
+are added only as prompt context. Group `/reset` and `/agent` commands require
+Telegram chat-admin status.
 
 ## Configuration
 

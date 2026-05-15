@@ -225,8 +225,11 @@ hello
 /reset
 ```
 
-For group chats, add the group chat ID to `TELEGRAM_ALLOWED_CHAT_IDS`. If the bot
-does not see group messages, check the bot's privacy mode in BotFather.
+For group chats, add the group chat ID to `TELEGRAM_ALLOWED_CHAT_IDS` and set
+`TELEGRAM_BOT_USERNAME` to the bot username without `@`. Raman only answers in
+groups when mentioned, replied to, or invoked with a command. `/reset` and
+`/agent` require the sender to be a Telegram chat admin. If the bot does not see
+group messages, check the bot's privacy mode in BotFather.
 
 ## Debugging `invalid webhook URL specified`
 

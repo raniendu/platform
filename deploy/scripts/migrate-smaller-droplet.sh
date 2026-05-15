@@ -297,11 +297,12 @@ upload_production_env() {
     printf 'PARALLEL_API_KEY=%s\n' "${PARALLEL_API_KEY:-}"
   } | ssh_host "$host" "cat > /opt/platform/${ENV_FILE} && chmod 600 /opt/platform/${ENV_FILE}"
   {
-    printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
-    printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
-    printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
-  } | ssh_host "$host" "cat > /opt/platform/.env.raman && chmod 600 /opt/platform/.env.raman"
-}
+	    printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
+	    printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
+	    printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
+	    printf 'TELEGRAM_BOT_USERNAME=%s\n' "${TELEGRAM_BOT_USERNAME:-}"
+	  } | ssh_host "$host" "cat > /opt/platform/.env.raman && chmod 600 /opt/platform/.env.raman"
+	}
 
 upload_ghcr_credentials() {
   local host="$1"

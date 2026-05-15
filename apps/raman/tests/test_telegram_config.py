@@ -4,6 +4,8 @@ import pytest
 
 from raman.telegram_config import load_telegram_config
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 def write_telegram_config(spec_root: Path, body: str) -> None:
     spec_root.mkdir(parents=True, exist_ok=True)
@@ -124,3 +126,27 @@ username_env = "BOT_USERNAME"
     config = load_telegram_config(spec_root)
 
     assert config.get_bot("raman").username is None
+
+
+def test_checked_in_telegram_config_includes_gobind_bot(monkeypatch):
+    spec_root = REPO_ROOT / "apps" / "raman" / "spec"
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "raman-token")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "raman-secret")
+    monkeypatch.setenv("TELEGRAM_ALLOWED_CHAT_IDS", "920165401")
+    monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "raniendu_raman_bot")
+    monkeypatch.setenv("GOBIND_TELEGRAM_BOT_TOKEN", "gobind-token")
+    monkeypatch.setenv("GOBIND_TELEGRAM_WEBHOOK_SECRET", "gobind-secret")
+    monkeypatch.setenv("GOBIND_TELEGRAM_ALLOWED_CHAT_IDS", "-5141305071,920165401")
+    monkeypatch.setenv("GOBIND_TELEGRAM_BOT_USERNAME", "@raniendu_gobind_bot")
+
+    config = load_telegram_config(spec_root)
+    bot = config.get_bot("gobind")
+
+    assert bot.name == "gobind"
+    assert bot.default_agent == "gobind"
+    assert bot.bot_token == "gobind-token"
+    assert bot.webhook_secret == "gobind-secret"
+    assert bot.allowed_chat_id_set == {-5141305071, 920165401}
+    assert bot.username == "raniendu_gobind_bot"
+    assert bot.interface == "telegram:gobind"
+    assert bot.webhook_path == "/telegram/gobind/webhook"

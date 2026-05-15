@@ -44,6 +44,10 @@ Required for Telegram:
 | `TELEGRAM_WEBHOOK_SECRET` | Random string echoed in `X-Telegram-Bot-Api-Secret-Token`; generate with `openssl rand -hex 32`. |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat IDs allowed to use the default bot. |
 | `TELEGRAM_BOT_USERNAME` | Bot username without `@`; required for group mentions and reply-to-bot detection. |
+| `GOBIND_TELEGRAM_BOT_TOKEN` | From BotFather for the checked-in Gobind bot. |
+| `GOBIND_TELEGRAM_WEBHOOK_SECRET` | Random string echoed in `X-Telegram-Bot-Api-Secret-Token` for Gobind. |
+| `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat IDs allowed to use Gobind. |
+| `GOBIND_TELEGRAM_BOT_USERNAME` | Gobind bot username without `@`; required for group mentions and reply-to-bot detection. |
 | `RAMAN_PUBLIC_BASE_URL` | Public HTTPS base URL, currently `https://raman.raniendu.dev`. |
 
 Additional Raman Telegram bots are declared in `spec/telegram.toml`; their

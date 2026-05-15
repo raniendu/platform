@@ -8,3 +8,12 @@ webhook_secret_env = "TELEGRAM_WEBHOOK_SECRET"
 allowed_chat_ids_env = "TELEGRAM_ALLOWED_CHAT_IDS"
 api_base_url_env = "TELEGRAM_API_BASE_URL"
 username_env = "TELEGRAM_BOT_USERNAME"
+
+[[bots]]
+name = "gobind"
+default_agent = "gobind"
+token_env = "GOBIND_TELEGRAM_BOT_TOKEN"
+webhook_secret_env = "GOBIND_TELEGRAM_WEBHOOK_SECRET"
+allowed_chat_ids_env = "GOBIND_TELEGRAM_ALLOWED_CHAT_IDS"
+api_base_url_env = "GOBIND_TELEGRAM_API_BASE_URL"
+username_env = "GOBIND_TELEGRAM_BOT_USERNAME"

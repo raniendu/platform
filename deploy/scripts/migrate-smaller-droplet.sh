@@ -255,6 +255,9 @@ validate_platform_env() {
   require_env TELEGRAM_BOT_TOKEN
   require_env TELEGRAM_WEBHOOK_SECRET
   require_env TELEGRAM_ALLOWED_CHAT_IDS
+  require_env GOBIND_TELEGRAM_BOT_TOKEN
+  require_env GOBIND_TELEGRAM_WEBHOOK_SECRET
+  require_env GOBIND_TELEGRAM_ALLOWED_CHAT_IDS
 
   for key in PLATFORM_POSTGRES_PASSWORD PREFECT_POSTGRES_PASSWORD AIRFLOW_POSTGRES_PASSWORD PAPERCLIP_POSTGRES_PASSWORD PAPERCLIP_BASIC_AUTH_USER PAPERCLIP_BASIC_AUTH_HASH PAPERCLIP_BETTER_AUTH_SECRET PAPERCLIP_AGENT_JWT_SECRET; do
     if ! printf '%s\n' "$PLATFORM_ENV_FILE" | grep -Eq "^${key}="; then
@@ -297,12 +300,16 @@ upload_production_env() {
     printf 'PARALLEL_API_KEY=%s\n' "${PARALLEL_API_KEY:-}"
   } | ssh_host "$host" "cat > /opt/platform/${ENV_FILE} && chmod 600 /opt/platform/${ENV_FILE}"
   {
-	    printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
-	    printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
-	    printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
-	    printf 'TELEGRAM_BOT_USERNAME=%s\n' "${TELEGRAM_BOT_USERNAME:-}"
-	  } | ssh_host "$host" "cat > /opt/platform/.env.raman && chmod 600 /opt/platform/.env.raman"
-	}
+    printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
+    printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET"
+    printf 'TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$TELEGRAM_ALLOWED_CHAT_IDS"
+    printf 'TELEGRAM_BOT_USERNAME=%s\n' "${TELEGRAM_BOT_USERNAME:-}"
+    printf 'GOBIND_TELEGRAM_BOT_TOKEN=%s\n' "$GOBIND_TELEGRAM_BOT_TOKEN"
+    printf 'GOBIND_TELEGRAM_WEBHOOK_SECRET=%s\n' "$GOBIND_TELEGRAM_WEBHOOK_SECRET"
+    printf 'GOBIND_TELEGRAM_ALLOWED_CHAT_IDS=%s\n' "$GOBIND_TELEGRAM_ALLOWED_CHAT_IDS"
+    printf 'GOBIND_TELEGRAM_BOT_USERNAME=%s\n' "${GOBIND_TELEGRAM_BOT_USERNAME:-}"
+  } | ssh_host "$host" "cat > /opt/platform/.env.raman && chmod 600 /opt/platform/.env.raman"
+}
 
 upload_ghcr_credentials() {
   local host="$1"

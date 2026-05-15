@@ -255,6 +255,10 @@ spec/shared/
 └── skills/             # (optional, placeholder)
 ```
 
+Built-in specs include `raman` for the default personal assistant and `gobind`
+for shared Telegram group chats. In a group, a Telegram chat admin can switch
+the shared thread with `/agent gobind`.
+
 `spec/raman/agent.toml`:
 
 ```toml

@@ -309,11 +309,16 @@ class ConversationService:
             message_history_json=result.all_messages_json(),
         )
         log.info("thread_history_persisted")
+        output = str(result.output)
+        context_warning = _context_usage_warning(result, self.settings)
+        if context_warning is not None:
+            output = f"{output}\n\n{context_warning}"
+            log.warning("context_usage_warning_emitted")
         return ConversationReply(
             interface=message.interface,
             external_thread_id=message.external_thread_id,
             agent_name=agent_name,
-            output=str(result.output),
+            output=output,
         )
 
     def _get_agent(self, name: str) -> RunnableAgent:
@@ -393,6 +398,33 @@ def _load_history(message_history_json: bytes | None) -> list[ModelMessage]:
     if not message_history_json:
         return []
     return ModelMessagesTypeAdapter.validate_json(message_history_json)
+
+
+def _context_usage_warning(result: Any, settings: RamanSettings) -> str | None:
+    context_window = settings.context_window_tokens
+    warning_ratio = settings.context_warning_ratio
+    if context_window <= 0 or warning_ratio <= 0:
+        return None
+    usage_fn = getattr(result, "usage", None)
+    if not callable(usage_fn):
+        return None
+    try:
+        usage = usage_fn()
+    except Exception:
+        logger.exception("context_usage_unavailable")
+        return None
+    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+    if input_tokens <= 0:
+        return None
+    ratio = input_tokens / context_window
+    if ratio < warning_ratio:
+        return None
+    percent = round(ratio * 100)
+    return (
+        f"Context warning: this thread is using about {percent}% of the model "
+        f"context ({input_tokens:,}/{context_window:,} input tokens). Use /reset "
+        "when you are ready to start fresh."
+    )
 
 
 def _utc_now() -> str:

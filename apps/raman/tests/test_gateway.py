@@ -104,6 +104,62 @@ async def test_conversation_service_runs_agent_with_persisted_history(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_conversation_service_appends_context_warning_near_limit(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+
+    class FakeUsage:
+        input_tokens = 90
+
+    class FakeResult:
+        output = "reply"
+
+        def all_messages_json(self):
+            return b'["stored-model-history"]'
+
+        def usage(self):
+            return FakeUsage()
+
+    class FakeAgent:
+        async def run(self, prompt, *, message_history, conversation_id):
+            return FakeResult()
+
+    service = ConversationService(
+        settings=RamanSettings(
+            _env_file=None,
+            RAMAN_CONTEXT_WINDOW_TOKENS=100,
+            RAMAN_CONTEXT_WARNING_RATIO=0.8,
+        ),
+        store=store,
+        agent_factory=lambda name: FakeAgent(),
+    )
+
+    reply = await service.send_message(
+        InboundMessage(
+            interface="telegram",
+            external_thread_id="123",
+            prompt="hello",
+            agent_name=None,
+            default_agent="raman",
+            metadata={},
+        )
+    )
+
+    assert reply.output.startswith("reply")
+    assert "Context warning:" in reply.output
+    assert "90%" in reply.output
+    assert (
+        store.get_thread("telegram", "123", default_agent="raman").message_history_json
+        == b'["stored-model-history"]'
+    )
+    assert (
+        b"Context warning"
+        not in store.get_thread(
+            "telegram", "123", default_agent="raman"
+        ).message_history_json
+    )
+
+
+@pytest.mark.asyncio
 async def test_conversation_service_logs_agent_lifecycle_without_content(tmp_path):
     store = ThreadStore(tmp_path / "raman.sqlite3")
 

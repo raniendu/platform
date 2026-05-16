@@ -33,7 +33,6 @@ Filter by service name when possible:
 ```bash
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f caddy
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f prefect-worker
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f paperclip
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f raman
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f homi
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f vikram
@@ -64,12 +63,6 @@ Restart one service:
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production restart prefect-worker
 ```
 
-Restart Paperclip:
-
-```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production restart paperclip
-```
-
 Pull and restart the current production images:
 
 ```bash
@@ -95,13 +88,12 @@ Production app launch is controlled by `deploy/apps.prod.env`.
 DEPLOY_DOTDEV=true
 DEPLOY_PREFECT=true
 DEPLOY_FLOW=false
-DEPLOY_PAPERCLIP=false
 DEPLOY_RAMAN=true
 DEPLOY_HOMI=false
 DEPLOY_VIKRAM=false
 ```
 
-Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from that push. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved. Re-enabling Paperclip does not require another admin invite unless the Paperclip database or `paperclip-data` volume has been reset.
+Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from that push. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved.
 
 ## Temporary SSH Access
 
@@ -123,15 +115,14 @@ curl https://raniendu.dev/healthz
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
 curl -I https://raman.raniendu.dev/healthz
-curl -I https://paperclip.raniendu.dev/ # expected 404 while disabled
 curl -I https://flow.raniendu.dev/      # expected 404 while disabled
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
 ```
 
 Homi and Vikram public checks are only expected after their DNS records exist and `DEPLOY_HOMI=true` or `DEPLOY_VIKRAM=true`.
 
-Expected disabled-app responses are part of the signal: Paperclip and Flow
-return `404` while their production flags are false. A `404` for Raman, DotDev,
+Expected disabled-app responses are part of the signal: Flow returns `404`
+while its production flag is false. A `404` for Raman, DotDev,
 Prefect, or Jaeger while their flags are true usually means Caddy rendering,
 profiles, or DNS should be checked before app internals.
 
@@ -141,34 +132,6 @@ Prefect API health:
 curl https://prefect.raniendu.dev/api/health
 ```
 
-Paperclip direct health from the host:
-
-```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec paperclip curl --fail --header 'Host: paperclip.raniendu.dev' http://localhost:3100/api/health
-```
-
-## Paperclip Browser Login
-
-The first browser prompt for `https://paperclip.raniendu.dev` is Caddy basic auth, not the Paperclip app login. Use the Paperclip-specific values from `.env.production.credentials`:
-
-```bash
-grep '^PAPERCLIP_BASIC_AUTH_' .env.production.credentials
-```
-
-Do not use `PAPERCLIP_BETTER_AUTH_SECRET` for this prompt. That value is an internal Paperclip secret from `.env.production.generated`, not a human password.
-
-## Paperclip Admin Bootstrap
-
-Generate the first admin invite only in an interactive local or host shell after Paperclip is running:
-
-```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec paperclip pnpm paperclipai auth bootstrap-ceo --config /etc/paperclip/config.json --base-url https://paperclip.raniendu.dev
-```
-
-Treat the invite URL as a credential and do not paste it into GitHub Actions logs, issues, docs, or chat.
-
-If the DigitalOcean web console and direct SSH are unavailable, use the `Paperclip Bootstrap Admin` workflow. It runs the bootstrap command over the existing deploy SSH key, stores command output in a one-day GitHub Actions artifact, and keeps the invite out of logs. Download the artifact locally and delete it after redeeming the invite.
-
 ## Backups
 
 Back up named volumes before risky deploys:
@@ -176,12 +139,10 @@ Back up named volumes before risky deploys:
 - `postgres-data`
 - `caddy-data`
 - `caddy-config`
-- `paperclip-data`
 - `raman-state`
 - `homi-state`
 - `vikram-state`
 
-Paperclip metadata lives in the `paperclip` database inside `postgres-data`; Paperclip local disk storage lives in `paperclip-data`.
 Raman thread history and DBOS workflow state live in `raman-state`.
 Homi and Vikram keep their thread history and SDK session state in `homi-state` and `vikram-state`.
 
@@ -195,7 +156,6 @@ At minimum, take a DigitalOcean Droplet snapshot before the first public cutover
 - DNS has propagated to the new Droplet IP.
 - Caddy certificates issued successfully.
 - Prefect worker is polling the expected work pool.
-- Paperclip health endpoint is reachable after Caddy basic auth.
 - Airflow scheduler is running.
 - Human approval recorded for each old resource deletion.
 

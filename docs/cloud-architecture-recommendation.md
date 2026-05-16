@@ -6,11 +6,11 @@ Pricing snapshot: 2026-04-24. Prices are public USD list prices, before tax, sup
 
 Use a single DigitalOcean Basic Droplet running the existing Docker Compose stack:
 
-- Caddy terminates HTTPS and routes `raniendu.dev`, `prefect.raniendu.dev`, `paperclip.raniendu.dev`, `raman.raniendu.dev`, and `flow.raniendu.dev`.
-- DotDev, Prefect Server, Prefect worker, Paperclip, Raman, Airflow webserver, Airflow scheduler, and one shared PostgreSQL container run on the same host.
+- Caddy terminates HTTPS and routes `raniendu.dev`, `prefect.raniendu.dev`, `raman.raniendu.dev`, and `flow.raniendu.dev`.
+- DotDev, Prefect Server, Prefect worker, Raman, Airflow webserver, Airflow scheduler, and one shared PostgreSQL container run on the same host.
 - GitHub Actions deploys by SSH to `/opt/platform`.
 - Terraform creates the Droplet, firewall, SSH key attachment, and outputs the public IP for DNS.
-- Production now runs on `s-1vcpu-2gb`; resize upward only if Airflow, Prefect, Paperclip, or local Postgres memory pressure shows up in metrics.
+- Production now runs on `s-1vcpu-2gb`; resize upward only if Airflow, Prefect, Raman, or local Postgres memory pressure shows up in metrics.
 
 Estimated monthly cost:
 
@@ -36,7 +36,6 @@ DigitalOcean Firewall: 80/443 public, 22 restricted
 Caddy on one Droplet
   |-- raniendu.dev          -> dotdev:8501
   |-- prefect.raniendu.dev  -> prefect-server:4200, Caddy basic auth
-  |-- paperclip.raniendu.dev -> paperclip:3100, Caddy basic auth
   |-- raman.raniendu.dev    -> raman:8000
   |-- jaeger.raniendu.dev   -> jaeger:16686, Caddy basic auth
   |-- flow.raniendu.dev     -> airflow-webserver:8080
@@ -45,14 +44,12 @@ Docker Compose network
   |-- dotdev
   |-- prefect-server
   |-- prefect-worker
-  |-- paperclip
   |-- raman
   |-- jaeger
   |-- platform-postgres
   |-- airflow-webserver
   |-- airflow-scheduler
   |-- shared postgres volume
-  |-- paperclip data volume
   |-- raman state volume
   |-- airflow logs/config/plugin volumes
 ```
@@ -61,7 +58,7 @@ Operational choices:
 
 - Keep PostgreSQL local in one container. Managed databases add cost and are unnecessary for this personal platform unless restore time or database isolation becomes more important than monthly spend.
 - Enable weekly Droplet backups immediately. Add logical `pg_dump` backups later if the data becomes important enough to need app-level restore instead of whole-host restore.
-- Keep only Caddy public. Prefect and Paperclip are additionally protected with Caddy basic auth; Paperclip also runs in authenticated/public mode. Airflow relies on its own login and should still be treated as an admin surface.
+- Keep only Caddy public. Prefect is additionally protected with Caddy basic auth. Airflow relies on its own login and should still be treated as an admin surface.
 - For future replacement migrations, keep the previous live resource in place until the new endpoints are verified after DNS cutover and decommissioning is explicitly approved.
 
 ## DigitalOcean Alternatives
@@ -78,7 +75,7 @@ Operational choices:
 
 ## Serverless Options
 
-Serverless is attractive only for workloads that are stateless, event-driven, and can stop when idle. This stack has five always-on surfaces: DotDev, Prefect API/UI, Paperclip, Raman, and Airflow API/scheduler. DotDev could be made serverless later. Airflow, Prefect, Paperclip, and Raman are the cost drivers because they want persistent runtime state, metadata, local storage, workers, logs, or web UI.
+Serverless is attractive only for workloads that are stateless, event-driven, and can stop when idle. This stack has four always-on surfaces: DotDev, Prefect API/UI, Raman, and Airflow API/scheduler. DotDev could be made serverless later. Airflow, Prefect, and Raman are the cost drivers because they want persistent runtime state, metadata, local storage, workers, logs, or web UI.
 
 DigitalOcean:
 

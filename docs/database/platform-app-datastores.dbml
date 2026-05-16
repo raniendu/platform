@@ -4,7 +4,7 @@ Project platform_app_datastores {
 }
 
 Table runtime_service {
-  service_id varchar [pk, note: 'Stable service key such as dotdev, prefect-server, airflow-webserver, paperclip, raman, homi, or vikram']
+  service_id varchar [pk, note: 'Stable service key such as dotdev, prefect-server, airflow-webserver, raman, homi, or vikram']
   app_name varchar [not null]
   environment varchar [not null, note: 'local or production']
   compose_service varchar [not null]
@@ -21,7 +21,7 @@ Table postgres_cluster {
 }
 
 Table app_database {
-  database_id varchar [pk, note: 'Logical database key: prefect, airflow, or paperclip']
+  database_id varchar [pk, note: 'Logical database key: prefect or airflow']
   cluster_id varchar [not null]
   app_name varchar [not null]
   database_name varchar [not null]

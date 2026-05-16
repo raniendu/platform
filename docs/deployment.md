@@ -18,7 +18,6 @@ Current production routes:
 - `https://jaeger.raniendu.dev` -> Jaeger UI behind Caddy basic auth when `DEPLOY_OBSERVABILITY=true`
 - `https://homi.raniendu.dev` -> Homi only when DNS exists and `DEPLOY_HOMI=true`
 - `https://vikram.raniendu.dev` -> Vikram only when DNS exists and `DEPLOY_VIKRAM=true`
-- `https://paperclip.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 - `https://flow.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 
 Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags in a PR and merge to `main` to start or stop a production app:
@@ -27,7 +26,6 @@ Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. 
 DEPLOY_DOTDEV=true
 DEPLOY_PREFECT=true
 DEPLOY_FLOW=false
-DEPLOY_PAPERCLIP=false
 DEPLOY_RAMAN=true
 DEPLOY_HOMI=false
 DEPLOY_VIKRAM=false
@@ -45,7 +43,7 @@ Before any GitHub or DigitalOcean change, prove:
 - local Compose config renders,
 - local Compose builds and starts,
 - Caddy routes all local hostnames,
-- smoke tests show DotDev, Raman, Homi, Vikram, Prefect, Paperclip, and Airflow are reachable.
+- smoke tests show DotDev, Raman, Homi, Vikram, Prefect, and Airflow are reachable.
 
 ## Gate 2: GitHub Repo Creation
 
@@ -72,11 +70,10 @@ Expected deploy workflow:
 7. Upload the production env file to `/opt/platform/.env.production`, appending deploy flags and SHA-pinned image references, including agent images such as `RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:<sha>`.
 8. Upload temporary GHCR credentials, render the enabled/disabled production Caddy routes, stop disabled app containers without deleting volumes, and pull enabled images on the Droplet.
 9. Run the one-time Postgres consolidation if the host still has separate Prefect and Airflow Postgres containers.
-10. Run the idempotent Paperclip database initializer only when Paperclip is enabled so existing `platform-postgres` volumes get the `paperclip` role and database.
-11. Run production Compose with `COMPOSE_PROFILES` matching the enabled app flags and `up -d --no-build`.
-12. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
-13. Smoke test the public endpoints, including agent `/healthz` routes when enabled, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
-14. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
+10. Run production Compose with `COMPOSE_PROFILES` matching the enabled app flags and `up -d --no-build`.
+11. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
+12. Smoke test the public endpoints, including agent `/healthz` routes when enabled, then stop the legacy Prefect/Airflow Postgres containers if the smoke checks pass.
+13. Remove temporary GHCR credentials and the GitHub runner SSH firewall rule in `always()` cleanup steps.
 
 GitHub secrets are listed in `docs/secrets.md`. Do not merge production deploy changes until production secrets are configured.
 
@@ -113,13 +110,13 @@ Before merging changes that will trigger `Deploy`, or before running it manually
 - `DO_SSH_KEY_FINGERPRINTS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["aa:bb:cc"]`.
 - `ALLOWED_SSH_CIDRS` is set as a GitHub environment variable or secret using Terraform list syntax, for example `["203.0.113.10/32"]` or `[]`.
 - `PLATFORM_ENV_FILE` contains the shared production `.env.production` content.
-- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, `AIRFLOW_POSTGRES_PASSWORD`, and `PAPERCLIP_POSTGRES_PASSWORD`; the deploy workflow validates additional app auth keys only when their app flag is enabled.
+- `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, and `AIRFLOW_POSTGRES_PASSWORD`; the deploy workflow validates additional app auth keys only when their app flag is enabled.
 - When `DEPLOY_RAMAN=true`, the GitHub `production` environment includes `DO_INFERENCE_API_KEY`, `PARALLEL_API_KEY`, and every Telegram secret referenced by `apps/raman/spec/telegram.toml`. The checked-in Telegram bots require `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_BOT_USERNAME`, `GOBIND_TELEGRAM_BOT_TOKEN`, `GOBIND_TELEGRAM_WEBHOOK_SECRET`, `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS`, `GOBIND_TELEGRAM_BOT_USERNAME`, `LEO_TELEGRAM_BOT_TOKEN`, `LEO_TELEGRAM_WEBHOOK_SECRET`, `LEO_TELEGRAM_ALLOWED_CHAT_IDS`, and `LEO_TELEGRAM_BOT_USERNAME`. After the public Raman smoke check passes, deploy runs `python -m raman.local_webhook "$RAMAN_PUBLIC_BASE_URL" --all --skip-health-check --no-drop-pending` inside the deployed Raman container to reset every configured Telegram webhook without discarding queued updates. `PARALLEL_API_KEY` is required because the current Raman spec enables `web_search`.
 - When `DEPLOY_HOMI=true`, configure `HOMI_TELEGRAM_BOT_TOKEN`, `HOMI_TELEGRAM_WEBHOOK_SECRET`, `HOMI_TELEGRAM_ALLOWED_CHAT_IDS`, and Bedrock credentials through `AWS_BEARER_TOKEN_BEDROCK` or the standard AWS access key pair. `HOMI_PARALLEL_API_KEY` is optional unless Homi enables web search.
 - When `DEPLOY_VIKRAM=true`, configure `GOOGLE_API_KEY`, `VIKRAM_TELEGRAM_BOT_TOKEN`, `VIKRAM_TELEGRAM_WEBHOOK_SECRET`, and `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`. `VIKRAM_PARALLEL_API_KEY` is optional unless Vikram enables web search.
 - `DO_INFERENCE_API_KEY` should be a DigitalOcean model access key scoped to `gemma-4-31B-it` for the production Raman deployment. Serverless inference does not require a Terraform-managed endpoint or dedicated GPU resource.
-- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, `PAPERCLIP_IMAGE`, `RAMAN_IMAGE`, `HOMI_IMAGE`, and `VIKRAM_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
-- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_PAPERCLIP`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, `DEPLOY_VIKRAM`, and `DEPLOY_OBSERVABILITY`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
+- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, `RAMAN_IMAGE`, `HOMI_IMAGE`, and `VIKRAM_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
+- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, `DEPLOY_VIKRAM`, and `DEPLOY_OBSERVABILITY`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
 - The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=gemma-4-31B-it`, `RAMAN_AGENT=raman`, `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`, and Raman observability settings derived from `DEPLOY_OBSERVABILITY`) to the host env file at deploy time. It also writes `/opt/platform/.env.raman` with only the Telegram env keys referenced by `apps/raman/spec/telegram.toml`.
 - The deploy workflow appends Homi and Vikram production constants and their app-specific secrets only when their deploy flags are enabled.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
@@ -136,7 +133,7 @@ Match verification to the files changed in the PR:
 | Secrets or runtime env docs | `docs/secrets.md` and the relevant `.env.example` files updated |
 | Operations behavior | `docs/operations.md` updated with the new runbook or smoke expectation |
 
-If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks. App subdomains such as `paperclip`, `raman`, `homi`, and `vikram` require `A` records pointing at the Droplet IP before their public smoke checks can pass.
+If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks. App subdomains such as `raman`, `homi`, and `vikram` require `A` records pointing at the Droplet IP before their public smoke checks can pass.
 
 ## Smaller Droplet Migration
 
@@ -175,37 +172,24 @@ The workflow is expected to report these smoke statuses:
 - `prefect.raniendu.dev/api/health` -> `401`
 - `raman.raniendu.dev/healthz` -> `200`
 - `jaeger.raniendu.dev` -> `401`
-- `paperclip.raniendu.dev` -> `404`
 - `flow.raniendu.dev` -> `404`
 
-`401` for Prefect and Jaeger is expected because Caddy basic auth is protecting those routes. Paperclip and Flow return `404` while their production app flags are disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
+`401` for Prefect and Jaeger is expected because Caddy basic auth is protecting those routes. Flow returns `404` while its production app flag is disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
 
 Before the public smoke checks, the workflow waits for Caddy to be running and for DotDev's `/healthz` container healthcheck to become healthy. Public smoke checks continue after an individual failure so one broken hostname does not hide the status of Raman, Jaeger, or other routes. If a smoke check fails, the workflow prints Caddy and DotDev container status plus recent logs before exiting.
 
-The production browser credentials for the Paperclip Caddy prompt live in `.env.production.credentials` as `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD`. The deploy env file and GitHub `PLATFORM_ENV_FILE` use `PAPERCLIP_BASIC_AUTH_HASH`; do not try to sign in with `PAPERCLIP_BETTER_AUTH_SECRET`, which is only an internal Paperclip auth/session secret.
-
 ## Postgres Consolidation
 
-Production now uses one shared Postgres container, `platform-postgres`, with separate `prefect`, `airflow`, and `paperclip` databases and roles. Local development still uses separate local Postgres containers.
+Production now uses one shared Postgres container, `platform-postgres`, with separate `prefect` and `airflow` databases and roles. Local development still uses separate local Postgres containers.
 
 On the first deploy to an existing host, `deploy/scripts/consolidate-postgres.sh`:
 
 1. Stops Prefect and Airflow application containers to avoid writes during dumps.
 2. Dumps `platform-prefect-postgres` and `platform-airflow-postgres`.
-3. Starts `platform-postgres`, whose init script creates the `prefect`, `airflow`, and `paperclip` roles/databases on fresh volumes.
+3. Starts `platform-postgres`, whose init script creates the `prefect` and `airflow` roles/databases on fresh volumes.
 4. Restores both dumps into the shared Postgres container.
 5. Writes a marker at `/var/lib/platform/postgres-consolidated`.
 
 If no legacy Postgres containers exist and `platform-postgres` already exists without the marker, the script starts that container, verifies the `postgres`, `prefect`, and `airflow` databases respond, and writes an `adopted` marker. This covers restored or migrated hosts where the shared database is already the steady state.
 
-Existing initialized Postgres volumes do not rerun entrypoint init scripts, so the deploy workflow also runs `paperclip-db-init` before Paperclip starts. That one-shot container is idempotent and only ensures the `paperclip` role/database exist with the configured password.
-
 The dump backups remain on the host under `/var/backups/platform/postgres-consolidation/` when the consolidation path runs. The smaller-Droplet migration has been accepted and the old 4 GiB host was decommissioned, so rollback now depends on Droplet backups/snapshots or app-level database backups rather than the old legacy Postgres containers.
-
-## Paperclip First Admin
-
-Generate the first Paperclip admin invite only after the service is running. Run the bootstrap command manually on the host or locally inside the container; do not add it to GitHub Actions because the invite URL is a credential.
-
-```bash
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec paperclip pnpm paperclipai auth bootstrap-ceo --config /etc/paperclip/config.json --base-url https://paperclip.raniendu.dev
-```

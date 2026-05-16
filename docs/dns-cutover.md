@@ -17,7 +17,6 @@ Use the Terraform output `droplet_ip` as the A record value.
 - `raniendu.dev` -> new Droplet IP
 - `www.raniendu.dev` -> CNAME to `raniendu.dev`
 - `prefect.raniendu.dev` -> new Droplet IP
-- `paperclip.raniendu.dev` -> new Droplet IP
 - `raman.raniendu.dev` -> new Droplet IP
 - `jaeger.raniendu.dev` -> new Droplet IP, before enabling `DEPLOY_OBSERVABILITY=true`
 - `homi.raniendu.dev` -> new Droplet IP, before enabling `DEPLOY_HOMI=true`
@@ -29,7 +28,6 @@ If Squarespace uses host labels:
 - root/apex: `@`
 - www: `www`
 - Prefect: `prefect`
-- Paperclip: `paperclip`
 - Raman: `raman`
 - Jaeger: `jaeger`
 - Homi: `homi`
@@ -42,7 +40,6 @@ Expected Squarespace record shape:
 A      @        174.138.71.121
 CNAME  www      raniendu.dev
 A      prefect  174.138.71.121
-A      paperclip 174.138.71.121
 A      raman    174.138.71.121
 A      jaeger   174.138.71.121
 A      homi     174.138.71.121
@@ -60,7 +57,6 @@ Wait for DNS propagation, then verify:
 dig +short raniendu.dev
 dig +short www.raniendu.dev
 dig +short prefect.raniendu.dev
-dig +short paperclip.raniendu.dev
 dig +short raman.raniendu.dev
 dig +short jaeger.raniendu.dev
 dig +short homi.raniendu.dev
@@ -69,7 +65,6 @@ dig +short flow.raniendu.dev
 curl -I https://raniendu.dev/
 curl -I https://www.raniendu.dev/
 curl -I https://prefect.raniendu.dev/
-curl -I https://paperclip.raniendu.dev/
 curl -I https://raman.raniendu.dev/healthz
 curl -I https://jaeger.raniendu.dev/
 curl -I https://homi.raniendu.dev/

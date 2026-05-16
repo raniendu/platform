@@ -57,7 +57,6 @@ load_flags() {
   DEPLOY_DOTDEV=
   DEPLOY_PREFECT=
   DEPLOY_FLOW=
-  DEPLOY_PAPERCLIP=
   DEPLOY_RAMAN=
   DEPLOY_HOMI=
   DEPLOY_VIKRAM=
@@ -69,7 +68,6 @@ load_flags() {
   normalize_bool DEPLOY_DOTDEV
   normalize_bool DEPLOY_PREFECT
   normalize_bool DEPLOY_FLOW
-  normalize_bool DEPLOY_PAPERCLIP
   normalize_bool DEPLOY_RAMAN
   normalize_bool DEPLOY_HOMI
   normalize_bool DEPLOY_VIKRAM
@@ -104,14 +102,6 @@ build_lists() {
   else
     disabled_services+=(airflow-init airflow-webserver airflow-scheduler)
     disabled_containers+=(platform-airflow-init platform-airflow-webserver platform-airflow-scheduler)
-  fi
-
-  if [ "$DEPLOY_PAPERCLIP" = true ]; then
-    profiles+=(paperclip)
-    enabled_pull_services+=(paperclip-db-init paperclip)
-  else
-    disabled_services+=(paperclip-db-init paperclip)
-    disabled_containers+=(platform-paperclip-db-init platform-paperclip)
   fi
 
   if [ "$DEPLOY_RAMAN" = true ]; then
@@ -159,7 +149,6 @@ case "$command" in
       printf 'deploy_dotdev=%s\n' "$DEPLOY_DOTDEV"
       printf 'deploy_prefect=%s\n' "$DEPLOY_PREFECT"
       printf 'deploy_flow=%s\n' "$DEPLOY_FLOW"
-      printf 'deploy_paperclip=%s\n' "$DEPLOY_PAPERCLIP"
       printf 'deploy_raman=%s\n' "$DEPLOY_RAMAN"
       printf 'deploy_homi=%s\n' "$DEPLOY_HOMI"
       printf 'deploy_vikram=%s\n' "$DEPLOY_VIKRAM"

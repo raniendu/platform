@@ -22,6 +22,7 @@ Agent definitions live under `spec/<agent>/`; the default agent is `spec/raman/a
 - `uv sync`: install runtime and development dependencies from `pyproject.toml` and `uv.lock`.
 - `uv run raman`: start the interactive CLI for the default agent.
 - `uv run raman --agent <name>`: run an alternate spec from `spec/<name>/`.
+- `uv run raman --once --prompt "..."`: run one prompt and exit; `--prompt @file` or an existing file path reads prompt text from a file, and `--json` emits machine-readable output.
 - `uv run raman-api`: start the FastAPI app on `http://127.0.0.1:8000`.
 - `uv run pytest`: run the offline unit test suite.
 - `RAMAN_RUN_EVALS=1 uv run pytest tests/test_evals.py`: run live LLM-judge tests; requires Ollama and the configured model.

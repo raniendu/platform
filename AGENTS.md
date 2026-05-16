@@ -57,6 +57,7 @@ This file applies to the whole `platform` monorepo. More specific `AGENTS.md` fi
 - Keep shared runtime/deployment changes under `deploy/`, `.github/workflows/`, `infra/`, or `docs/`.
 - Update docs with any deployment, DNS, secret, Terraform, or operations behavior change.
 - Prefer small, focused commits when the user asks to commit. Do not commit or push without explicit user request.
+- Never leave work as push-only in this repository. When asked to publish changes, create a GitHub pull request; a remote branch push is allowed only as the mechanical step required to create or update that PR.
 - Preserve unrelated local changes and ignored runtime state.
 
 ## Verification Expectations

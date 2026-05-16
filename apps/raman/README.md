@@ -90,11 +90,16 @@ curl http://localhost:8000/healthz
 ## CLI
 
 ```bash
-uv run raman                  # interactive chat with the default agent (raman)
-uv run raman --agent alfred   # any agent under spec/<name>/
+uv run raman                                # interactive chat with the default agent (raman)
+uv run raman --agent alfred                 # any agent under spec/<name>/
+uv run raman --once --prompt "say pong"     # run one prompt and exit
+uv run raman --once --prompt @prompt.txt    # read prompt text from a file
+uv run raman --once --prompt prompt.txt --json
 ```
 
-The CLI prompt label reflects the active agent's spec name.
+The CLI prompt label reflects the active agent's spec name. In one-shot mode,
+`--prompt` accepts literal text, `-` for stdin, `@path`, or an existing file
+path. `--json` emits `agent` and `output` fields for scheduled jobs.
 
 ## HTTP API
 

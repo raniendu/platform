@@ -14,7 +14,6 @@ The consolidated platform is:
   - `https://raniendu.dev`
   - `https://www.raniendu.dev` -> redirect to `https://raniendu.dev`
   - `https://prefect.raniendu.dev`
-  - `https://paperclip.raniendu.dev`
   - `https://raman.raniendu.dev`
   - `https://flow.raniendu.dev`
 
@@ -39,14 +38,13 @@ Expected public smoke checks:
 curl -sS -o /dev/null -w '%{http_code}\n' https://raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://www.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://prefect.raniendu.dev/api/health
-curl -sS -o /dev/null -w '%{http_code}\n' https://paperclip.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://raman.raniendu.dev/healthz
 curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 ```
 
-Expected with the current production app flags: `200`, `301`, `401`, `404`, `200`, `404`.
+Expected with the current production app flags: `200`, `301`, `401`, `200`, `404`.
 
-`401` for Prefect is expected because Caddy basic auth protects that route. Raman returns `200` from `/healthz`. Paperclip and Flow return `404` while their production app flags are disabled.
+`401` for Prefect is expected because Caddy basic auth protects that route. Raman returns `200` from `/healthz`. Flow returns `404` while its production app flag is disabled.
 
 Read-only inventory checks should show only the shared runtime resources for this stack:
 

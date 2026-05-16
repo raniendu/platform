@@ -1,6 +1,6 @@
 # Platform
 
-Monorepo for the services previously split across `dotDev`, `prefect`, `flow`, and `raman`, plus shared Paperclip deployment wiring.
+Monorepo for the services previously split across `dotDev`, `prefect`, `flow`, and `raman`, plus shared deployment wiring.
 
 Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
 
@@ -12,7 +12,6 @@ Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2g
 - `apps/raman/` - Personal Pydantic AI agent, FastAPI HTTP/Telegram surface, Python 3.13.
 - `apps/prefect/` - Prefect flows, config, worker scripts, Python 3.10+.
 - `apps/flow/` - Airflow DAGs and image, Python 3.10+.
-- `apps/paperclip/` - Paperclip AI wrapper image and shared platform wiring.
 - `deploy/compose/` - shared local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
 - `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
@@ -53,7 +52,6 @@ Local service URLs:
 - Raman: `http://raman.localhost`
 - Homi: `http://homi.localhost`
 - Vikram: `http://vikram.localhost`
-- Paperclip: `http://paperclip.localhost`
 - Airflow: `http://flow.localhost`
 
 Direct container ports are also exposed for smoke checks:
@@ -62,7 +60,6 @@ Direct container ports are also exposed for smoke checks:
 - Raman: `http://localhost:8000/healthz`
 - Homi: `http://localhost:8001/healthz`
 - Vikram: `http://localhost:8002/healthz`
-- Paperclip: `http://localhost:3100/api/health`
 - Prefect: `http://localhost:4200/api/health`
 - Airflow: `http://localhost:8080`
 
@@ -127,7 +124,6 @@ Public routes:
 - Jaeger: `https://jaeger.raniendu.dev` when observability is enabled
 - Homi: `https://homi.raniendu.dev` when enabled
 - Vikram: `https://vikram.raniendu.dev` when enabled
-- Paperclip: `https://paperclip.raniendu.dev` when enabled
 - Airflow: `https://flow.raniendu.dev` when enabled
 
 Deploys run automatically after pushes to `main`. Manual redeploy remains available:

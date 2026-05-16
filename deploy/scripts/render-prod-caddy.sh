@@ -12,7 +12,6 @@ fi
 DEPLOY_DOTDEV=
 DEPLOY_PREFECT=
 DEPLOY_FLOW=
-DEPLOY_PAPERCLIP=
 DEPLOY_RAMAN=
 DEPLOY_HOMI=
 DEPLOY_VIKRAM=
@@ -37,7 +36,6 @@ validate_bool() {
 validate_bool DEPLOY_DOTDEV
 validate_bool DEPLOY_PREFECT
 validate_bool DEPLOY_FLOW
-validate_bool DEPLOY_PAPERCLIP
 validate_bool DEPLOY_RAMAN
 validate_bool DEPLOY_HOMI
 validate_bool DEPLOY_VIKRAM
@@ -99,23 +97,6 @@ else
   cat > "${target_dir}/30-flow.caddy" <<'EOF'
 flow.raniendu.dev {
 	respond "Flow is not deployed." 404
-}
-EOF
-fi
-
-if [ "$DEPLOY_PAPERCLIP" = true ]; then
-  cat > "${target_dir}/40-paperclip.caddy" <<'EOF'
-paperclip.raniendu.dev {
-	basic_auth {
-		{$PAPERCLIP_BASIC_AUTH_USER} {$PAPERCLIP_BASIC_AUTH_HASH}
-	}
-	reverse_proxy paperclip:3100
-}
-EOF
-else
-  cat > "${target_dir}/40-paperclip.caddy" <<'EOF'
-paperclip.raniendu.dev {
-	respond "Paperclip is not deployed." 404
 }
 EOF
 fi

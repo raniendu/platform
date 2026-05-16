@@ -8,11 +8,6 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `PLATFORM_POSTGRES_PASSWORD`: Shared production PostgreSQL superuser password for the consolidated Postgres container.
 - `PREFECT_BASIC_AUTH_USER`: Caddy username for Prefect UI/API and the Jaeger UI when `DEPLOY_OBSERVABILITY=true`.
 - `PREFECT_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Prefect and the Jaeger UI when `DEPLOY_OBSERVABILITY=true`.
-- `PAPERCLIP_POSTGRES_PASSWORD`: Paperclip PostgreSQL role password.
-- `PAPERCLIP_BASIC_AUTH_USER`: Caddy username for Paperclip.
-- `PAPERCLIP_BASIC_AUTH_HASH`: Caddy-compatible bcrypt password hash for Paperclip. Use credentials separate from Prefect.
-- `PAPERCLIP_BETTER_AUTH_SECRET`: Paperclip Better Auth secret.
-- `PAPERCLIP_AGENT_JWT_SECRET`: Paperclip agent JWT signing secret.
 - `DO_INFERENCE_API_KEY`: DigitalOcean model access key for Raman when `RAMAN_MODEL_PROVIDER=digitalocean`. Scope the production key to `gemma-4-31B-it`.
 - `TELEGRAM_BOT_TOKEN`: Raman default Telegram bot token from BotFather; this env name is referenced by `apps/raman/spec/telegram.toml`.
 - `TELEGRAM_WEBHOOK_SECRET`: Raman default Telegram webhook secret. Generate with `openssl rand -hex 32`.
@@ -73,21 +68,18 @@ Homi uses standard AWS credential env vars such as `AWS_ACCESS_KEY_ID`, `AWS_SEC
 
 ## Human Login Credentials
 
-Production Caddy basic-auth passwords are intentionally not stored in `.env.production.generated`. That generated file is used for the GitHub `PLATFORM_ENV_FILE` secret and contains Caddy bcrypt hashes such as `PAPERCLIP_BASIC_AUTH_HASH`, plus internal service secrets such as `PAPERCLIP_BETTER_AUTH_SECRET`.
+Production Caddy basic-auth passwords are intentionally not stored in `.env.production.generated`. That generated file is used for the GitHub `PLATFORM_ENV_FILE` secret and contains Caddy bcrypt hashes such as `PREFECT_BASIC_AUTH_HASH`.
 
 Use `.env.production.credentials` for human-readable production login values:
 
 ```bash
-grep '^PAPERCLIP_BASIC_AUTH_' .env.production.credentials
+grep '^PREFECT_BASIC_AUTH_' .env.production.credentials
 ```
 
-For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC_AUTH_USER` and `PAPERCLIP_BASIC_AUTH_PASSWORD` from `.env.production.credentials`. For `https://prefect.raniendu.dev` and `https://jaeger.raniendu.dev`, use the Prefect basic-auth credentials. `PAPERCLIP_BETTER_AUTH_SECRET` is not a browser login password; it is an internal Paperclip auth/session secret.
+For `https://prefect.raniendu.dev` and `https://jaeger.raniendu.dev`, use the Prefect basic-auth credentials.
 
 ## Optional Provider Keys
 
-- `OPENAI_API_KEY`: Optional Paperclip provider key.
-- `ANTHROPIC_API_KEY`: Optional Paperclip provider key.
-- `GEMINI_API_KEY`: Optional Paperclip provider key when also configured for Prefect.
 - `PARALLEL_API_KEY`: Shared web-search provider key for Raman, Homi, and Vikram. Required for Raman's current production spec; optional only for agents that do not enable `web_search`.
 - `HOMI_PARALLEL_API_KEY`: Optional Homi-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
 - `VIKRAM_PARALLEL_API_KEY`: Optional Vikram-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
@@ -96,9 +88,7 @@ For the browser prompt at `https://paperclip.raniendu.dev`, use `PAPERCLIP_BASIC
 
 Rotate app API keys at the provider first, then update `.env.production` and restart only the affected service where possible.
 
-Rotate database passwords during a maintenance window. Production uses one Postgres container with separate `prefect`, `airflow`, and `paperclip` roles/databases, so update the Postgres role password and Compose env file together. Rotate `PLATFORM_POSTGRES_PASSWORD` separately from the app database role passwords.
-
-Rotate Paperclip `PAPERCLIP_BETTER_AUTH_SECRET` and `PAPERCLIP_AGENT_JWT_SECRET` only with an application-level plan for active sessions and agent credentials. Treat Paperclip bootstrap invite URLs as credentials; generate them manually and do not store them in GitHub Actions logs.
+Rotate database passwords during a maintenance window. Production uses one Postgres container with separate `prefect` and `airflow` roles/databases, so update the Postgres role password and Compose env file together. Rotate `PLATFORM_POSTGRES_PASSWORD` separately from the app database role passwords.
 
 Rotate Airflow `FERNET_KEY` using Airflow's documented key rotation process; replacing it blindly can make encrypted connection values unreadable.
 

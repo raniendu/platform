@@ -8,8 +8,6 @@ services:
       ACME_EMAIL: ${ACME_EMAIL}
       PREFECT_BASIC_AUTH_USER: ${PREFECT_BASIC_AUTH_USER}
       PREFECT_BASIC_AUTH_HASH: ${PREFECT_BASIC_AUTH_HASH}
-      PAPERCLIP_BASIC_AUTH_USER: ${PAPERCLIP_BASIC_AUTH_USER}
-      PAPERCLIP_BASIC_AUTH_HASH: ${PAPERCLIP_BASIC_AUTH_HASH}
     ports:
       - "80:80"
       - "443:443"
@@ -129,7 +127,6 @@ services:
       POSTGRES_DB: postgres
       PREFECT_POSTGRES_PASSWORD: ${PREFECT_POSTGRES_PASSWORD:?PREFECT_POSTGRES_PASSWORD is required}
       AIRFLOW_POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:?AIRFLOW_POSTGRES_PASSWORD is required}
-      PAPERCLIP_POSTGRES_PASSWORD: ${PAPERCLIP_POSTGRES_PASSWORD:?PAPERCLIP_POSTGRES_PASSWORD is required}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../postgres/init-platform-dbs.sh:/docker-entrypoint-initdb.d/10-platform-dbs.sh:ro
@@ -184,69 +181,6 @@ services:
     depends_on:
       prefect-server:
         condition: service_healthy
-    networks:
-      - platform
-    restart: unless-stopped
-
-  paperclip-db-init:
-    image: postgres:15-alpine
-    container_name: platform-paperclip-db-init
-    profiles: ["paperclip"]
-    entrypoint: /bin/sh
-    command: /scripts/ensure-paperclip-db.sh
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
-      POSTGRES_PASSWORD: ${PLATFORM_POSTGRES_PASSWORD:?PLATFORM_POSTGRES_PASSWORD is required}
-      PAPERCLIP_POSTGRES_PASSWORD: ${PAPERCLIP_POSTGRES_PASSWORD:?PAPERCLIP_POSTGRES_PASSWORD is required}
-    volumes:
-      - ../postgres/ensure-paperclip-db.sh:/scripts/ensure-paperclip-db.sh:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - platform
-
-  paperclip:
-    image: ${PAPERCLIP_IMAGE:?PAPERCLIP_IMAGE is required}
-    container_name: platform-paperclip
-    profiles: ["paperclip"]
-    environment:
-      HOST: 0.0.0.0
-      PORT: 3100
-      SERVE_UI: "true"
-      PAPERCLIP_HOME: /paperclip
-      PAPERCLIP_INSTANCE_ID: default
-      PAPERCLIP_CONFIG: /etc/paperclip/config.json
-      PAPERCLIP_DEPLOYMENT_MODE: authenticated
-      PAPERCLIP_DEPLOYMENT_EXPOSURE: public
-      PAPERCLIP_PUBLIC_URL: https://paperclip.raniendu.dev
-      PAPERCLIP_AUTH_PUBLIC_BASE_URL: https://paperclip.raniendu.dev
-      PAPERCLIP_AUTH_BASE_URL_MODE: explicit
-      PAPERCLIP_ALLOWED_HOSTNAMES: paperclip.raniendu.dev
-      PAPERCLIP_MIGRATION_AUTO_APPLY: "true"
-      PAPERCLIP_TELEMETRY_DISABLED: "1"
-      DO_NOT_TRACK: "1"
-      DATABASE_URL: postgresql://paperclip:${PAPERCLIP_POSTGRES_PASSWORD}@postgres:5432/paperclip
-      BETTER_AUTH_SECRET: ${PAPERCLIP_BETTER_AUTH_SECRET:?PAPERCLIP_BETTER_AUTH_SECRET is required}
-      PAPERCLIP_AGENT_JWT_SECRET: ${PAPERCLIP_AGENT_JWT_SECRET:?PAPERCLIP_AGENT_JWT_SECRET is required}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-    volumes:
-      - paperclip-data:/paperclip
-      - ../paperclip/config.prod.json:/etc/paperclip/config.json:ro
-    depends_on:
-      paperclip-db-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--header", "Host: paperclip.raniendu.dev", "http://localhost:3100/api/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 12
-      start_period: 60s
     networks:
       - platform
     restart: unless-stopped
@@ -353,7 +287,6 @@ volumes:
   airflow-logs:
   airflow-plugins:
   airflow-config:
-  paperclip-data:
   raman-state:
   homi-state:
   vikram-state:

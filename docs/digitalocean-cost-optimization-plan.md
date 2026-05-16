@@ -34,7 +34,6 @@ Current DNS:
 A      @        174.138.71.121
 CNAME  www      raniendu.dev
 A      prefect  174.138.71.121
-A      paperclip 174.138.71.121
 A      raman    174.138.71.121
 A      flow     174.138.71.121
 ```
@@ -45,12 +44,11 @@ Current public smoke-check expectations:
 https://raniendu.dev/ -> 200
 https://www.raniendu.dev/ -> 301
 https://prefect.raniendu.dev/api/health -> 401
-https://paperclip.raniendu.dev/ -> 404
 https://raman.raniendu.dev/healthz -> 200
 https://flow.raniendu.dev/ -> 404
 ```
 
-`401` for Prefect is expected because Caddy basic auth protects that route. Raman returns `200` from `/healthz`. Paperclip and Flow return `404` while their production app flags are disabled.
+`401` for Prefect is expected because Caddy basic auth protects that route. Raman returns `200` from `/healthz`. Flow returns `404` while its production app flag is disabled.
 
 ## Current Cost
 

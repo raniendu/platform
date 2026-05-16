@@ -51,7 +51,7 @@ Run `Migrate Smaller Droplet` with:
 - `confirmation`: `stage-platform-shared-to-s-1vcpu-2gb`
 - `retired_droplet_name`: blank
 
-The stage phase creates or reuses one `platform-shared-small` Droplet, attaches it to the firewall, copies repository and environment data, migrates Prefect, Airflow, and Paperclip Postgres data, copies Caddy data, copies Raman state, starts services in phases, and smoke-tests the public routes with `curl --resolve`.
+The stage phase creates or reuses one `platform-shared-small` Droplet, attaches it to the firewall, copies repository and environment data, migrates Prefect and Airflow Postgres data, copies Caddy data, copies Raman state, starts services in phases, and smoke-tests the public routes with `curl --resolve`.
 
 ### 2. DNS Cutover
 
@@ -59,7 +59,6 @@ Manually update Squarespace A records to the staged Droplet IP:
 
 - `raniendu.dev`
 - `prefect.raniendu.dev`
-- `paperclip.raniendu.dev`
 - `raman.raniendu.dev`
 - `flow.raniendu.dev`
 

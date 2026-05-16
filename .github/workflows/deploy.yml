@@ -32,7 +32,6 @@ jobs:
       deploy_dotdev: ${{ steps.app_flags.outputs.deploy_dotdev }}
       deploy_prefect: ${{ steps.app_flags.outputs.deploy_prefect }}
       deploy_flow: ${{ steps.app_flags.outputs.deploy_flow }}
-      deploy_paperclip: ${{ steps.app_flags.outputs.deploy_paperclip }}
       deploy_raman: ${{ steps.app_flags.outputs.deploy_raman }}
       deploy_homi: ${{ steps.app_flags.outputs.deploy_homi }}
       deploy_vikram: ${{ steps.app_flags.outputs.deploy_vikram }}
@@ -44,7 +43,6 @@ jobs:
       dotdev_image: ${{ steps.image_refs.outputs.dotdev_image }}
       prefect_image: ${{ steps.image_refs.outputs.prefect_image }}
       airflow_image: ${{ steps.image_refs.outputs.airflow_image }}
-      paperclip_image: ${{ steps.image_refs.outputs.paperclip_image }}
       raman_image: ${{ steps.image_refs.outputs.raman_image }}
       homi_image: ${{ steps.image_refs.outputs.homi_image }}
       vikram_image: ${{ steps.image_refs.outputs.vikram_image }}
@@ -63,7 +61,6 @@ jobs:
           printf 'dotdev_image=%s/dotdev:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'prefect_image=%s/prefect:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'airflow_image=%s/airflow:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          printf 'paperclip_image=%s/paperclip:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'raman_image=%s/raman:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'homi_image=%s/homi:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'vikram_image=%s/vikram:%s\n' "$IMAGE_PREFIX" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
@@ -110,17 +107,6 @@ jobs:
           tags: ${{ steps.image_refs.outputs.airflow_image }}
           cache-from: type=gha,scope=airflow
           cache-to: type=gha,mode=max,scope=airflow
-
-      - name: Build and push Paperclip image
-        if: steps.app_flags.outputs.deploy_paperclip == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: apps/paperclip
-          file: apps/paperclip/Dockerfile
-          push: true
-          tags: ${{ steps.image_refs.outputs.paperclip_image }}
-          cache-from: type=gha,scope=paperclip
-          cache-to: type=gha,mode=max,scope=paperclip
 
       - name: Build and push Raman image
         if: steps.app_flags.outputs.deploy_raman == 'true'
@@ -463,7 +449,6 @@ jobs:
           DOTDEV_IMAGE: ${{ needs.build-images.outputs.dotdev_image }}
           PREFECT_IMAGE: ${{ needs.build-images.outputs.prefect_image }}
           AIRFLOW_IMAGE: ${{ needs.build-images.outputs.airflow_image }}
-          PAPERCLIP_IMAGE: ${{ needs.build-images.outputs.paperclip_image }}
           RAMAN_IMAGE: ${{ needs.build-images.outputs.raman_image }}
           HOMI_IMAGE: ${{ needs.build-images.outputs.homi_image }}
           VIKRAM_IMAGE: ${{ needs.build-images.outputs.vikram_image }}
@@ -514,7 +499,6 @@ jobs:
           DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
-          DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
           DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
           DEPLOY_HOMI: ${{ needs.build-images.outputs.deploy_homi }}
           DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
@@ -524,14 +508,12 @@ jobs:
           test -n "$DOTDEV_IMAGE"
           test -n "$PREFECT_IMAGE"
           test -n "$AIRFLOW_IMAGE"
-          test -n "$PAPERCLIP_IMAGE"
           test -n "$RAMAN_IMAGE"
           test -n "$HOMI_IMAGE"
           test -n "$VIKRAM_IMAGE"
           test -n "$DEPLOY_DOTDEV"
           test -n "$DEPLOY_PREFECT"
           test -n "$DEPLOY_FLOW"
-          test -n "$DEPLOY_PAPERCLIP"
           test -n "$DEPLOY_RAMAN"
           test -n "$DEPLOY_HOMI"
           test -n "$DEPLOY_VIKRAM"
@@ -546,7 +528,6 @@ jobs:
           require_env_key PLATFORM_POSTGRES_PASSWORD
           require_env_key PREFECT_POSTGRES_PASSWORD
           require_env_key AIRFLOW_POSTGRES_PASSWORD
-          require_env_key PAPERCLIP_POSTGRES_PASSWORD
           build_raman_telegram_env_file() {
             python - <<'PY'
           import os
@@ -633,12 +614,6 @@ jobs:
             require_env_key AIRFLOW_ADMIN_USER
             require_env_key AIRFLOW_ADMIN_PASSWORD
           fi
-          if [ "$DEPLOY_PAPERCLIP" = true ]; then
-            require_env_key PAPERCLIP_BASIC_AUTH_USER
-            require_env_key PAPERCLIP_BASIC_AUTH_HASH
-            require_env_key PAPERCLIP_BETTER_AUTH_SECRET
-            require_env_key PAPERCLIP_AGENT_JWT_SECRET
-          fi
           if [ "$DEPLOY_RAMAN" = true ]; then
             test -n "$RAMAN_MODEL_PROVIDER"
             test -n "$RAMAN_DEV_MODEL"
@@ -686,7 +661,6 @@ jobs:
             printf 'DEPLOY_DOTDEV=%s\n' "$DEPLOY_DOTDEV"
             printf 'DEPLOY_PREFECT=%s\n' "$DEPLOY_PREFECT"
             printf 'DEPLOY_FLOW=%s\n' "$DEPLOY_FLOW"
-            printf 'DEPLOY_PAPERCLIP=%s\n' "$DEPLOY_PAPERCLIP"
             printf 'DEPLOY_RAMAN=%s\n' "$DEPLOY_RAMAN"
             printf 'DEPLOY_HOMI=%s\n' "$DEPLOY_HOMI"
             printf 'DEPLOY_VIKRAM=%s\n' "$DEPLOY_VIKRAM"
@@ -694,7 +668,6 @@ jobs:
             printf 'DOTDEV_IMAGE=%s\n' "$DOTDEV_IMAGE"
             printf 'PREFECT_IMAGE=%s\n' "$PREFECT_IMAGE"
             printf 'AIRFLOW_IMAGE=%s\n' "$AIRFLOW_IMAGE"
-            printf 'PAPERCLIP_IMAGE=%s\n' "$PAPERCLIP_IMAGE"
             printf 'RAMAN_IMAGE=%s\n' "$RAMAN_IMAGE"
             printf 'HOMI_IMAGE=%s\n' "$HOMI_IMAGE"
             printf 'VIKRAM_IMAGE=%s\n' "$VIKRAM_IMAGE"
@@ -768,7 +741,6 @@ jobs:
           COMPOSE_PROFILES: ${{ needs.build-images.outputs.compose_profiles }}
           ENABLED_PULL_SERVICES: ${{ needs.build-images.outputs.enabled_pull_services }}
           DISABLED_CONTAINERS: ${{ needs.build-images.outputs.disabled_containers }}
-          DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
         run: |
           ssh_port="${PLATFORM_SSH_PORT:-22}"
           ssh_user="${PLATFORM_SSH_USER:-root}"
@@ -783,12 +755,6 @@ jobs:
           fi
           COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production pull ${ENABLED_PULL_SERVICES}
           bash deploy/scripts/consolidate-postgres.sh deploy/compose/docker-compose.prod.yml .env.production
-          if [ "${DEPLOY_PAPERCLIP}" = true ]; then
-            if ! COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up --no-build --force-recreate paperclip-db-init; then
-              COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs --tail 200 paperclip-db-init
-              exit 1
-            fi
-          fi
           COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker --config "${REMOTE_DOCKER_CONFIG}" compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production up -d --no-build
           EOF
 
@@ -903,7 +869,6 @@ jobs:
           DEPLOY_DOTDEV: ${{ needs.build-images.outputs.deploy_dotdev }}
           DEPLOY_PREFECT: ${{ needs.build-images.outputs.deploy_prefect }}
           DEPLOY_FLOW: ${{ needs.build-images.outputs.deploy_flow }}
-          DEPLOY_PAPERCLIP: ${{ needs.build-images.outputs.deploy_paperclip }}
           DEPLOY_RAMAN: ${{ needs.build-images.outputs.deploy_raman }}
           DEPLOY_HOMI: ${{ needs.build-images.outputs.deploy_homi }}
           DEPLOY_VIKRAM: ${{ needs.build-images.outputs.deploy_vikram }}
@@ -967,12 +932,6 @@ jobs:
             record_status "prefect.raniendu.dev/api/health" "https://prefect.raniendu.dev/api/health" "401"
           else
             record_status "prefect.raniendu.dev disabled" "https://prefect.raniendu.dev/" "404"
-          fi
-
-          if [ "$DEPLOY_PAPERCLIP" = true ]; then
-            record_status "paperclip.raniendu.dev" "https://paperclip.raniendu.dev/" "401"
-          else
-            record_status "paperclip.raniendu.dev disabled" "https://paperclip.raniendu.dev/" "404"
           fi
 
           if [ "$DEPLOY_FLOW" = true ]; then

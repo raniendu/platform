@@ -4,7 +4,7 @@
 
 - Docker Desktop with Compose v2.
 - `uv` installed locally.
-- Ports `80`, `3100`, `4200`, `8000`, `8001`, `8002`, `8080`, and `8501` available.
+- Ports `80`, `4200`, `8000`, `8001`, `8002`, `8080`, and `8501` available.
 
 ## Environment
 
@@ -14,9 +14,7 @@ Create local environment values from the example file:
 cp .env.example .env.local
 ```
 
-Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Paperclip can also pass through `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` when you want provider-backed agent features locally. Raman local Compose builds `apps/raman` and defaults to a host Ollama server at `http://host.docker.internal:11434/v1`. Homi and Vikram need AWS or Google credentials only for live `/chat` calls.
-
-The example file includes local Paperclip Caddy credentials with user `admin` and password `paperclip_local`. Change them in `.env.local` if needed.
+Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Raman local Compose builds `apps/raman` and defaults to a host Ollama server at `http://host.docker.internal:11434/v1`. Homi and Vikram need AWS or Google credentials only for live `/chat` calls.
 
 Use one environment file per execution mode:
 
@@ -140,8 +138,8 @@ Use `down -v` only when you intentionally want to delete local database volumes.
 
 ## Choosing A Local Path
 
-- Use full Compose when changing routing, Compose env, Caddy, Paperclip,
-  Prefect, Airflow, or cross-app behavior.
+- Use full Compose when changing routing, Compose env, Caddy, Prefect,
+  Airflow, or cross-app behavior.
 - Use direct app runs when changing Raman, Homi, or Vikram Python code and you
   only need one FastAPI process.
 - Use app-specific tests before full local Compose when the change is isolated
@@ -208,26 +206,16 @@ curl http://homi.localhost/healthz
 curl http://vikram.localhost/healthz
 curl http://raman.localhost/chat --json '{"prompt":"say pong"}'
 curl -I http://flow.localhost/
-curl -I http://paperclip.localhost/
 curl -I http://localhost:8501/
 curl http://localhost:8000/healthz
 curl http://localhost:8001/healthz
 curl http://localhost:8002/healthz
-curl http://localhost:3100/api/health
 curl http://localhost:4200/api/health
 curl -I http://localhost:8080/
 ```
 
-Paperclip should return `401` through `http://paperclip.localhost/` until Caddy basic auth credentials are supplied, and `http://localhost:3100/api/health` should reach the direct container health endpoint. Airflow may return a redirect or login response depending on auth state; the webserver should be reachable and the scheduler container should be running.
+Airflow may return a redirect or login response depending on auth state; the webserver should be reachable and the scheduler container should be running.
 
 When you intentionally start only a subset of local services, skip smoke checks
 for services you did not start. For production profile behavior and disabled-app
 `404` expectations, use [operations](operations.md).
-
-After Paperclip is running, generate the first local admin invite inside the container:
-
-```bash
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local exec paperclip pnpm paperclipai auth bootstrap-ceo --config /etc/paperclip/config.json --base-url http://paperclip.localhost
-```
-
-Redeem the invite through `http://paperclip.localhost` using the local Caddy credentials. Do not paste invite URLs into logs, issues, or chat.

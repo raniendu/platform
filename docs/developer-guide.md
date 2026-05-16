@@ -19,7 +19,6 @@ Do not commit `.env.local`, `.env.production.generated`, `.env.production.creden
 - `apps/homi/`: Strands SDK agent with a FastAPI, Telegram, and threaded SQLite/DBOS surface, Python 3.13.
 - `apps/vikram/`: Google ADK agent with a FastAPI, Telegram, and threaded SQLite/DBOS surface, Python 3.13.
 - `apps/prefect/`: Prefect server/worker image and flows, Python 3.10+.
-- `apps/paperclip/`: Dockerfile that builds upstream Paperclip.
 - `apps/flow/`: Airflow DAGs, image, and DAG validation script, Python 3.10+.
 - `deploy/compose/`: local and production Compose files.
 - `deploy/caddy/`: local and production routing.
@@ -78,7 +77,6 @@ Local routes:
 - `http://raman.localhost`
 - `http://homi.localhost`
 - `http://vikram.localhost`
-- `http://paperclip.localhost`
 - `http://flow.localhost`
 
 Stop the local stack:
@@ -101,13 +99,6 @@ Prefect:
 ```bash
 uv sync --project apps/prefect
 uv run --project apps/prefect pytest apps/prefect/tests/property/
-```
-
-Paperclip:
-
-```bash
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build paperclip paperclip-postgres
-curl http://localhost:3100/api/health
 ```
 
 Raman:
@@ -217,11 +208,10 @@ The deploy workflow:
 7. Uploads `PLATFORM_ENV_FILE` to `/opt/platform/.env.production` and appends app deploy flags and SHA-pinned image refs.
 8. Uploads temporary GHCR credentials, renders enabled/disabled Caddy routes, stops disabled app containers, and pulls enabled images on the Droplet.
 9. Runs the one-time Postgres consolidation when the host still has separate Prefect and Airflow Postgres containers.
-10. Runs the idempotent Paperclip database initializer only when Paperclip is enabled.
-11. Runs production Docker Compose with `COMPOSE_PROFILES` matching enabled app flags and `up -d --no-build`.
-12. Force-recreates Caddy so Caddyfile updates are picked up.
-13. Runs public smoke checks, then stops legacy Postgres containers after a successful migration.
-14. Removes temporary GHCR credentials and the SSH firewall rule in `always()` cleanup steps.
+10. Runs production Docker Compose with `COMPOSE_PROFILES` matching enabled app flags and `up -d --no-build`.
+11. Force-recreates Caddy so Caddyfile updates are picked up.
+12. Runs public smoke checks, then stops legacy Postgres containers after a successful migration.
+13. Removes temporary GHCR credentials and the SSH firewall rule in `always()` cleanup steps.
 
 Expected smoke results:
 
@@ -230,11 +220,10 @@ raniendu.dev -> 200
 www.raniendu.dev -> 301
 prefect.raniendu.dev/api/health -> 401
 raman.raniendu.dev/healthz -> 200
-paperclip.raniendu.dev -> 404
 flow.raniendu.dev -> 404
 ```
 
-With the current `deploy/apps.prod.env`, Prefect's `401` response is expected because Caddy basic auth protects that route; Raman returns `200` from `/healthz`; Paperclip and Flow return `404` because they are disabled. Homi and Vikram smoke checks are skipped while disabled so their DNS records are only required when enabling those apps.
+With the current `deploy/apps.prod.env`, Prefect's `401` response is expected because Caddy basic auth protects that route; Raman returns `200` from `/healthz`; Flow returns `404` because it is disabled. Homi and Vikram smoke checks are skipped while disabled so their DNS records are only required when enabling those apps.
 
 The `s-1vcpu-2gb` migration completed on 2026-05-02. Use `deploy.yml` for routine production releases. Keep `migrate-smaller-droplet.yml` only for future new-Droplet migrations or recovery; it stages `platform-shared-small`, waits for manual DNS cutover, promotes it back to canonical `platform-shared`, and deletes the retired Droplet only in a separate typed-confirmation phase.
 
@@ -267,7 +256,6 @@ Public endpoints:
 curl -sS -o /dev/null -w '%{http_code}\n' https://raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://www.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://prefect.raniendu.dev/api/health
-curl -sS -o /dev/null -w '%{http_code}\n' https://paperclip.raniendu.dev/
 curl -sS -o /dev/null -w '%{http_code}\n' https://flow.raniendu.dev/
 ```
 

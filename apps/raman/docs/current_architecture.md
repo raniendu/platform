@@ -80,8 +80,9 @@ flowchart LR
     events --> dbosdb
 ```
 
-The CLI (`uv run raman`) bypasses the HTTP layer entirely — it calls
-`build_agent` directly and uses Pydantic AI's `to_cli_sync`.
+The CLI (`uv run raman`) bypasses the HTTP layer entirely. Interactive mode
+calls `build_agent` directly and uses Pydantic AI's `to_cli_sync`; one-shot
+mode (`--once --prompt ...`) calls the same agent with `run_sync` and exits.
 
 ---
 
@@ -89,7 +90,7 @@ The CLI (`uv run raman`) bypasses the HTTP layer entirely — it calls
 
 | Module | Role |
 |---|---|
-| `raman/cli.py` | `uv run raman` entrypoint. Loads spec, builds agent, drops into Pydantic AI's interactive CLI. |
+| `raman/cli.py` | `uv run raman` entrypoint. Loads spec, builds agent, then either drops into Pydantic AI's interactive CLI or runs one prompt with `--once`. |
 | `raman/api.py` | FastAPI app + lifespan. Routes: `/chat`, `/threads/{interface}/{thread}/messages`, `/events/{workflow_id}`, `/telegram/{bot}/webhook`, legacy `/telegram/webhook`, `/healthz`. Caches one `Agent` per spec in module-level `_agents`. |
 | `raman/agent.py` | `build_agent(spec, settings)` — single chokepoint that turns a spec into a `pydantic_ai.Agent[None, str]`. Wires instructions, identity/datetime injectors, and tools. |
 | `raman/spec.py` | `AgentSpec` Pydantic model + `load_spec(name, root)`. Reads `agent.toml`, assembles instructions in order: system prompt → shared context → local context. |

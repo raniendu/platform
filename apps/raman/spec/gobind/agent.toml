@@ -7,7 +7,7 @@ context_files = []
 skills = []
 
 # Shared resources — relative to spec/shared/
-shared_context_files = []
+shared_context_files = ["context/production.md"]
 shared_skills = []
 
 # Tools — names resolved from raman.tools.TOOL_REGISTRY

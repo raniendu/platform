@@ -49,4 +49,5 @@ def test_notes_redirects_to_posts(client):
 def test_posts_page_renders(client):
     response = client.get("/posts")
     assert response.status_code == 200
-    assert b'id="posts-app"' in response.data
+    assert b'id="posts-timeline"' in response.data
+    assert b"js/posts.js" in response.data

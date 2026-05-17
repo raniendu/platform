@@ -14,6 +14,7 @@ RAMAN_ENV_VARS = (
     "RAMAN_MODEL_PROVIDER",
     "DO_INFERENCE_API_KEY",
     "DO_INFERENCE_BASE_URL",
+    "RAMAN_GROCERY_LIST_PATH",
 )
 
 
@@ -51,6 +52,18 @@ def test_settings_default_to_local_ollama(monkeypatch):
     assert model.model_name == "gemma4:26b"
     assert default_settings.normalized_ollama_base_url == "http://localhost:11434/v1"
     assert model.provider.base_url.rstrip("/") == "http://localhost:11434/v1"
+    assert default_settings.grocery_list_path.name == "grocery_lists.json"
+    assert default_settings.grocery_list_path.parent.name == ".raman"
+
+
+def test_settings_can_override_grocery_list_path(monkeypatch, tmp_path):
+    grocery_path = tmp_path / "grocery.json"
+    settings = clean_settings(
+        monkeypatch,
+        RAMAN_GROCERY_LIST_PATH=grocery_path,
+    )
+
+    assert settings.grocery_list_path == grocery_path
 
 
 def test_build_model_uses_digitalocean_when_provider_is_set(monkeypatch):

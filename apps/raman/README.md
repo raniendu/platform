@@ -326,6 +326,7 @@ Environment variables (see `.env.example`):
 | `RAMAN_CONTEXT_WINDOW_TOKENS` | `256000`                              | Model input context budget used for conversation warnings                   |
 | `RAMAN_CONTEXT_WARNING_RATIO` | `0.85`                                | Warn users when reported input tokens reach this fraction of context        |
 | `RAMAN_DB_PATH`               | `<repo>/.raman/raman.sqlite3`          | SQLite path for the threaded conversation store                            |
+| `RAMAN_GROCERY_LIST_PATH`     | `<repo>/.raman/grocery_lists.json`     | JSON path for Gobind's per-chat grocery lists                              |
 | `DBOS_SYSTEM_DATABASE_URL`    | `sqlite:///<repo>/.raman/dbos.sqlite3` | DBOS workflow state DB. Override to use Postgres                           |
 | `RAMAN_PUBLIC_BASE_URL`       | —                                      | HTTPS base URL used when registering the Telegram webhook                  |
 | `PARALLEL_API_KEY`            | —                                      | Required if any agent spec lists `web_search` in `tools`                   |

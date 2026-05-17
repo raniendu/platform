@@ -26,12 +26,13 @@ def test_load_real_gobind_spec():
     assert spec.name == "Gobind"
     assert spec.description.startswith("Group assistant")
     assert spec.shared_context_files == [Path("context/production.md")]
-    assert spec.tools == ["web_search"]
+    assert spec.tools == ["web_search", "grocery_list"]
     assert "You are Gobind" in spec.instructions
     assert "healthy lifestyle" in spec.instructions
     assert (
         "nutrition, exercise, habits, meal planning, and recipes" in spec.instructions
     )
+    assert "Use grocery_list" in spec.instructions
     assert "urgent symptoms" in spec.instructions
 
 

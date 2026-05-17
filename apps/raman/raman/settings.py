@@ -50,6 +50,12 @@ class RamanSettings(BaseSettings):
         default=Path(__file__).resolve().parent.parent / ".raman" / "raman.sqlite3",
         validation_alias="RAMAN_DB_PATH",
     )
+    grocery_list_path: Path = Field(
+        default=Path(__file__).resolve().parent.parent
+        / ".raman"
+        / "grocery_lists.json",
+        validation_alias="RAMAN_GROCERY_LIST_PATH",
+    )
     dbos_system_database_url: str | None = Field(
         default=None, validation_alias="DBOS_SYSTEM_DATABASE_URL"
     )

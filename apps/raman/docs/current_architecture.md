@@ -96,7 +96,8 @@ mode (`--once --prompt ...`) calls the same agent with `run_sync` and exits.
 | `raman/spec.py` | `AgentSpec` Pydantic model + `load_spec(name, root)`. Reads `agent.toml`, assembles instructions in order: system prompt → shared context → local context. |
 | `raman/context.py` | Runtime instruction injectors (`agent_identity`, `current_datetime`). |
 | `raman/settings.py` | `RamanSettings` (env-driven) + `build_model`. Currently wires `OllamaModel` against `OLLAMA_BASE_URL`. Single point of model-provider swap. |
-| `raman/tools.py` | `TOOL_REGISTRY: dict[str, Callable]`. Today only `web_search` (Parallel API). Specs reference tools by name. |
+| `raman/tools.py` | `TOOL_REGISTRY: dict[str, Callable]`. Includes `web_search` (Parallel API) and Gobind's `grocery_list`. Specs reference tools by name. |
+| `raman/grocery.py` | File-backed per-conversation grocery list storage for Gobind, keyed by Pydantic AI `conversation_id`. |
 | `raman/gateway.py` | `ThreadStore` (SQLite per-thread history + Telegram dedupe), `ConversationService` (load history → run agent → persist), CloudEvent helpers used as queue payloads. |
 | `raman/dbos_gateway.py` | `EventDispatcher` (enqueue + status), DBOS workflows `process_inbound_message_event` and `deliver_reply_event`, `INBOUND_QUEUE` and `OUTBOUND_QUEUE` (both `concurrency=1`). |
 | `raman/telegram.py` | `TelegramAdapter` — webhook parsing + `update_id` dedupe, chat allowlist, `/start /help /reset /agent` commands. Outbound goes through `format_for_telegram` (markdown → MarkdownV2 via `telegramify-markdown`, entity-aware 4096-char chunking) and is sent with `parse_mode="MarkdownV2"`. |
@@ -117,16 +118,17 @@ sequenceDiagram
 
     Client->>API: POST /chat {prompt, agent?}
     API->>API: _get_agent(name) — cached per spec
-    API->>Agent: agent.run(prompt)
+    API->>Agent: agent.run(prompt, conversation_id="chat:{agent}")
     Agent->>Model: chat completion (no history)
     Model-->>Agent: completion
     Agent-->>API: result.output
     API-->>Client: 200 {agent, output}
 ```
 
-No DBOS, no SQLite, no message history. The agent is built once per spec and
-cached in `raman.api._agents` for the lifetime of the process. Cold starts
-hit `load_spec` + `build_model`.
+No DBOS, no SQLite, no message history. `/chat` still passes a stable
+conversation id so file-backed tools can scope state by selected agent. The
+agent is built once per spec and cached in `raman.api._agents` for the lifetime
+of the process. Cold starts hit `load_spec` + `build_model`.
 
 ### Threaded `POST /threads/{interface}/{thread}/messages`
 
@@ -220,8 +222,9 @@ its own workflow so the agent run and the send don't share retry semantics.
 
 ## Persistence
 
-Two SQLite databases under `.raman/` by default. The application schema is
-small and stable; the DBOS schema is owned by the framework.
+Two SQLite databases and one grocery-list JSON file live under `.raman/` by
+default. The application schema is small and stable; the DBOS schema is owned
+by the framework.
 
 ### Application database — `.raman/raman.sqlite3`
 
@@ -261,6 +264,12 @@ sourced from this DB; `get_event_status` reads back from it. Override with
 `DBOS_SYSTEM_DATABASE_URL` (Postgres URL works) when scaling up. Schema is
 intentionally not mirrored here — treat it as opaque framework state.
 
+### Grocery list file — `.raman/grocery_lists.json`
+
+Owned by `raman/grocery.py` and used by Gobind's `grocery_list` tool. It stores
+active grocery items per Pydantic AI conversation id, including the ISO date each
+item was added. Override with `RAMAN_GROCERY_LIST_PATH`.
+
 ---
 
 ## Configuration entry points
@@ -275,6 +284,7 @@ just calls out the structural seams.
 | Model provider | `RAMAN_DEV_MODEL`, `OLLAMA_BASE_URL` | `settings.build_model` — the *only* spot that names the provider class. Swapping providers (DigitalOcean, OpenAI, Anthropic) is a one-function change here. |
 | Agent selection | `RAMAN_AGENT`, `RAMAN_SPEC_ROOT` | CLI default agent + API lifespan preload. |
 | Threaded persistence | `RAMAN_DB_PATH` | `ThreadStore.__init__` (path; parents are created). |
+| Grocery list persistence | `RAMAN_GROCERY_LIST_PATH` | `GroceryListStore` (JSON path; parents are created on write). |
 | Workflow persistence | `DBOS_SYSTEM_DATABASE_URL` | `configure_dbos`; falls back to `sqlite:///<RAMAN_DB_PATH parent>/dbos.sqlite3`. |
 | Telegram | `apps/raman/spec/telegram.toml` plus the env names it references, `RAMAN_PUBLIC_BASE_URL` | `telegram_config`, `TelegramAdapter`, plus the webhook handler in `raman.api`. |
 | Tool secrets | `PARALLEL_API_KEY` | `raman.tools._parallel_client` (lazy, raises with a clear error if unset). |

@@ -143,7 +143,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown agent: {name}") from exc
 
-    result = await agent.run(req.prompt)
+    result = await agent.run(req.prompt, conversation_id=f"chat:{name}")
     return ChatResponse(agent=name, output=str(result.output))
 
 

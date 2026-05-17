@@ -11,7 +11,7 @@ shared_context_files = ["context/production.md"]
 shared_skills = []
 
 # Tools — names resolved from raman.tools.TOOL_REGISTRY
-tools = ["web_search"]
+tools = ["web_search", "grocery_list"]
 
 # Model knobs — passed verbatim to pydantic_ai ModelSettings.
 [model_settings]

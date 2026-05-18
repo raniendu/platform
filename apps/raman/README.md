@@ -378,12 +378,13 @@ pattern. Full guide: [docs/tools.md](docs/tools.md).
 
 ```bash
 uv run pytest                                          # offline unit tests
-RAMAN_RUN_EVALS=1 uv run pytest tests/test_evals.py    # live LLM-judge evals (needs Ollama)
-uv run python -m evals.run                             # standalone eval runner with full report
+RAMAN_RUN_EVALS=1 uv run pytest tests/test_evals.py    # live LLM-judge evals for all agents
+uv run python -m evals.run                             # standalone eval runner for all agents
 ```
 
 The default `pytest` suite is offline. Live evals are gated behind
-`RAMAN_RUN_EVALS=1` so CI stays clean.
+`RAMAN_RUN_EVALS=1` so CI stays clean. The live evals need a configured model
+provider and `PARALLEL_API_KEY` for web-search cases.
 
 ## Formatting
 

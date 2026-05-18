@@ -299,10 +299,10 @@ just calls out the structural seams.
 | `tests/test_api.py` | No | `/chat` only. Patches `_get_agent` to bypass model wiring. |
 | `tests/test_api_gateway.py` | No | `/threads` and `/events` with a `FakeDispatcher` swapped in via `monkeypatch.setattr(api, "_get_dispatcher", ...)`. The blueprint for any threaded test. |
 | `tests/test_gateway.py`, `test_telegram.py` | No | Direct unit tests on `ThreadStore`, `TelegramAdapter`, and the parsing helpers. Use a temp SQLite path and a fake `send_text` callback. |
-| `tests/test_evals.py` | No (default) / Yes (gated) | Skipped unless `RAMAN_RUN_EVALS=1`. Live LLM-judge run against Ollama. |
+| `tests/test_evals.py` | No (default) / Yes (gated) | Skipped unless `RAMAN_RUN_EVALS=1`. Live LLM-judge run for every agent spec. |
 
-The default `uv run pytest` suite is offline and deterministic — 26 passing,
-1 skipped (the eval gate). New tests that touch the threaded surface should
+The default `uv run pytest` suite is offline and deterministic — 98 passing,
+3 skipped (one eval gate per agent spec). New tests that touch the threaded surface should
 follow the `FakeDispatcher` pattern from `test_api_gateway.py` rather than
 booting DBOS in-process.
 

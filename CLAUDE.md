@@ -10,8 +10,6 @@ Monorepo of independent Python apps, each with its own `pyproject.toml` and `uv.
 
 - `apps/dotdev/` — Flask personal site, Python 3.13.
 - `apps/raman/` — FastAPI + Pydantic AI agent (HTTP/Telegram), Python 3.13.
-- `apps/homi/` — FastAPI + Strands SDK agent, Python 3.13.
-- `apps/vikram/` — FastAPI + Google ADK agent, Python 3.13.
 - `apps/prefect/` — Prefect server/worker + flows, Python 3.10+.
 - `apps/flow/` — Apache Airflow DAGs and image, Python 3.10+.
 - `deploy/compose/` — `docker-compose.local.yml` and `docker-compose.prod.yml`.
@@ -60,7 +58,9 @@ Single DigitalOcean Droplet (`platform-shared`, `174.138.71.121`, `s-1vcpu-2gb`)
 
 Production runs a **single shared Postgres** container (`platform-postgres`) with separate `prefect` and `airflow` databases/roles. Local Compose runs separate `prefect-postgres` and `airflow-postgres` containers. The consolidated production layout is what enables the small Droplet — don't reintroduce separate prod Postgres volumes (`prefect-postgres-data`, `airflow-postgres-data`) without an explicit ask.
 
-Raman/Homi/Vikram each keep agent state in their own Docker volume (`raman-state`, `homi-state`, `vikram-state`).
+Raman keeps agent state in its own Docker volume (`raman-state`). The former
+Homi and Vikram apps are deprecated and no longer wired into shared Compose,
+CI, deploy, or Caddy routes.
 
 ### Production app flags
 
@@ -79,9 +79,9 @@ Manual redeploy: `gh workflow run deploy.yml --repo raniendu/platform --ref main
 
 ### Routing
 
-Local hostnames: `dotdev.localhost`, `prefect.localhost`, `raman.localhost`, `homi.localhost`, `vikram.localhost`, `flow.localhost`. Direct container ports (`8501`, `4200`, `8000`/`8001`/`8002`, `8080`, `16686`) are also exposed for smoke tests.
+Local hostnames: `dotdev.localhost`, `prefect.localhost`, `raman.localhost`, `flow.localhost`. Direct container ports (`8501`, `4200`, `8000`, `8080`, `16686`) are also exposed for smoke tests.
 
-Production hostnames: `raniendu.dev` (DotDev), `prefect.raniendu.dev`, `raman.raniendu.dev`, `homi.raniendu.dev`, `vikram.raniendu.dev`, `flow.raniendu.dev`, `jaeger.raniendu.dev`. `www.raniendu.dev` redirects to `https://raniendu.dev{uri}`. DNS is managed manually in Squarespace; apex must be an `A` record (not `ALIAS`).
+Production hostnames: `raniendu.dev` (DotDev), `prefect.raniendu.dev`, `raman.raniendu.dev`, `flow.raniendu.dev`, `jaeger.raniendu.dev`. `www.raniendu.dev` redirects to `https://raniendu.dev{uri}`. DNS is managed manually in Squarespace; apex must be an `A` record (not `ALIAS`).
 
 ## Critical Rules
 

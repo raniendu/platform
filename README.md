@@ -50,16 +50,12 @@ Local service URLs:
 - DotDev: `http://dotdev.localhost`
 - Prefect: `http://prefect.localhost`
 - Raman: `http://raman.localhost`
-- Homi: `http://homi.localhost`
-- Vikram: `http://vikram.localhost`
 - Airflow: `http://flow.localhost`
 
 Direct container ports are also exposed for smoke checks:
 
 - DotDev: `http://localhost:8501`
 - Raman: `http://localhost:8000/healthz`
-- Homi: `http://localhost:8001/healthz`
-- Vikram: `http://localhost:8002/healthz`
 - Prefect: `http://localhost:4200/api/health`
 - Airflow: `http://localhost:8080`
 
@@ -122,8 +118,6 @@ Public routes:
 - Prefect: `https://prefect.raniendu.dev`
 - Raman: `https://raman.raniendu.dev`
 - Jaeger: `https://jaeger.raniendu.dev` when observability is enabled
-- Homi: `https://homi.raniendu.dev` when enabled
-- Vikram: `https://vikram.raniendu.dev` when enabled
 - Airflow: `https://flow.raniendu.dev` when enabled
 
 Deploys run automatically after pushes to `main`. Manual redeploy remains available:

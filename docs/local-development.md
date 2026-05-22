@@ -4,7 +4,7 @@
 
 - Docker Desktop with Compose v2.
 - `uv` installed locally.
-- Ports `80`, `4200`, `8000`, `8001`, `8002`, `8080`, and `8501` available.
+- Ports `80`, `4200`, `8000`, `8080`, and `8501` available.
 
 ## Environment
 
@@ -14,7 +14,7 @@ Create local environment values from the example file:
 cp .env.example .env.local
 ```
 
-Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Raman local Compose builds `apps/raman` and defaults to a host Ollama server at `http://host.docker.internal:11434/v1`. Homi and Vikram need AWS or Google credentials only for live `/chat` calls.
+Keep `.env.local` untracked. Empty API keys are acceptable for local container startup; flows that call Gemini or Pushover need real values before execution. Raman local Compose builds `apps/raman` and defaults to a host Ollama server at `http://host.docker.internal:11434/v1`.
 
 Use one environment file per execution mode:
 
@@ -22,15 +22,11 @@ Use one environment file per execution mode:
 | --- | --- | --- |
 | Platform Compose | root `.env.local` | Running the shared local stack and Caddy routes |
 | Raman direct run | `apps/raman/.env` | Iterating on Raman without Compose |
-| Homi direct run | `apps/homi/.env` | Iterating on Homi without Compose |
-| Vikram direct run | `apps/vikram/.env` | Iterating on Vikram without Compose |
 
-Raman, Homi, and Vikram have separate app-level env files for direct `uv` runs:
+Raman has a separate app-level env file for direct `uv` runs:
 
 ```bash
 cp apps/raman/.env.example apps/raman/.env
-cp apps/homi/.env.example apps/homi/.env
-cp apps/vikram/.env.example apps/vikram/.env
 ```
 
 Do not make root `.env.local` and `apps/raman/.env` identical by default. The
@@ -53,8 +49,6 @@ Each app keeps its own `pyproject.toml`, `uv.lock`, and virtual environment. Thi
 ```bash
 uv sync --project apps/dotdev
 uv sync --project apps/raman
-uv sync --project apps/homi
-uv sync --project apps/vikram
 uv sync --project apps/prefect
 uv sync --project apps/flow
 ```
@@ -85,8 +79,6 @@ deactivate
 ```bash
 uv run --project apps/dotdev pytest apps/dotdev/tests -q
 uv run --project apps/raman pytest apps/raman/tests -q
-uv run --project apps/homi pytest apps/homi/tests -q
-uv run --project apps/vikram pytest apps/vikram/tests -q
 uv run --project apps/prefect pytest apps/prefect/tests/property/
 uv run --project apps/flow python apps/flow/scripts/validate-dags.py
 uv run --project apps/flow pytest apps/flow/tests/
@@ -140,8 +132,8 @@ Use `down -v` only when you intentionally want to delete local database volumes.
 
 - Use full Compose when changing routing, Compose env, Caddy, Prefect,
   Airflow, or cross-app behavior.
-- Use direct app runs when changing Raman, Homi, or Vikram Python code and you
-  only need one FastAPI process.
+- Use direct app runs when changing Raman Python code and you only need one
+  FastAPI process.
 - Use app-specific tests before full local Compose when the change is isolated
   to one app.
 - Use `docker compose ... config` before changing Compose, Caddy, or env-file
@@ -173,43 +165,16 @@ Direct mode reads `apps/raman/.env` because the process runs from the app
 directory. Platform Compose reads root `.env.local` because Compose runs from
 the monorepo root.
 
-## Homi And Vikram Direct Runs
-
-Use direct mode when changing one app and you do not need Caddy:
-
-```bash
-cd apps/homi
-cp .env.example .env
-uv sync --locked
-uv run pytest tests -q
-uv run homi-api
-```
-
-```bash
-cd apps/vikram
-cp .env.example .env
-uv sync --locked
-uv run pytest tests -q
-uv run vikram-api
-```
-
-Both direct APIs listen on `http://127.0.0.1:8000`. Homi live calls require AWS
-Bedrock credentials; Vikram live calls require `GOOGLE_API_KEY`.
-
 ## Smoke Tests
 
 ```bash
 curl -I http://dotdev.localhost/
 curl http://prefect.localhost/api/health
 curl http://raman.localhost/healthz
-curl http://homi.localhost/healthz
-curl http://vikram.localhost/healthz
 curl http://raman.localhost/chat --json '{"prompt":"say pong"}'
 curl -I http://flow.localhost/
 curl -I http://localhost:8501/
 curl http://localhost:8000/healthz
-curl http://localhost:8001/healthz
-curl http://localhost:8002/healthz
 curl http://localhost:4200/api/health
 curl -I http://localhost:8080/
 ```

@@ -1,7 +1,8 @@
 # Vikram Current Architecture
 
-Vikram is a FastAPI service around a Google ADK agent. It mirrors Raman's
-platform surface while keeping ADK-specific runtime state inside `apps/vikram`.
+Vikram is a deprecated FastAPI service around a Google ADK agent. It is retained
+as archived app code and is no longer wired into the platform's shared Compose,
+Caddy, CI, or production deploy paths.
 
 ## Request Flow
 
@@ -15,8 +16,6 @@ platform surface while keeping ADK-specific runtime state inside `apps/vikram`.
 - Thread metadata and active ADK session reference: `.vikram/vikram.sqlite3`
 - ADK `DatabaseSessionService` event history: `.vikram/adk_sessions.sqlite3`
 - DBOS workflow state: `.vikram/dbos.sqlite3`
-- Local Compose volume: `vikram-state`
-- Production Compose volume: `vikram-state`
 
 ## Runtime
 

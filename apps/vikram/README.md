@@ -1,5 +1,9 @@
 # vikram
 
+Deprecated: Vikram is no longer part of the platform's shared Compose, Caddy,
+CI, or production deploy paths. This app directory is retained only as archived
+code for direct local reference.
+
 A personal CLI + HTTP agent built on Google ADK.
 
 Vikram is a sibling of Raman with the same platform surface: FastAPI, DBOS
@@ -45,13 +49,6 @@ curl http://127.0.0.1:8000/healthz
 curl http://127.0.0.1:8000/chat --json '{"prompt":"say pong"}'
 ```
 
-With platform Compose:
-
-```bash
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build vikram caddy
-curl http://vikram.localhost/healthz
-```
-
 ## API
 
 | Method | Path | Description |
@@ -68,9 +65,8 @@ clears the active session reference so the next chat starts a fresh ADK session.
 
 ## Configuration
 
-Use `apps/vikram/.env.example` for direct app runs and root `.env.local` for
-Compose runs. Vikram-specific variables use the `VIKRAM_*` prefix. Telegram
-configuration is per app:
+Use `apps/vikram/.env.example` for direct app runs. Vikram-specific variables
+use the `VIKRAM_*` prefix. Telegram configuration is per app:
 
 ```env
 VIKRAM_TELEGRAM_BOT_TOKEN=

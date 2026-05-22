@@ -58,8 +58,6 @@ load_flags() {
   DEPLOY_PREFECT=
   DEPLOY_FLOW=
   DEPLOY_RAMAN=
-  DEPLOY_HOMI=
-  DEPLOY_VIKRAM=
   DEPLOY_OBSERVABILITY=
 
   # shellcheck disable=SC1090
@@ -69,8 +67,6 @@ load_flags() {
   normalize_bool DEPLOY_PREFECT
   normalize_bool DEPLOY_FLOW
   normalize_bool DEPLOY_RAMAN
-  normalize_bool DEPLOY_HOMI
-  normalize_bool DEPLOY_VIKRAM
   normalize_bool DEPLOY_OBSERVABILITY
 }
 
@@ -78,7 +74,7 @@ build_lists() {
   profiles=()
   enabled_pull_services=(postgres caddy)
   disabled_services=()
-  disabled_containers=()
+  disabled_containers=(platform-homi platform-vikram)
 
   if [ "$DEPLOY_DOTDEV" = true ]; then
     profiles+=(dotdev)
@@ -112,22 +108,6 @@ build_lists() {
     disabled_containers+=(platform-raman)
   fi
 
-  if [ "$DEPLOY_HOMI" = true ]; then
-    profiles+=(homi)
-    enabled_pull_services+=(homi)
-  else
-    disabled_services+=(homi)
-    disabled_containers+=(platform-homi)
-  fi
-
-  if [ "$DEPLOY_VIKRAM" = true ]; then
-    profiles+=(vikram)
-    enabled_pull_services+=(vikram)
-  else
-    disabled_services+=(vikram)
-    disabled_containers+=(platform-vikram)
-  fi
-
   if [ "$DEPLOY_OBSERVABILITY" = true ]; then
     profiles+=(observability)
     enabled_pull_services+=(jaeger)
@@ -150,8 +130,6 @@ case "$command" in
       printf 'deploy_prefect=%s\n' "$DEPLOY_PREFECT"
       printf 'deploy_flow=%s\n' "$DEPLOY_FLOW"
       printf 'deploy_raman=%s\n' "$DEPLOY_RAMAN"
-      printf 'deploy_homi=%s\n' "$DEPLOY_HOMI"
-      printf 'deploy_vikram=%s\n' "$DEPLOY_VIKRAM"
       printf 'deploy_observability=%s\n' "$DEPLOY_OBSERVABILITY"
       printf 'compose_profiles=%s\n' "$(join_by , "${profiles[@]}")"
       printf 'enabled_pull_services=%s\n' "$(join_by ' ' "${enabled_pull_services[@]}")"

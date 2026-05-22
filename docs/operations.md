@@ -34,8 +34,6 @@ Filter by service name when possible:
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f caddy
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f prefect-worker
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f raman
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f homi
-docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f vikram
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production logs -f airflow-scheduler
 ```
 
@@ -89,11 +87,13 @@ DEPLOY_DOTDEV=true
 DEPLOY_PREFECT=true
 DEPLOY_FLOW=false
 DEPLOY_RAMAN=true
-DEPLOY_HOMI=false
-DEPLOY_VIKRAM=false
 ```
 
-Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from that push. Disabled apps are removed from the running container set and their public hostnames return `404`, but their code, config, database data, and Docker volumes are preserved.
+Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from
+that push. Disabled apps are removed from the running container set and their
+public hostnames return `404`, but their code, config, database data, and Docker
+volumes are preserved. Deprecated Homi and Vikram containers are removed by name
+if they still exist on the host.
 
 ## Temporary SSH Access
 
@@ -119,8 +119,6 @@ curl -I https://flow.raniendu.dev/      # expected 404 while disabled
 docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production ps
 ```
 
-Homi and Vikram public checks are only expected after their DNS records exist and `DEPLOY_HOMI=true` or `DEPLOY_VIKRAM=true`.
-
 Expected disabled-app responses are part of the signal: Flow returns `404`
 while its production flag is false. A `404` for Raman, DotDev,
 Prefect, or Jaeger while their flags are true usually means Caddy rendering,
@@ -140,11 +138,8 @@ Back up named volumes before risky deploys:
 - `caddy-data`
 - `caddy-config`
 - `raman-state`
-- `homi-state`
-- `vikram-state`
 
 Raman thread history and DBOS workflow state live in `raman-state`.
-Homi and Vikram keep their thread history and SDK session state in `homi-state` and `vikram-state`.
 
 The first production deploy after Postgres consolidation wrote logical dump backups under `/var/backups/platform/postgres-consolidation/` before restoring into the shared `platform-postgres` container. Legacy Prefect/Airflow Postgres containers were stopped after smoke checks; keep backup/restore decisions tied to explicit maintenance windows.
 

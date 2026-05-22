@@ -1,26 +1,18 @@
 # Vikram Deployment
 
-Vikram is built from `apps/vikram/Dockerfile` and runs on port `8000` inside
-the container.
+Vikram is deprecated as a platform app. Its shared local Compose service,
+production Compose profile, Caddy routes, image build, and deploy flag have
+been removed. This document is retained only for archived direct-app context.
 
-## Local Compose
-
-```bash
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build vikram caddy
-curl http://vikram.localhost/healthz
-```
-
-Local Compose maps host port `8002` to the container, so direct access is also:
+## Direct Local Run
 
 ```bash
-curl http://localhost:8002/healthz
+uv sync --project apps/vikram --locked
+uv run --project apps/vikram vikram-api
+curl http://127.0.0.1:8000/healthz
 ```
 
 ## Production
 
-Production wiring is present but disabled by default with
-`DEPLOY_VIKRAM=false` in `deploy/apps.prod.env`.
-
-When enabling Vikram, configure DNS for `vikram.raniendu.dev`, set the Vikram
-Telegram secrets in the GitHub production environment, and provide
-`GOOGLE_API_KEY` for Gemini calls.
+There is no supported Vikram production deployment path in the shared platform
+stack.

@@ -33,6 +33,11 @@ def get_prefect_id(result: Any) -> Any:
     return getattr(result, "id", result)
 
 
+def get_deployment_path() -> str:
+    """Return the code path visible to the worker process registering deployments."""
+    return Path.cwd().resolve().as_posix()
+
+
 def discover_flows(flows_dir: Path = Path("flows")) -> list[tuple[str, "Flow"]]:
     """
     Discover all Prefect flows in the flows directory.
@@ -125,9 +130,10 @@ async def register_deployments(
                     flow_id = get_prefect_id(flow_data)
                     print(f"  Created new flow ID: {flow_id}")
 
-                # Construct entrypoint for the worker
-                # Worker has code at /opt/prefect, so entrypoint is relative to that
+                # Construct entrypoint for the worker. The deployment path below
+                # anchors this relative module path to the worker's current code dir.
                 entrypoint = f"{module_name}:{flow.fn.__name__}"
+                deployment_path = get_deployment_path()
 
                 # Define deployments list
                 deployments_to_create = []
@@ -176,8 +182,6 @@ async def register_deployments(
                         if deployment_schedule
                         else ["automated", "production"]
                     )
-                    deployment_path = "/opt/prefect"  # Where code is located on worker
-
                     # Build schedules list for the Prefect API
                     schedule_objects = []
                     if deployment_schedule:

@@ -29,8 +29,8 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `VIKRAM_TELEGRAM_WEBHOOK_SECRET`: Vikram Telegram webhook secret, only required when `DEPLOY_VIKRAM=true`.
 - `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Vikram Telegram interface.
 - `GOOGLE_API_KEY`: Google API key for Vikram ADK live calls, only required when `DEPLOY_VIKRAM=true`.
-- `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications.
-- `PUSHOVER_USER_KEY`: Prefect daily brief notifications.
+- `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications. During Prefect deployment this is validated and saved as the Prefect Secret block `pushover-app-token`.
+- `PUSHOVER_USER_KEY`: Prefect daily brief notifications. During Prefect deployment this is validated and saved as the Prefect Secret block `pushover-user-key`.
 - `GEMINI_API_KEY`: Prefect daily brief rewrite support.
 - `AIRFLOW_POSTGRES_PASSWORD`: Airflow PostgreSQL password.
 - `AIRFLOW__CORE__FERNET_KEY`: Airflow secret for encrypted values.
@@ -87,6 +87,8 @@ For `https://prefect.raniendu.dev` and `https://jaeger.raniendu.dev`, use the Pr
 ## Rotation Notes
 
 Rotate app API keys at the provider first, then update `.env.production` and restart only the affected service where possible.
+
+For Prefect Pushover credentials, redeploy Prefect after updating `PUSHOVER_APP_TOKEN` or `PUSHOVER_USER_KEY`. The deploy workflow refreshes the `pushover-app-token` and `pushover-user-key` Prefect Secret blocks from the production env file before registering flow deployments. The daily brief reads those blocks first and falls back to env vars only if blocks are missing during rollout or local development.
 
 Rotate database passwords during a maintenance window. Production uses one Postgres container with separate `prefect` and `airflow` roles/databases, so update the Postgres role password and Compose env file together. Rotate `PLATFORM_POSTGRES_PASSWORD` separately from the app database role passwords.
 

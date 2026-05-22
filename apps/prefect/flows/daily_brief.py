@@ -24,12 +24,15 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, HttpUrl
 
 from prefect import flow, get_run_logger
+from prefect.blocks.system import Secret
 
 # Load .env for local development
 load_dotenv()
 
 PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
 PUSHOVER_API_URL = "https://api.pushover.net/1/messages.json"
+PUSHOVER_APP_TOKEN_BLOCK = "pushover-app-token"
+PUSHOVER_USER_KEY_BLOCK = "pushover-user-key"
 GEMINI_MODEL = "gemini-3-flash-preview"
 
 _HTML_TAG_RE = re.compile(r"(<\s*/?\s*(?:b|i|u|br)\s*/?>)", re.IGNORECASE)
@@ -464,15 +467,36 @@ async def _summarize_verified_brief(logger, period: str, rendered_brief: str) ->
         return rendered_brief
 
 
+async def _load_secret_block_value(block_name: str) -> str | None:
+    try:
+        block = await Secret.aload(block_name)
+        value = str(block.get()).strip()
+        return value or None
+    except Exception:
+        return None
+
+
+async def _load_pushover_credentials() -> tuple[str, str]:
+    app_token = await _load_secret_block_value(PUSHOVER_APP_TOKEN_BLOCK)
+    user_key = await _load_secret_block_value(PUSHOVER_USER_KEY_BLOCK)
+
+    app_token = app_token or os.getenv("PUSHOVER_APP_TOKEN", "").strip()
+    user_key = user_key or os.getenv("PUSHOVER_USER_KEY", "").strip()
+
+    if not app_token or not user_key:
+        raise RuntimeError(
+            "Pushover credentials must be available as Prefect Secret blocks "
+            "or PUSHOVER_APP_TOKEN and PUSHOVER_USER_KEY environment variables"
+        )
+
+    return app_token, user_key
+
+
 @flow(name="daily-brief", retries=1, retry_delay_seconds=300)
 async def daily_brief(period_override: str | None = None) -> None:
     logger = get_run_logger()
 
-    app_token = os.getenv("PUSHOVER_APP_TOKEN", "")
-    user_key = os.getenv("PUSHOVER_USER_KEY", "")
-
-    if not app_token or not user_key:
-        raise RuntimeError("PUSHOVER_APP_TOKEN and PUSHOVER_USER_KEY must be set")
+    app_token, user_key = await _load_pushover_credentials()
 
     title_prefix = "" if _is_production() else "[Dev] "
     title = f"{title_prefix}📋 Daily Brief"

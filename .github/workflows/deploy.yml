@@ -794,6 +794,12 @@ jobs:
           done
 
           if ! COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec -T prefect-worker \
+            sh -c 'python /app/scripts/setup-blocks.py'; then
+            show_prefect_logs
+            exit 1
+          fi
+
+          if ! COMPOSE_PROFILES="${COMPOSE_PROFILES}" docker compose -f deploy/compose/docker-compose.prod.yml --env-file .env.production exec -T prefect-worker \
             sh -c 'python /app/scripts/deploy-flows.py --api-url http://prefect-server:4200/api --work-pool "${WORK_POOL_NAME:-default-pool}"'; then
             show_prefect_logs
             exit 1

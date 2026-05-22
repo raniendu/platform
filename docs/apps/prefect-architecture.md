@@ -37,6 +37,7 @@ flowchart LR
 | Flow definitions | `apps/prefect/flows/` | Holds Prefect `@flow` modules. The current primary flow is `daily-brief`. |
 | Daily brief pipeline | `apps/prefect/flows/daily_brief.py` | Fetches candidate news, verifies required source metadata, fetches market data, renders a deterministic brief, optionally rewrites it, and sends Pushover. |
 | Settings | `apps/prefect/config/settings.py` | Encapsulates environment-specific Prefect and database configuration. |
+| Block setup | `apps/prefect/scripts/setup-blocks.py` | Validates Pushover credentials from deploy env and saves them as Prefect Secret blocks. |
 | Deployment registration | `apps/prefect/scripts/deploy-flows.py` | Discovers flow objects and registers deployments against a Prefect API URL. |
 | Worker startup | `apps/prefect/docker/prefect/start-worker.sh` | Waits for the server, creates the work pool if missing, and starts the process worker. |
 | Image | `apps/prefect/Dockerfile` | Builds a Python 3.10 uv environment with flows, config, scripts, and worker entrypoint. |
@@ -48,6 +49,7 @@ sequenceDiagram
   autonumber
   participant S as Prefect server
   participant W as Prefect worker
+  participant B as Prefect Secret blocks
   participant F as daily-brief flow
   participant N as Google News RSS
   participant M as Yahoo Finance
@@ -56,6 +58,7 @@ sequenceDiagram
 
   S->>W: Scheduled run from default-pool
   W->>F: Start daily_brief(period_override)
+  F->>B: Load pushover-app-token and pushover-user-key
   F->>N: Fetch regional RSS candidates
   F->>F: Validate URL, publisher, timestamp, evidence
   F->>M: Fetch market snapshots for period

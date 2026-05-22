@@ -114,6 +114,11 @@ class TestDeployWorkflowRegistersFlows:
         assert "platform-prefect-server" in content
         assert "platform-prefect-worker" in content
         assert "exec -T prefect-worker" in content
+        assert "python /app/scripts/setup-blocks.py" in content
         assert "python /app/scripts/deploy-flows.py" in content
         assert "--api-url http://prefect-server:4200/api" in content
         assert "--work-pool" in content
+
+        setup_pos = content.find("python /app/scripts/setup-blocks.py")
+        deploy_pos = content.find("python /app/scripts/deploy-flows.py")
+        assert setup_pos < deploy_pos

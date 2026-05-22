@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("prefect", reason="prefect is required to import flow module")
 
+from flows import daily_brief as daily_brief_flow
 from flows.daily_brief import (
     NewsCandidate,
     _resolve_period,
@@ -116,3 +117,51 @@ def test_duplicate_candidates_are_rejected() -> None:
 def test_market_section_uses_structured_data_without_fabrication() -> None:
     message = render_brief("Morning", [_verify_candidate(_valid_candidate())], [])
     assert "No verified market updates available." in message
+
+
+@pytest.mark.asyncio
+async def test_pushover_credentials_prefer_prefect_secret_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSecret:
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+        @classmethod
+        async def aload(cls, name: str):
+            values = {
+                "pushover-app-token": "block-app-token",
+                "pushover-user-key": "block-user-key",
+            }
+            return cls(values[name])
+
+        def get(self) -> str:
+            return self.value
+
+    monkeypatch.setattr(daily_brief_flow, "Secret", FakeSecret, raising=False)
+    monkeypatch.setenv("PUSHOVER_APP_TOKEN", "env-app-token")
+    monkeypatch.setenv("PUSHOVER_USER_KEY", "env-user-key")
+
+    app_token, user_key = await daily_brief_flow._load_pushover_credentials()
+
+    assert app_token == "block-app-token"
+    assert user_key == "block-user-key"
+
+
+@pytest.mark.asyncio
+async def test_pushover_credentials_fall_back_to_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MissingSecret:
+        @classmethod
+        async def aload(cls, name: str):
+            raise ValueError(f"missing block: {name}")
+
+    monkeypatch.setattr(daily_brief_flow, "Secret", MissingSecret, raising=False)
+    monkeypatch.setenv("PUSHOVER_APP_TOKEN", "env-app-token")
+    monkeypatch.setenv("PUSHOVER_USER_KEY", "env-user-key")
+
+    app_token, user_key = await daily_brief_flow._load_pushover_credentials()
+
+    assert app_token == "env-app-token"
+    assert user_key == "env-user-key"

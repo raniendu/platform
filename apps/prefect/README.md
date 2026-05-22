@@ -76,6 +76,12 @@ Register local deployments:
 PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect python apps/prefect/scripts/deploy-flows.py
 ```
 
+Set up local Pushover Secret blocks after exporting real credentials:
+
+```bash
+PREFECT_API_URL=http://localhost:4200/api uv run --project apps/prefect python apps/prefect/scripts/setup-blocks.py
+```
+
 ## Daily Brief Verification Model
 
 The `daily-brief` flow uses a grounded pipeline with a strict verification gate.
@@ -127,6 +133,8 @@ gh run watch --repo raniendu/platform --exit-status
 ```
 
 The workflow builds the Prefect image, deploys it with the DotDev and Airflow images, uploads `PLATFORM_ENV_FILE`, starts Docker Compose on `/opt/platform`, and runs public smoke checks.
+
+When Prefect is enabled, deployment also runs `apps/prefect/scripts/setup-blocks.py` inside the deployed worker before registering deployments. That step validates `PUSHOVER_APP_TOKEN` and `PUSHOVER_USER_KEY`, then refreshes the Prefect Secret blocks `pushover-app-token` and `pushover-user-key`. The daily brief reads those blocks first and uses env vars only as a rollout/local-development fallback.
 
 Use these root docs for production work:
 

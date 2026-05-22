@@ -22,13 +22,6 @@ Never commit secret values. Use `.env.local` for local development, `.env.produc
 - `LEO_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Leo Telegram bot.
 - `LEO_TELEGRAM_BOT_USERNAME`: Leo Telegram bot username without `@`; required for group mentions and reply-to-bot detection.
 - `PARALLEL_API_KEY`: Raman web-search provider key. Required because the current `spec/raman` enables `web_search`.
-- `HOMI_TELEGRAM_BOT_TOKEN`: Homi Telegram bot token from BotFather, only required when `DEPLOY_HOMI=true`.
-- `HOMI_TELEGRAM_WEBHOOK_SECRET`: Homi Telegram webhook secret, only required when `DEPLOY_HOMI=true`.
-- `HOMI_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Homi Telegram interface.
-- `VIKRAM_TELEGRAM_BOT_TOKEN`: Vikram Telegram bot token from BotFather, only required when `DEPLOY_VIKRAM=true`.
-- `VIKRAM_TELEGRAM_WEBHOOK_SECRET`: Vikram Telegram webhook secret, only required when `DEPLOY_VIKRAM=true`.
-- `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`: Comma-separated chat IDs allowed to use the Vikram Telegram interface.
-- `GOOGLE_API_KEY`: Google API key for Vikram ADK live calls, only required when `DEPLOY_VIKRAM=true`.
 - `PUSHOVER_APP_TOKEN`: Prefect daily brief notifications. During Prefect deployment this is validated and saved as the Prefect Secret block `pushover-app-token`.
 - `PUSHOVER_USER_KEY`: Prefect daily brief notifications. During Prefect deployment this is validated and saved as the Prefect Secret block `pushover-user-key`.
 - `GEMINI_API_KEY`: Prefect daily brief rewrite support.
@@ -56,15 +49,6 @@ Agent production constants are tracked in the deploy workflows, not in secrets:
 - `RAMAN_DEV_MODEL=gemma-4-31B-it`
 - `RAMAN_AGENT=raman`
 - `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`
-- `HOMI_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0`
-- `HOMI_AWS_REGION=us-west-2`
-- `HOMI_AGENT=homi`
-- `HOMI_PUBLIC_BASE_URL=https://homi.raniendu.dev`
-- `VIKRAM_MODEL=gemini-flash-latest`
-- `VIKRAM_AGENT=vikram`
-- `VIKRAM_PUBLIC_BASE_URL=https://vikram.raniendu.dev`
-
-Homi uses standard AWS credential env vars such as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, or `AWS_BEARER_TOKEN_BEDROCK`. Configure the least-privilege Bedrock credential before enabling `DEPLOY_HOMI=true`.
 
 ## Human Login Credentials
 
@@ -80,9 +64,7 @@ For `https://prefect.raniendu.dev` and `https://jaeger.raniendu.dev`, use the Pr
 
 ## Optional Provider Keys
 
-- `PARALLEL_API_KEY`: Shared web-search provider key for Raman, Homi, and Vikram. Required for Raman's current production spec; optional only for agents that do not enable `web_search`.
-- `HOMI_PARALLEL_API_KEY`: Optional Homi-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
-- `VIKRAM_PARALLEL_API_KEY`: Optional Vikram-specific web-search provider key. Falls back to `PARALLEL_API_KEY`.
+- `PARALLEL_API_KEY`: Shared web-search provider key for Raman. Required for Raman's current production spec.
 
 ## Rotation Notes
 

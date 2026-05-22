@@ -1,7 +1,8 @@
 # Homi Current Architecture
 
-Homi is a FastAPI service around a Strands SDK agent. It mirrors Raman's
-platform surface while keeping SDK-specific runtime state inside `apps/homi`.
+Homi is a deprecated FastAPI service around a Strands SDK agent. It is retained
+as archived app code and is no longer wired into the platform's shared Compose,
+Caddy, CI, or production deploy paths.
 
 ## Request Flow
 
@@ -14,8 +15,6 @@ platform surface while keeping SDK-specific runtime state inside `apps/homi`.
 
 - Thread metadata and Strands message history: `.homi/homi.sqlite3`
 - DBOS workflow state: `.homi/dbos.sqlite3`
-- Local Compose volume: `homi-state`
-- Production Compose volume: `homi-state`
 
 ## Runtime
 

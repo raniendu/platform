@@ -13,8 +13,6 @@ DEPLOY_DOTDEV=
 DEPLOY_PREFECT=
 DEPLOY_FLOW=
 DEPLOY_RAMAN=
-DEPLOY_HOMI=
-DEPLOY_VIKRAM=
 DEPLOY_OBSERVABILITY=
 
 # shellcheck disable=SC1090
@@ -37,8 +35,6 @@ validate_bool DEPLOY_DOTDEV
 validate_bool DEPLOY_PREFECT
 validate_bool DEPLOY_FLOW
 validate_bool DEPLOY_RAMAN
-validate_bool DEPLOY_HOMI
-validate_bool DEPLOY_VIKRAM
 validate_bool DEPLOY_OBSERVABILITY
 
 mkdir -p "$target_dir"
@@ -113,26 +109,6 @@ raman.raniendu.dev {
 	respond "Raman is not deployed." 404
 }
 EOF
-fi
-
-if [ "$DEPLOY_HOMI" = true ]; then
-  cat > "${target_dir}/60-homi.caddy" <<'EOF'
-homi.raniendu.dev {
-	reverse_proxy homi:8000
-}
-EOF
-else
-  :
-fi
-
-if [ "$DEPLOY_VIKRAM" = true ]; then
-  cat > "${target_dir}/70-vikram.caddy" <<'EOF'
-vikram.raniendu.dev {
-	reverse_proxy vikram:8000
-}
-EOF
-else
-  :
 fi
 
 if [ "$DEPLOY_OBSERVABILITY" = true ]; then

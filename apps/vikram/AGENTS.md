@@ -4,6 +4,10 @@
 
 This file applies to `apps/vikram/`.
 
+Vikram is deprecated as a platform app. Do not add it back to shared Compose,
+Caddy, CI, production deploy workflows, or root helper scripts unless the user
+explicitly asks to reintroduce it.
+
 ## Project Shape
 
 - `vikram/agent.py`: builds the Google ADK agent and runnable wrapper.

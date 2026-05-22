@@ -6,7 +6,7 @@ file is intended to stay parseable by PyDBML and related DBML tooling.
 - [`platform-app-datastores.dbml`](platform-app-datastores.dbml) describes the
   logical app datastore model and relationships.
 
-The app-owned table layouts for Prefect, Airflow, Raman, Homi, and Vikram are
+The app-owned table layouts for Prefect, Airflow, and Raman are
 intentionally not copied here. Those products own their internal migration
 histories, and this repository only wires their databases, roles, connection
 variables, and volumes.
@@ -21,8 +21,6 @@ schema rather than hand-maintaining stale vendor internals.
 | Prefect | Postgres metadata | `prefect-postgres` / `prefect` | `platform-postgres` / `prefect` | Prefect |
 | Flow / Airflow | Postgres metadata plus logs/plugins/config volumes | `airflow-postgres` / `airflow` | `platform-postgres` / `airflow` | Airflow |
 | Raman | SQLite thread history plus DBOS workflow state in `/app/.raman` | `raman-state` | `raman-state` | Raman |
-| Homi | SQLite thread history plus Strands/DBOS state in `/app/.homi` | `homi-state` | `homi-state` | Homi |
-| Vikram | SQLite thread history plus ADK/DBOS state in `/app/.vikram` | `vikram-state` | `vikram-state` | Vikram |
 
 ## PyDBML Parse Check
 

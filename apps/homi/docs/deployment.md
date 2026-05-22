@@ -1,27 +1,18 @@
 # Homi Deployment
 
-Homi is built from `apps/homi/Dockerfile` and runs on port `8000` inside the
-container.
+Homi is deprecated as a platform app. Its shared local Compose service,
+production Compose profile, Caddy routes, image build, and deploy flag have
+been removed. This document is retained only for archived direct-app context.
 
-## Local Compose
-
-```bash
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build homi caddy
-curl http://homi.localhost/healthz
-```
-
-Local Compose maps host port `8001` to the container, so direct access is also:
+## Direct Local Run
 
 ```bash
-curl http://localhost:8001/healthz
+uv sync --project apps/homi --locked
+uv run --project apps/homi homi-api
+curl http://127.0.0.1:8000/healthz
 ```
 
 ## Production
 
-Production wiring is present but disabled by default with `DEPLOY_HOMI=false`
-in `deploy/apps.prod.env`.
-
-When enabling Homi, configure DNS for `homi.raniendu.dev`, set the Homi
-Telegram secrets in the GitHub production environment, and provide Bedrock
-credentials through either `AWS_BEARER_TOKEN_BEDROCK` or the standard
-`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` pair.
+There is no supported Homi production deployment path in the shared platform
+stack.

@@ -16,8 +16,6 @@ Current production routes:
 - `https://prefect.raniendu.dev` -> Prefect behind Caddy basic auth
 - `https://raman.raniendu.dev` -> Raman agent health and Telegram webhook endpoint
 - `https://jaeger.raniendu.dev` -> Jaeger UI behind Caddy basic auth when `DEPLOY_OBSERVABILITY=true`
-- `https://homi.raniendu.dev` -> Homi only when DNS exists and `DEPLOY_HOMI=true`
-- `https://vikram.raniendu.dev` -> Vikram only when DNS exists and `DEPLOY_VIKRAM=true`
 - `https://flow.raniendu.dev` -> disabled by `deploy/apps.prod.env`, returns `404`
 
 Production app launch is controlled by tracked flags in `deploy/apps.prod.env`. Keep app code, config, secrets, databases, and volumes in place; change only these flags in a PR and merge to `main` to start or stop a production app:
@@ -27,8 +25,6 @@ DEPLOY_DOTDEV=true
 DEPLOY_PREFECT=true
 DEPLOY_FLOW=false
 DEPLOY_RAMAN=true
-DEPLOY_HOMI=false
-DEPLOY_VIKRAM=false
 DEPLOY_OBSERVABILITY=true
 ```
 
@@ -43,7 +39,7 @@ Before any GitHub or DigitalOcean change, prove:
 - local Compose config renders,
 - local Compose builds and starts,
 - Caddy routes all local hostnames,
-- smoke tests show DotDev, Raman, Homi, Vikram, Prefect, and Airflow are reachable.
+- smoke tests show DotDev, Raman, Prefect, and Airflow are reachable.
 
 ## Gate 2: GitHub Repo Creation
 
@@ -68,7 +64,7 @@ Expected deploy workflow:
 5. Add the current GitHub runner `/32` to the Terraform-managed DigitalOcean firewall for SSH.
 6. Upload repository files to `/opt/platform`.
 7. Upload the production env file to `/opt/platform/.env.production`, appending deploy flags and SHA-pinned image references, including agent images such as `RAMAN_IMAGE=ghcr.io/raniendu/platform/raman:<sha>`.
-8. Upload temporary GHCR credentials, render the enabled/disabled production Caddy routes, stop disabled app containers without deleting volumes, and pull enabled images on the Droplet.
+8. Upload temporary GHCR credentials, render the enabled/disabled production Caddy routes, stop disabled and deprecated app containers without deleting host volumes, and pull enabled images on the Droplet.
 9. Run the one-time Postgres consolidation if the host still has separate Prefect and Airflow Postgres containers.
 10. Run production Compose with `COMPOSE_PROFILES` matching the enabled app flags and `up -d --no-build`.
 11. Force-recreate Caddy so file-bound Caddyfile changes are picked up.
@@ -112,13 +108,10 @@ Before merging changes that will trigger `Deploy`, or before running it manually
 - `PLATFORM_ENV_FILE` contains the shared production `.env.production` content.
 - `PLATFORM_ENV_FILE` includes `PLATFORM_POSTGRES_PASSWORD`, `PREFECT_POSTGRES_PASSWORD`, and `AIRFLOW_POSTGRES_PASSWORD`; the deploy workflow validates additional app auth keys only when their app flag is enabled.
 - When `DEPLOY_RAMAN=true`, the GitHub `production` environment includes `DO_INFERENCE_API_KEY`, `PARALLEL_API_KEY`, and every Telegram secret referenced by `apps/raman/spec/telegram.toml`. The checked-in Telegram bots require `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_BOT_USERNAME`, `GOBIND_TELEGRAM_BOT_TOKEN`, `GOBIND_TELEGRAM_WEBHOOK_SECRET`, `GOBIND_TELEGRAM_ALLOWED_CHAT_IDS`, `GOBIND_TELEGRAM_BOT_USERNAME`, `LEO_TELEGRAM_BOT_TOKEN`, `LEO_TELEGRAM_WEBHOOK_SECRET`, `LEO_TELEGRAM_ALLOWED_CHAT_IDS`, and `LEO_TELEGRAM_BOT_USERNAME`. After the public Raman smoke check passes, deploy runs `python -m raman.local_webhook "$RAMAN_PUBLIC_BASE_URL" --all --skip-health-check --no-drop-pending` inside the deployed Raman container to reset every configured Telegram webhook without discarding queued updates. `PARALLEL_API_KEY` is required because the current Raman spec enables `web_search`.
-- When `DEPLOY_HOMI=true`, configure `HOMI_TELEGRAM_BOT_TOKEN`, `HOMI_TELEGRAM_WEBHOOK_SECRET`, `HOMI_TELEGRAM_ALLOWED_CHAT_IDS`, and Bedrock credentials through `AWS_BEARER_TOKEN_BEDROCK` or the standard AWS access key pair. `HOMI_PARALLEL_API_KEY` is optional unless Homi enables web search.
-- When `DEPLOY_VIKRAM=true`, configure `GOOGLE_API_KEY`, `VIKRAM_TELEGRAM_BOT_TOKEN`, `VIKRAM_TELEGRAM_WEBHOOK_SECRET`, and `VIKRAM_TELEGRAM_ALLOWED_CHAT_IDS`. `VIKRAM_PARALLEL_API_KEY` is optional unless Vikram enables web search.
 - `DO_INFERENCE_API_KEY` should be a DigitalOcean model access key scoped to `gemma-4-31B-it` for the production Raman deployment. Serverless inference does not require a Terraform-managed endpoint or dedicated GPU resource.
-- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, `RAMAN_IMAGE`, `HOMI_IMAGE`, and `VIKRAM_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
-- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_RAMAN`, `DEPLOY_HOMI`, `DEPLOY_VIKRAM`, and `DEPLOY_OBSERVABILITY`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
+- The deploy workflow appends `DOTDEV_IMAGE`, `PREFECT_IMAGE`, `AIRFLOW_IMAGE`, and `RAMAN_IMAGE`; these do not need to be stored in `PLATFORM_ENV_FILE`.
+- The deploy workflow appends `DEPLOY_DOTDEV`, `DEPLOY_PREFECT`, `DEPLOY_FLOW`, `DEPLOY_RAMAN`, and `DEPLOY_OBSERVABILITY`; these are tracked in `deploy/apps.prod.env`, not stored as GitHub secrets.
 - The deploy workflow appends Raman's production constants (`RAMAN_MODEL_PROVIDER=digitalocean`, `RAMAN_DEV_MODEL=gemma-4-31B-it`, `RAMAN_AGENT=raman`, `RAMAN_PUBLIC_BASE_URL=https://raman.raniendu.dev`, and Raman observability settings derived from `DEPLOY_OBSERVABILITY`) to the host env file at deploy time. It also writes `/opt/platform/.env.raman` with only the Telegram env keys referenced by `apps/raman/spec/telegram.toml`.
-- The deploy workflow appends Homi and Vikram production constants and their app-specific secrets only when their deploy flags are enabled.
 - Cloud-init creates `/opt/platform` for a new Terraform-managed Droplet, and the deploy workflow waits for bootstrap before uploading files.
 - The DigitalOcean firewall allows SSH from the deploy runner. The GitHub workflow adds the runner's current `/32` IP before SSH and removes it in an `always()` cleanup step. Keep Terraform `allowed_ssh_cidrs` restricted to stable administrator IPs rather than opening SSH globally.
 
@@ -133,7 +126,7 @@ Match verification to the files changed in the PR:
 | Secrets or runtime env docs | `docs/secrets.md` and the relevant `.env.example` files updated |
 | Operations behavior | `docs/operations.md` updated with the new runbook or smoke expectation |
 
-If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks. App subdomains such as `raman`, `homi`, and `vikram` require `A` records pointing at the Droplet IP before their public smoke checks can pass.
+If Terraform creates a new environment because no `platform-shared` Droplet exists, update Squarespace DNS to the new `droplet_ip` output before relying on the public smoke checks. App subdomains such as `raman` require `A` records pointing at the Droplet IP before their public smoke checks can pass.
 
 ## Smaller Droplet Migration
 
@@ -163,7 +156,7 @@ gh workflow run deploy.yml --repo raniendu/platform --ref main
 gh run watch --repo raniendu/platform --exit-status
 ```
 
-Raman, Homi, and Vikram are built from their app directories during the `Deploy` workflow when their deploy flags are enabled. Rollbacks should redeploy a prior platform commit so all app image refs and deployment wiring stay in sync.
+Raman is built from its app directory during the `Deploy` workflow when its deploy flag is enabled. Rollbacks should redeploy a prior platform commit so all app image refs and deployment wiring stay in sync.
 
 The workflow is expected to report these smoke statuses:
 
@@ -174,7 +167,7 @@ The workflow is expected to report these smoke statuses:
 - `jaeger.raniendu.dev` -> `401`
 - `flow.raniendu.dev` -> `404`
 
-`401` for Prefect and Jaeger is expected because Caddy basic auth is protecting those routes. Flow returns `404` while its production app flag is disabled. Homi and Vikram are skipped while disabled so routine Raman deploys do not require their DNS records.
+`401` for Prefect and Jaeger is expected because Caddy basic auth is protecting those routes. Flow returns `404` while its production app flag is disabled.
 
 Before the public smoke checks, the workflow waits for Caddy to be running and for DotDev's `/healthz` container healthcheck to become healthy. Public smoke checks continue after an individual failure so one broken hostname does not hide the status of Raman, Jaeger, or other routes. If a smoke check fails, the workflow prints Caddy and DotDev container status plus recent logs before exiting.
 

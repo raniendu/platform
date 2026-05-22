@@ -1,5 +1,9 @@
 # homi
 
+Deprecated: Homi is no longer part of the platform's shared Compose, Caddy, CI,
+or production deploy paths. This app directory is retained only as archived code
+for direct local reference.
+
 A personal CLI + HTTP agent built on the Amazon Strands SDK.
 
 Homi is a sibling of Raman with the same platform surface: FastAPI, DBOS
@@ -46,13 +50,6 @@ curl http://127.0.0.1:8000/healthz
 curl http://127.0.0.1:8000/chat --json '{"prompt":"say pong"}'
 ```
 
-With platform Compose:
-
-```bash
-docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build homi caddy
-curl http://homi.localhost/healthz
-```
-
 ## API
 
 | Method | Path | Description |
@@ -68,9 +65,8 @@ Telegram `/reset` clears that stored history for the chat.
 
 ## Configuration
 
-Use `apps/homi/.env.example` for direct app runs and root `.env.local` for
-Compose runs. Homi-specific variables use the `HOMI_*` prefix. Telegram
-configuration is per app:
+Use `apps/homi/.env.example` for direct app runs. Homi-specific variables use
+the `HOMI_*` prefix. Telegram configuration is per app:
 
 ```env
 HOMI_TELEGRAM_BOT_TOKEN=

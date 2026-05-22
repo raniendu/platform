@@ -14,14 +14,6 @@ http://raman.localhost {
 	reverse_proxy raman:8000
 }
 
-http://homi.localhost {
-	reverse_proxy homi:8000
-}
-
-http://vikram.localhost {
-	reverse_proxy vikram:8000
-}
-
 http://flow.localhost {
 	reverse_proxy airflow-webserver:8080
 }

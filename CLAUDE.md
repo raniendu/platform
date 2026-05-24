@@ -59,8 +59,8 @@ Single DigitalOcean Droplet (`platform-shared`, `174.138.71.121`, `s-1vcpu-2gb`)
 Production runs a **single shared Postgres** container (`platform-postgres`) with separate `prefect` and `airflow` databases/roles. Local Compose runs separate `prefect-postgres` and `airflow-postgres` containers. The consolidated production layout is what enables the small Droplet — don't reintroduce separate prod Postgres volumes (`prefect-postgres-data`, `airflow-postgres-data`) without an explicit ask.
 
 Raman keeps agent state in its own Docker volume (`raman-state`). The former
-Homi and Vikram apps are deprecated and no longer wired into shared Compose,
-CI, deploy, or Caddy routes.
+Homi and Vikram apps have been removed and are no longer wired into shared
+Compose, CI, deploy, or Caddy routes.
 
 ### Production app flags
 

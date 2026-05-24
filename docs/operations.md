@@ -92,8 +92,8 @@ DEPLOY_RAMAN=true
 Change a flag in a PR and merge to `main`; the `Deploy` workflow starts from
 that push. Disabled apps are removed from the running container set and their
 public hostnames return `404`, but their code, config, database data, and Docker
-volumes are preserved. Deprecated Homi and Vikram containers are removed by name
-if they still exist on the host.
+volumes are preserved. Legacy Homi and Vikram containers are removed by name if
+they still exist on the host.
 
 ## Temporary SSH Access
 

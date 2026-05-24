@@ -18,9 +18,9 @@ The platform can run these application services behind Caddy:
 
 Production app launch is controlled by tracked flags in `deploy/apps.prod.env`.
 The current production setting enables DotDev, Prefect, Raman, and
-observability, and keeps Flow/Airflow disabled. Homi and Vikram are deprecated
-and no longer have shared Compose services, production profiles, Caddy routes,
-or CI/deploy jobs.
+observability, and keeps Flow/Airflow disabled. Homi and Vikram have been
+removed and no longer have shared Compose services, production profiles, Caddy
+routes, or CI/deploy jobs.
 
 Read this file for shared hosting and routing decisions. For app internals, use
 the app architecture docs below. For command-oriented procedures, use

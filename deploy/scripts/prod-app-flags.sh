@@ -74,6 +74,7 @@ build_lists() {
   profiles=()
   enabled_pull_services=(postgres caddy)
   disabled_services=()
+  # Keep removing containers from apps that were deleted from the platform.
   disabled_containers=(platform-homi platform-vikram)
 
   if [ "$DEPLOY_DOTDEV" = true ]; then

@@ -131,3 +131,16 @@ def test_prompt_requires_once(capsys):
         raise AssertionError("Expected parser error")
 
     assert "--prompt requires --once" in capsys.readouterr().err
+
+
+def test_quiet_rejects_once(capsys):
+    from raman.cli import main
+
+    try:
+        main(["--once", "--prompt", "hi", "--quiet"])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("Expected parser error")
+
+    assert "--quiet cannot be combined with --once" in capsys.readouterr().err

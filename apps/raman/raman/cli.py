@@ -16,8 +16,45 @@ CODE_THEME = "monokai"
 HISTORY_PATH = Path.home() / ".raman" / "cli_history"
 
 
+def _version_string() -> str:
+    from raman import __version__
+    from raman.update import load_metadata
+
+    meta = load_metadata()
+    sha = meta.get("git_sha")
+    if sha:
+        return f"raman {__version__} @ {str(sha)[:12]}"
+    return f"raman {__version__}"
+
+
+class _LazyVersionAction(argparse.Action):
+    def __init__(
+        self,
+        option_strings: Sequence[str],
+        dest: str = argparse.SUPPRESS,
+        default: Any = argparse.SUPPRESS,
+        help: str | None = None,
+    ) -> None:
+        super().__init__(
+            option_strings=list(option_strings),
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help,
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
+        print(_version_string())
+        parser.exit()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="raman")
+    parser.add_argument(
+        "--version",
+        action=_LazyVersionAction,
+        help="Show version (with install SHA if available) and exit.",
+    )
     parser.add_argument(
         "--agent",
         default=None,
@@ -68,8 +105,14 @@ def read_prompt(value: str) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    raw_args = list(argv) if argv is not None else sys.argv[1:]
+    if raw_args and raw_args[0] == "update":
+        from raman.update import run as run_update
+
+        sys.exit(run_update(raw_args[1:]))
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_args)
     if args.prompt is not None and not args.once:
         parser.error("--prompt requires --once")
     if args.json and not args.once:

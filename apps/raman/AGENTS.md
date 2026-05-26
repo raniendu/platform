@@ -14,6 +14,9 @@
 - `gateway.py` holds `ThreadStore` (SQLite) and `ConversationService`, plus CloudEvent helpers used by the threaded interface.
 - `dbos_gateway.py` wires DBOS workflows and queues for inbound message processing and outbound delivery.
 - `telegram.py` implements the Telegram webhook adapter (parse, dedupe, allowlist, commands, send).
+- `update.py` implements `raman update`: locates the source checkout from `~/.config/raman/install.toml`, fast-forwards it, and reinstalls the `uv tool`. Stdlib-only so the update path runs even when the model provider is misconfigured.
+
+`install.sh` at the app root installs raman as an isolated `uv tool` on another machine — clones the repo via `gh` if needed, then writes the install metadata that `raman update` reads.
 
 Agent definitions live under `spec/<agent>/`; the default agent is `spec/raman/agent.toml` with its prompt in `system_prompt.md`. Optional cross-agent context lives under `spec/shared/`. Tests are in `tests/`, LLM evaluation helpers are in `evals/`, and topical guides live in `docs/` (`tools.md`, `threaded_conversations.md`, `telegram_live_testing.md`, `architecture_roadmap.md`).
 
@@ -24,6 +27,8 @@ Agent definitions live under `spec/<agent>/`; the default agent is `spec/raman/a
 - `uv run raman --agent <name>`: run an alternate spec from `spec/<name>/`.
 - `uv run raman --once --prompt "..."`: run one prompt and exit; `--prompt @file` or an existing file path reads prompt text from a file, and `--json` emits machine-readable output.
 - `uv run raman-api`: start the FastAPI app on `http://127.0.0.1:8000`.
+- `bash install.sh`: install raman on another machine as a `uv tool` (`~/.local/share/raman` checkout, metadata at `~/.config/raman/install.toml`).
+- `raman update [--check|--ref REF]`: pull the source checkout and reinstall; `--check` shows what would change.
 - `uv run pytest`: run the offline unit test suite.
 - `RAMAN_RUN_EVALS=1 uv run pytest tests/test_evals.py`: run live LLM-judge tests for every agent spec; requires the configured model and `PARALLEL_API_KEY` for web-search cases.
 - `uv run python -m evals.run`: run the standalone evaluation report for every agent spec.

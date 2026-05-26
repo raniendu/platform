@@ -14,6 +14,32 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ModelProvider = Literal["ollama", "digitalocean"]
 
 
+def _resolve_spec_root(package_relative: Path) -> Path:
+    """Locate spec/ for both dev (in-checkout) and installed (`uv tool`) layouts.
+
+    Dev: ``<package>/../spec`` exists as a sibling of the package.
+    Installed: package lives in site-packages; spec ships separately, so we
+    fall back to the source checkout recorded by ``install.sh`` at
+    ``~/.config/raman/install.toml``.
+    """
+    if package_relative.is_dir():
+        return package_relative
+    try:
+        from raman.update import load_metadata
+    except Exception:
+        return package_relative
+    source_dir = load_metadata().get("source_dir")
+    if source_dir:
+        candidate = Path(str(source_dir)) / "apps" / "raman" / "spec"
+        if candidate.is_dir():
+            return candidate
+    return package_relative
+
+
+def _default_spec_root() -> Path:
+    return _resolve_spec_root(Path(__file__).resolve().parent.parent / "spec")
+
+
 class RamanSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -39,7 +65,7 @@ class RamanSettings(BaseSettings):
         validation_alias="DO_INFERENCE_BASE_URL",
     )
     spec_root: Path = Field(
-        default=Path(__file__).resolve().parent.parent / "spec",
+        default_factory=_default_spec_root,
         validation_alias="RAMAN_SPEC_ROOT",
     )
     default_agent: str = Field(default="raman", validation_alias="RAMAN_AGENT")

@@ -279,6 +279,47 @@ def test_run_full_update_writes_metadata(
     assert saved["git_sha"] == new
 
 
+def test_spec_root_falls_back_to_install_metadata(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """When package-relative spec/ is missing (the installed-as-tool layout),
+    the resolver should return ``<metadata.source_dir>/apps/raman/spec``."""
+    _redirect_config_dir(monkeypatch, tmp_path)
+    fake_source = tmp_path / "raman-src"
+    spec_dir = fake_source / "apps" / "raman" / "spec"
+    spec_dir.mkdir(parents=True)
+    update_module.write_metadata({"source_dir": str(fake_source)})
+
+    from raman.settings import _resolve_spec_root
+
+    missing_pkg_relative = tmp_path / "site-packages" / "spec"
+    assert _resolve_spec_root(missing_pkg_relative) == spec_dir
+
+
+def test_spec_root_prefers_package_relative(tmp_path: Path) -> None:
+    """If the package-relative spec/ exists (dev layout), use it as-is."""
+    pkg_relative = tmp_path / "spec"
+    pkg_relative.mkdir()
+
+    from raman.settings import _resolve_spec_root
+
+    assert _resolve_spec_root(pkg_relative) == pkg_relative
+
+
+def test_spec_root_returns_package_relative_when_no_metadata(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No metadata file and a missing package-relative path: return the
+    package-relative path so the eventual FileNotFoundError points somewhere
+    predictable."""
+    _redirect_config_dir(monkeypatch, tmp_path)
+
+    from raman.settings import _resolve_spec_root
+
+    missing = tmp_path / "nope" / "spec"
+    assert _resolve_spec_root(missing) == missing
+
+
 def test_run_full_update_propagates_uv_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

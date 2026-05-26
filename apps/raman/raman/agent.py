@@ -28,4 +28,14 @@ def build_agent(
     )
 
 
-agent = build_agent()
+def __getattr__(name: str) -> Agent[None, str]:
+    """Lazy module-level ``agent`` so importing this module is side-effect-free.
+
+    The default-agent singleton is built only when something actually reads
+    ``raman.agent.agent`` (currently just one test). This keeps fast paths
+    like ``raman update`` and ``raman --version`` from triggering a model
+    build at import time.
+    """
+    if name == "agent":
+        return build_agent()
+    raise AttributeError(f"module 'raman.agent' has no attribute {name!r}")

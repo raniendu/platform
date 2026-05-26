@@ -83,8 +83,12 @@ fi
 # 3. Install raman as an isolated uv tool -----------------------------------
 
 bold "Installing raman (Python $PYTHON_VERSION) from $raman_dir"
+# --reinstall-package raman forces uv to rebuild the wheel from $raman_dir on
+# every install. Without it, uv reuses a cached wheel for raman==0.1.0 even
+# when the source contents have changed, so updates would silently no-op.
 uv tool install \
   --force \
+  --reinstall-package raman \
   --python "$PYTHON_VERSION" \
   --from "$raman_dir" \
   raman

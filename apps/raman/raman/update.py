@@ -276,11 +276,17 @@ def run(argv: Sequence[str] | None = None) -> int:
             )
             return 1
 
+        # --reinstall-package raman invalidates uv's cached wheel for the
+        # raman package so the rebuild actually picks up new source. Without
+        # it, uv reuses a cached wheel for raman==0.1.0 even when the local
+        # source has changed, and the update silently no-ops.
         install_cmd = [
             "uv",
             "tool",
             "install",
             "--force",
+            "--reinstall-package",
+            "raman",
             "--python",
             python_version,
             "--from",

@@ -268,6 +268,11 @@ def test_run_full_update_writes_metadata(
     assert len(install_calls) == 1
     cmd = install_calls[0]
     assert cmd[0:4] == ["uv", "tool", "install", "--force"]
+    # --reinstall-package raman is required so uv rebuilds the wheel from the
+    # local source instead of reusing a cached wheel for raman==0.1.0.
+    assert "--reinstall-package" in cmd
+    pkg_idx = cmd.index("--reinstall-package")
+    assert cmd[pkg_idx + 1] == "raman"
     assert "--from" in cmd
     raman_dir = source / "apps" / "raman"
     assert str(raman_dir) in cmd

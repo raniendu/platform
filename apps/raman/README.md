@@ -87,6 +87,39 @@ docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local 
 curl http://localhost:8000/healthz
 ```
 
+## Installing on Another Machine
+
+`apps/raman/install.sh` installs raman as an isolated `uv tool` on a fresh
+machine. It detects whether it's running inside an existing platform checkout
+(installs from there) or needs to clone the repo first (via `gh repo clone`
+into `~/.local/share/raman`, or `$RAMAN_INSTALL_DIR`).
+
+```bash
+gh auth login                                        # one-time
+bash apps/raman/install.sh                           # from inside a checkout
+# or, on a fresh machine after cloning manually:
+# bash ~/.local/share/raman/apps/raman/install.sh
+```
+
+The script prints the env exports you need to add to your shell rc — at
+minimum `RAMAN_SPEC_ROOT` (the bundled wheel does not include `spec/`).
+
+### Updating
+
+`raman update` fast-forwards the source checkout recorded at install time
+and reinstalls the tool in one step:
+
+```bash
+raman update              # pull + reinstall from the source checkout
+raman update --check      # show pending commits, do not pull
+raman update --ref <ref>  # check out a specific branch/tag/SHA before reinstall
+raman --version           # print package version + install SHA
+```
+
+`raman update` aborts if the source checkout has uncommitted changes. To
+roll back a bad update:
+`git -C ~/.local/share/raman reset --hard <good-sha> && raman update`.
+
 ## CLI
 
 ```bash

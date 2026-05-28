@@ -19,6 +19,7 @@ from raman.telegram_config import (
 
 MAX_TELEGRAM_MESSAGE = 4096
 TELEGRAM_PARSE_MODE = "MarkdownV2"
+TELEGRAM_TYPING_ACTION = "typing"
 GROUP_CHAT_TYPES = {"group", "supergroup"}
 GROUP_ADMIN_STATUSES = {"administrator", "creator"}
 logger = get_logger(__name__)
@@ -53,6 +54,7 @@ class TelegramCommand:
 
 
 SendText = Callable[[int, str, int | None], Awaitable[None]]
+SendChatAction = Callable[[int, str], Awaitable[None]]
 GetChatMember = Callable[[int, int], Awaitable[dict[str, Any]]]
 
 
@@ -65,6 +67,7 @@ class TelegramAdapter:
         store: ThreadStore,
         enqueue_message: MessageEnqueuer | None,
         send_text: SendText | None = None,
+        send_chat_action: SendChatAction | None = None,
         get_chat_member: GetChatMember | None = None,
     ):
         self.settings = settings
@@ -80,6 +83,7 @@ class TelegramAdapter:
         self.store = store
         self.enqueue_message = enqueue_message
         self._send_text = send_text
+        self._send_chat_action = send_chat_action
         self._get_chat_member = get_chat_member
 
     async def handle_update(self, update: dict[str, Any]) -> TelegramWebhookResult:
@@ -131,6 +135,7 @@ class TelegramAdapter:
         if self.enqueue_message is None:
             log.error("telegram_enqueue_missing")
             raise RuntimeError("Telegram enqueue_message callback is not configured")
+        await self._send_working_indicator(message)
         enqueued = await self.enqueue_message(
             InboundMessage(
                 interface=self.bot.interface,
@@ -206,6 +211,42 @@ class TelegramAdapter:
                     )
                     raise
         log.info("telegram_send_succeeded")
+
+    async def send_chat_action(
+        self, chat_id: int, action: str = TELEGRAM_TYPING_ACTION
+    ) -> None:
+        log = logger.bind(chat_hash=chat_hash(chat_id), action=action)
+        log.info("telegram_chat_action_started")
+        if self._send_chat_action is not None:
+            await self._send_chat_action(chat_id, action)
+            log.info("telegram_chat_action_succeeded", transport="injected")
+            return
+        if not self.bot.bot_token:
+            log.error("telegram_chat_action_unconfigured")
+            raise RuntimeError(
+                f"Telegram bot token is not configured for {self.bot.name}"
+            )
+        async with httpx.AsyncClient(base_url=self.bot.api_base_url) as client:
+            try:
+                response = await client.post(
+                    f"/bot{self.bot.bot_token}/sendChatAction",
+                    json={"chat_id": chat_id, "action": action},
+                )
+                response.raise_for_status()
+            except httpx.HTTPError:
+                raise RuntimeError("Telegram sendChatAction request failed") from None
+        log.info("telegram_chat_action_succeeded", transport="telegram_api")
+
+    async def _send_working_indicator(self, message: TelegramTextMessage) -> None:
+        try:
+            await self.send_chat_action(message.chat_id)
+        except Exception:
+            logger.exception(
+                "telegram_chat_action_failed",
+                update_id=message.update_id,
+                chat_hash=chat_hash(message.chat_id),
+                action=TELEGRAM_TYPING_ACTION,
+            )
 
     async def _handle_command(
         self, message: TelegramTextMessage, command: TelegramCommand

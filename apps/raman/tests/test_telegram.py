@@ -12,6 +12,10 @@ def expected(text: str) -> list[str]:
     return format_for_telegram(text)
 
 
+async def ignore_chat_action(chat_id, action):
+    pass
+
+
 def test_format_for_telegram_converts_markdown_to_markdownv2():
     chunks = format_for_telegram(
         "**Bold heading**\n\n*   bullet one\n*   bullet two\n\n`code`"
@@ -94,19 +98,27 @@ def text_update(
 async def test_telegram_enqueues_allowed_text_message(tmp_path):
     enqueued = []
     sent = []
+    actions = []
+    events = []
 
     async def enqueue(message):
         enqueued.append(message)
+        events.append("enqueue")
         return EnqueuedEvent(workflow_id="wf-1", status="queued")
 
     async def send_text(chat_id, text, reply_to_message_id=None):
         sent.append((chat_id, text, reply_to_message_id))
+
+    async def send_chat_action(chat_id, action):
+        actions.append((chat_id, action))
+        events.append("chat_action")
 
     adapter = TelegramAdapter(
         settings=make_settings(),
         store=ThreadStore(tmp_path / "raman.sqlite3"),
         enqueue_message=enqueue,
         send_text=send_text,
+        send_chat_action=send_chat_action,
     )
 
     result = await adapter.handle_update(text_update("hello"))
@@ -117,6 +129,8 @@ async def test_telegram_enqueues_allowed_text_message(tmp_path):
     assert enqueued[0].external_thread_id == "123"
     assert enqueued[0].prompt == "hello"
     assert sent == []
+    assert actions == [(123, "typing")]
+    assert events == ["chat_action", "enqueue"]
 
 
 @pytest.mark.asyncio
@@ -132,6 +146,7 @@ async def test_telegram_enqueues_bot_scoped_message_with_default_agent(tmp_path)
         bot=make_bot_config(name="bot-a", default_agent="research"),
         store=ThreadStore(tmp_path / "raman.sqlite3"),
         enqueue_message=enqueue,
+        send_chat_action=ignore_chat_action,
     )
 
     result = await adapter.handle_update(text_update("hello"))
@@ -153,6 +168,7 @@ async def test_telegram_logs_update_lifecycle_without_message_text(tmp_path):
         store=ThreadStore(tmp_path / "raman.sqlite3"),
         enqueue_message=enqueue,
         send_text=None,
+        send_chat_action=ignore_chat_action,
     )
 
     with capture_logs() as logs:
@@ -345,6 +361,7 @@ async def test_telegram_enqueues_group_mention_with_clean_prompt_and_sender_cont
         ),
         store=ThreadStore(tmp_path / "raman.sqlite3"),
         enqueue_message=enqueue,
+        send_chat_action=ignore_chat_action,
     )
 
     result = await adapter.handle_update(
@@ -386,6 +403,7 @@ async def test_telegram_enqueues_group_reply_to_bot_with_reply_metadata(tmp_path
         ),
         store=ThreadStore(tmp_path / "raman.sqlite3"),
         enqueue_message=enqueue,
+        send_chat_action=ignore_chat_action,
     )
 
     result = await adapter.handle_update(
@@ -727,6 +745,7 @@ async def test_telegram_group_logs_do_not_include_prompt_or_sender_names(tmp_pat
         store=ThreadStore(tmp_path / "raman.sqlite3"),
         enqueue_message=enqueue,
         send_text=None,
+        send_chat_action=ignore_chat_action,
     )
 
     with capture_logs() as logs:

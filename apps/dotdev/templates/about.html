@@ -25,10 +25,11 @@
         <section class="about-section" aria-labelledby="story-heading">
             <h2 id="story-heading">My Story</h2>
             <p>
-                I cut my teeth at AWS, learning to manage massive datasets and ensure the smooth operation of critical
-                pipelines. A later chapter at Meta introduced me to the fascinating (and occasionally terrifying) world
-                of real-time ads telemetry. Today, I'm back at Amazon, helping the Ads team navigate their complex data
-                landscape.
+                Originally from Jammu, India. I started my career at Teradata in Pune, India. I later joined
+                Amazon in India and at Amazon, I've had the chance to work on a variety of areas such as Transportation
+                Systems, Amazon Web Services, Just Walk Out Technology and Amazon Ads.
+                I briefly worked at Meta in the Ads Monetization team and currently I am back at Amazon working in the
+                Amazon Ads org.
             </p>
             <p>
                 What drives me? I'm passionate about transforming messy, chaotic data into clear, actionable insights.
@@ -64,16 +65,90 @@
                             page</a> to see where I've been.</p>
                 </article>
 
-                <article class="interest-card compact-card">
-                    <span class="interest-icon" aria-hidden="true">🎵</span>
-                    <div>
-                        <h3>Music</h3>
-                        <p>Eclectic taste ranging from indie rock to electronic. Always looking for new recommendations.
-                        </p>
+                <article class="interest-card spotify-widget" aria-labelledby="spotify-widget-heading">
+                    <div class="travel-card-header">
+                        {% if spotify_profile %}
+                        <a href="{{ spotify_profile }}" target="_blank" rel="noopener noreferrer"
+                            class="spotify-profile-link" aria-label="Visit Raniendu's Spotify Profile">
+                        {% endif %}
+                            <svg class="spotify-logo" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"
+                                aria-hidden="true">
+                                <path
+                                    d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.565.387-.86.207-2.377-1.454-5.37-1.783-8.894-.982-.336.076-.67-.135-.746-.472-.076-.336.135-.67.472-.746 3.852-.878 7.144-.503 9.822 1.136.295.18.387.565.207.86zm1.226-2.723c-.226.367-.707.487-1.074.26-2.72-1.672-6.87-2.157-10.076-1.183-.412.125-.845-.106-.97-.518s.106-.845.518-.97c3.666-1.112 8.232-.572 11.34 1.343.367.227.487.708.262 1.068zm.105-2.825C14.364 8.78 8.497 8.583 5.112 9.61c-.518.157-1.068-.137-1.225-.655-.157-.518.138-1.068.656-1.225 3.9-1.184 10.384-.956 14.49 1.48.468.277.62.883.343 1.35-.277.467-.883.62-1.35.343z" />
+                            </svg>
+                        {% if spotify_profile %}
+                        </a>
+                        {% endif %}
+                        <div>
+                            <h3 id="spotify-widget-heading">On Repeat</h3>
+                        </div>
                     </div>
+
+                    <div class="track-list" role="list">
+                        {% for track in spotify_tracks[:3] %}
+                        <div class="track-item" role="listitem" data-track-id="{{ track.id }}" data-preview-url="{{ track.preview_url or '' }}" data-spotify-url="{{ track.spotify_url }}">
+                            <div class="track-artwork-container">
+                                {% if track.image_url %}
+                                <img src="{{ track.image_url }}" alt="{{ track.album }} cover" class="track-artwork"
+                                    loading="lazy" decoding="async"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                {% endif %}
+                                <div class="track-artwork-placeholder"
+                                    style="{% if track.image_url %}display: none;{% else %}display: flex;{% endif %}"
+                                    aria-hidden="true">
+                                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor">
+                                        <circle cx="24" cy="24" r="16" stroke-width="2"></circle>
+                                        <circle cx="24" cy="24" r="6" stroke-width="2"></circle>
+                                        <circle cx="24" cy="24" r="2" fill="currentColor"></circle>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div class="track-details">
+                                <span class="track-name-row">
+                                    <a href="{{ track.spotify_url }}" target="_blank" rel="noopener noreferrer"
+                                        class="track-title" title="Listen on Spotify">
+                                        {{ track.name }}
+                                    </a>
+                                    {% if track.preview_url %}
+                                    <span class="eq-visualizer" aria-hidden="true" style="display: none;">
+                                        <span class="eq-bar"></span>
+                                        <span class="eq-bar"></span>
+                                        <span class="eq-bar"></span>
+                                        <span class="eq-bar"></span>
+                                    </span>
+                                    {% endif %}
+                                </span>
+                                <span class="track-artist">{{ track.artists }}</span>
+                            </div>
+
+                            <button class="track-play-btn"
+                                aria-label="{% if track.preview_url %}Play preview of {{ track.name }} by {{ track.artists }}{% else %}Listen to {{ track.name }} on Spotify{% endif %}">
+                                <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                                </svg>
+                                {% if track.preview_url %}
+                                <svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                                    <rect x="5" y="4" width="4" height="16"></rect>
+                                    <rect x="15" y="4" width="4" height="16"></rect>
+                                </svg>
+                                {% endif %}
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if spotify_profile %}
+                    <a href="{{ spotify_profile }}" target="_blank" rel="noopener noreferrer"
+                        class="spotify-follow-btn">
+                        Listen on Spotify
+                    </a>
+                    {% endif %}
                 </article>
             </div>
         </section>
+
+        <script src="{{ url_for('static', filename='js/music.js') }}" defer></script>
 
         <section class="about-section" aria-labelledby="work-heading">
             <h2 id="work-heading">Let's Connect</h2>

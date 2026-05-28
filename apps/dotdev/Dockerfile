@@ -23,6 +23,7 @@ COPY ./templates ./templates
 COPY ./posts ./posts
 COPY ./app.py ./app.py
 COPY ./blog.py ./blog.py
+COPY ./spotify.py ./spotify.py
 
 # Expose port 8501
 EXPOSE 8501

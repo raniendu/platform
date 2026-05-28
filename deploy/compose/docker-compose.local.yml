@@ -22,6 +22,9 @@ services:
       context: ../../apps/dotdev
       dockerfile: Dockerfile
     container_name: platform-dotdev-local
+    env_file:
+      - path: ../../.env.local
+        required: false
     ports:
       - "8501:8501"
     healthcheck:

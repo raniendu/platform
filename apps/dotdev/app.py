@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Optional, Tuple, Union
 
 import blog
+import spotify
 
 try:  # pragma: no cover - prefer real Flask when available
     # fmt: off
@@ -886,8 +887,15 @@ def about():
             )
     latest_photos = latest_photos[:2]  # Show top 2 latest photos
 
+    spotify_tracks = spotify.get_spotify_tracks()
+    spotify_profile = os.environ.get("SPOTIFY_PROFILE_URL")
+
     return render_template(
-        "about.html", active_page="about", latest_photos=latest_photos
+        "about.html",
+        active_page="about",
+        latest_photos=latest_photos,
+        spotify_tracks=spotify_tracks,
+        spotify_profile=spotify_profile,
     )
 
 

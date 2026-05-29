@@ -58,6 +58,7 @@ Direct container ports are also exposed for smoke checks:
 - Raman: `http://localhost:8000/healthz`
 - Prefect: `http://localhost:4200/api/health`
 - Airflow: `http://localhost:8080`
+- Jaeger: `http://localhost:16686`
 
 ## Common Commands
 
@@ -131,8 +132,14 @@ The deploy workflow temporarily allowlists the GitHub runner for SSH, uploads th
 
 Do not use local DigitalOcean CLI commands for infrastructure writes. Local `doctl` is read-only; reviewed PRs and GitHub Actions are the production write path.
 
-Use [docs/README.md](docs/README.md) as the documentation map. Cloud provider
-architecture and cost tradeoffs are summarized in
-`docs/cloud-architecture-recommendation.md`. Developer workflows are covered in
-`docs/developer-guide.md`. App-level architecture docs live under `docs/apps/`,
-and datastore ownership is documented in `docs/database/`.
+## Documentation
+
+Use [docs/README.md](docs/README.md) as the documentation map. The most useful runbooks:
+
+- [Architecture](docs/architecture.md) - system shape and components.
+- [Local development](docs/local-development.md) - run the shared stack on your machine.
+- [Developer guide](docs/developer-guide.md) - per-app workflows.
+- [Deployment](docs/deployment.md) and [Operations](docs/operations.md) - ship and run production.
+- [Secrets](docs/secrets.md) and [Rollback](docs/rollback.md) - credential handling and recovery.
+- [Cloud architecture recommendation](docs/cloud-architecture-recommendation.md) - hosting and cost tradeoffs.
+- App architecture lives under [docs/apps/](docs/apps/README.md); datastore ownership under [docs/database/](docs/database/README.md).

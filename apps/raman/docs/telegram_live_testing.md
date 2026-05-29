@@ -62,7 +62,7 @@ cp .env.example .env
 Required values:
 
 ```bash
-RAMAN_DEV_MODEL=gemma4:26b
+RAMAN_DEV_MODEL=gemma4:26b-mlx
 OLLAMA_BASE_URL=http://localhost:11434/v1
 
 TELEGRAM_BOT_TOKEN=<bot token from BotFather>
@@ -88,7 +88,7 @@ Telegram only allows `A-Z`, `a-z`, `0-9`, `_`, and `-` in
 
 ```bash
 ollama serve
-ollama pull gemma4:26b
+ollama pull gemma4:26b-mlx
 uv run raman-api
 ```
 

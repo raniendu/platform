@@ -49,7 +49,7 @@ def test_settings_default_to_local_ollama(monkeypatch):
     model = build_model(default_settings)
 
     assert isinstance(model, OllamaModel)
-    assert model.model_name == "gemma4:26b"
+    assert model.model_name == "gemma4:26b-mlx"
     assert default_settings.normalized_ollama_base_url == "http://localhost:11434/v1"
     assert model.provider.base_url.rstrip("/") == "http://localhost:11434/v1"
     assert default_settings.grocery_list_path.name == "grocery_lists.json"

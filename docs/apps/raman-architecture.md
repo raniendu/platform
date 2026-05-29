@@ -62,7 +62,7 @@ values to `/opt/platform/.env.raman` so only Raman receives them.
 `web_search`.
 
 Local Compose builds `apps/raman` and defaults to `RAMAN_MODEL_PROVIDER=ollama`
-and `RAMAN_DEV_MODEL=gemma4:26b`, with
+and `RAMAN_DEV_MODEL=gemma4:26b-mlx`, with
 `OLLAMA_BASE_URL` pointing at `host.docker.internal:11434` so a host Ollama
 daemon can serve the container.
 

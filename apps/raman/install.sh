@@ -151,7 +151,7 @@ bold "Model provider (pick one):"
 cat <<EOF
   # Local Ollama (default):
   export OLLAMA_BASE_URL="http://localhost:11434/v1"
-  export RAMAN_DEV_MODEL="gemma4:26b"
+  export RAMAN_DEV_MODEL="gemma4:26b-mlx"
 
   # Or DigitalOcean serverless inference:
   # export RAMAN_MODEL_PROVIDER=digitalocean

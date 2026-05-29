@@ -101,6 +101,10 @@ This shape is good. Each axis below extends it without bulldozing it.
 
 ## Axis 1: Multi-agent
 
+> A concrete specialist on this axis is now spec'd: a **coding agent** scoped to
+> the CLI surface. See [specs/coding-agent.md](specs/coding-agent.md) and its
+> phased [specs/coding-agent-roadmap.md](specs/coding-agent-roadmap.md).
+
 ### Patterns
 
 The literature uses a lot of names for what amount to ~5 distinct patterns. The

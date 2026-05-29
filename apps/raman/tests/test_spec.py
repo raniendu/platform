@@ -52,6 +52,26 @@ def test_load_real_leo_spec():
     assert "as-of date" in spec.instructions
 
 
+def test_load_real_coder_spec():
+    settings = RamanSettings(_env_file=None)
+    spec = load_spec("coder", settings.spec_root)
+
+    assert spec.name == "Coder"
+    assert spec.description.startswith("CLI-only coding agent")
+    assert spec.cli_only is True
+    assert spec.shared_context_files == [Path("context/production.md")]
+    assert spec.tools == [
+        "read_file",
+        "glob",
+        "grep",
+        "write_file",
+        "edit_file",
+        "run_command",
+    ]
+    assert "cwd is the workspace" in spec.instructions
+    assert "Use read_file, glob, and grep" in spec.instructions
+
+
 def _write_agent_spec(agent_dir: Path, body: str) -> None:
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "agent.toml").write_text(body)

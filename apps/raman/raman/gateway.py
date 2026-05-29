@@ -15,7 +15,7 @@ from pydantic_ai.messages import ModelMessage
 from raman.agent import build_agent
 from raman.logging import get_logger, safe_metadata, thread_hash
 from raman.settings import RamanSettings
-from raman.spec import load_spec
+from raman.spec import ensure_surface_allowed, load_spec
 
 logger = get_logger(__name__)
 
@@ -326,6 +326,7 @@ class ConversationService:
             return self._agent_factory(name)
         if name not in self._agent_cache:
             spec = load_spec(name, self.settings.spec_root)
+            ensure_surface_allowed(spec, "threaded")
             self._agent_cache[name] = build_agent(spec=spec, settings=self.settings)
         return self._agent_cache[name]
 

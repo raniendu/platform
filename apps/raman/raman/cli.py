@@ -183,7 +183,14 @@ async def run_interactive(agent: "Agent", *, prog_name: str, quiet: bool) -> Non
             continue
 
         try:
-            messages = await _render_turn(agent, text, messages, console, quiet=quiet)
+            messages = await _render_turn(
+                agent,
+                text,
+                messages,
+                console,
+                quiet=quiet,
+                approval_session=session,
+            )
         except KeyboardInterrupt:
             console.print("[dim]Interrupted[/dim]")
         except Exception as exc:  # pragma: no cover - surface anything else to user
@@ -197,12 +204,25 @@ async def _render_turn(
     console: "Console",
     *,
     quiet: bool,
+    approval_session: Any | None = None,
 ) -> list["ModelMessage"]:
     from pydantic_ai import Agent as _Agent
+    from pydantic_ai.capabilities import HandleDeferredToolCalls
 
     tool_timers: dict[str, float] = {}
+    capabilities = None
+    if approval_session is not None:
 
-    async with agent.iter(prompt, message_history=messages) as agent_run:
+        async def approval_handler(ctx: Any, requests: Any) -> Any:
+            return await _resolve_deferred_tool_requests(
+                ctx, requests, session=approval_session, console=console
+            )
+
+        capabilities = [HandleDeferredToolCalls(handler=approval_handler)]
+
+    async with agent.iter(
+        prompt, message_history=messages, capabilities=capabilities
+    ) as agent_run:
         async for node in agent_run:
             if _Agent.is_model_request_node(node):
                 async with node.stream(agent_run.ctx) as stream:
@@ -214,6 +234,39 @@ async def _render_turn(
                     )
         assert agent_run.result is not None
         return list(agent_run.result.all_messages())
+
+
+async def _resolve_deferred_tool_requests(
+    ctx: Any,
+    requests: Any,
+    *,
+    session: Any,
+    console: "Console",
+) -> Any:
+    from pydantic_ai.exceptions import ModelRetry
+    from pydantic_ai.tools import ToolApproved, ToolDenied
+
+    approvals: dict[str, ToolApproved | ToolDenied] = {}
+    calls: dict[str, ModelRetry] = {}
+
+    for call in requests.approvals:
+        args_repr = _format_call_args(call)
+        rendered_call = f"{call.tool_name}({args_repr})"
+        console.print(f"[yellow]? approve {rendered_call}[/yellow]")
+        answer = (
+            (await session.prompt_async("Approve tool call? [y/N] ")).strip().lower()
+        )
+        if answer in {"y", "yes"}:
+            approvals[call.tool_call_id] = ToolApproved()
+        else:
+            approvals[call.tool_call_id] = ToolDenied("User denied this tool call.")
+
+    for call in requests.calls:
+        calls[call.tool_call_id] = ModelRetry(
+            "External deferred tool calls are not supported by the Raman CLI."
+        )
+
+    return requests.build_results(approvals=approvals, calls=calls)
 
 
 async def _render_model_request(

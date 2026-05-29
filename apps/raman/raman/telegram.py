@@ -11,6 +11,7 @@ import telegramify_markdown
 from raman.gateway import InboundMessage, MessageEnqueuer, ThreadStore
 from raman.logging import chat_hash, get_logger
 from raman.settings import RamanSettings
+from raman.spec import AgentSurfaceError, ensure_surface_allowed, load_spec
 from raman.telegram_config import (
     LEGACY_BOT_NAME,
     TelegramBotConfig,
@@ -285,11 +286,20 @@ class TelegramAdapter:
                     reply_to_message_id=reply_to_message_id_for_response(message),
                 )
                 return TelegramWebhookResult(status="handled")
-            spec_path = self.settings.spec_root / agent_name / "agent.toml"
-            if not spec_path.exists():
+            try:
+                spec = load_spec(agent_name, self.settings.spec_root)
+                ensure_surface_allowed(spec, "telegram")
+            except FileNotFoundError:
                 await self.send_message(
                     message.chat_id,
                     f"Unknown agent: {agent_name}",
+                    reply_to_message_id=reply_to_message_id_for_response(message),
+                )
+                return TelegramWebhookResult(status="handled")
+            except AgentSurfaceError:
+                await self.send_message(
+                    message.chat_id,
+                    f"Agent {agent_name} is only available in the local CLI.",
                     reply_to_message_id=reply_to_message_id_for_response(message),
                 )
                 return TelegramWebhookResult(status="handled")

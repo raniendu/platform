@@ -1,7 +1,7 @@
 # Roadmap: Coding Agent for Raman
 
-> Snapshot taken May 2026 — status callouts reflect intent as of 2026-05-28,
-> before any code lands. Phased lowest-risk-first.
+> Snapshot updated May 2026 — status callouts reflect implementation state as
+> of 2026-05-29. Phased lowest-risk-first.
 >
 > Companion to the [coding-agent.md](coding-agent.md) design spec and to Axis 1
 > (Multi-agent) of [../architecture_roadmap.md](../architecture_roadmap.md).
@@ -17,7 +17,7 @@ model provider, and an approval gate for destructive tools.
 - **Files:** `apps/raman/docs/specs/coding-agent.md`, this roadmap.
 - **Exit:** design spec reviewed; provider choice and approval model agreed.
 
-## Phase 1 — Read-only repo Q&A `[planned]`
+## Phase 1 — Read-only repo Q&A `[done]`
 
 The lowest-risk slice: a coding agent that can read and search a repo but not
 change it.
@@ -26,27 +26,27 @@ change it.
   `system_prompt.md` on the existing `digitalocean` Gemma4 provider — no model
   code change.
 - **Files:** `raman/tools.py` (new tools + `TOOL_REGISTRY`), `spec/coder/`.
-- **Exit:** `uv run raman --agent coder` answers "explain this code" / "where is
-  X handled" against the current working directory, and Gemma4 drives the read
-  tools well enough to be useful (feasibility check). No writes, no exec.
+- **Exit:** `uv run raman --agent coder` can inspect the current working
+  directory with cwd-scoped `read_file`, `glob`, and `grep`. Sensitive paths and
+  paths outside cwd are refused.
 
-## Phase 2 — Edits with approval `[planned]`
+## Phase 2 — Edits with approval `[done]`
 
 - **Scope:** `write_file` and `edit_file` (string-replace), each explicitly defined
-  as deferred/unapproved tools (`Tool(..., requires_approval=True)`) with a resume
-  path. Wiring a confirmation prompt only around the CLI tool-call renderer is not
-  enough, as normal function tools are executed immediately in Pydantic AI.
+  as deferred/unapproved tools (`Tool(..., requires_approval=True)`). The CLI
+  resolves Pydantic AI deferred approval requests inline with
+  `HandleDeferredToolCalls`, prompting before execution.
 - **Files:** `raman/tools.py` (write/edit tools configured for approval), `raman/cli.py`
-  (handling unapproved tool calls and the resume path).
+  (handling unapproved tool calls).
 - **Exit:** agent proposes an edit, the user approves, the file changes;
   declining leaves the working tree untouched.
 
-## Phase 3 — Command execution `[planned]`
+## Phase 3 — Command execution `[done]`
 
 - **Scope:** `run_command` behind approval **and** a conservative allowlist
   (tests, formatters, `git status`/`diff`).
-- **Files:** `raman/tools.py` (`run_command` + allowlist), `raman/settings.py`
-  (configurable allowlist if needed), `spec/coder/system_prompt.md`.
+- **Files:** `raman/tools.py` (`run_command` + allowlist),
+  `spec/coder/system_prompt.md`.
 - **Exit:** can run the app's tests/formatters with per-command confirmation;
   disallowed commands are refused without prompting.
 

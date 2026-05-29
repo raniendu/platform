@@ -1,8 +1,7 @@
 # Spec: Coding Agent for Raman
 
-> Snapshot taken May 2026 — status callouts (`[planned]`, `[in progress]`,
-> `[done]`) reflect intent as of 2026-05-28, before any code lands. Re-verify
-> `file:line` references when this file is more than a quarter old.
+> Snapshot updated May 2026 — Phases 1-3 are implemented as of 2026-05-29.
+> Re-verify `file:line` references when this file is more than a quarter old.
 >
 > Companion to the phased [coding-agent-roadmap.md](coding-agent-roadmap.md) and
 > to Axis 1 (Multi-agent) of
@@ -16,11 +15,11 @@ Raman should be able to act as a **coding agent**: read and edit files in a
 repository, run commands (tests, formatters, git), and iterate toward a change
 the way an interactive coding assistant does.
 
-Today every Raman agent is a thin spec — a `spec/<name>/agent.toml` + system
-prompt + a flat list of string-returning async tools resolved from
-`TOOL_REGISTRY` (`raman/tools.py:126`). The shipped tools are only `web_search`
-and `grocery_list`; nothing reads the filesystem or runs a command, and no
-agent has a notion of a working directory.
+Before the coder agent, every Raman agent was a thin spec — a
+`spec/<name>/agent.toml` + system prompt + a flat list of mostly
+string-returning async tools resolved from `TOOL_REGISTRY`. The original shipped
+tools were only `web_search` and `grocery_list`; nothing read the filesystem or
+ran a command, and no agent had a notion of a working directory.
 
 Scope is **single-user, personal** throughout — one operator, no concurrency,
 no multi-tenant isolation concerns. Enterprise patterns are out of scope.

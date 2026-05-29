@@ -20,6 +20,14 @@ def test_chat_unknown_agent_returns_404():
     assert response.json()["detail"].startswith("Unknown agent")
 
 
+def test_chat_rejects_cli_only_agent():
+    with TestClient(app) as client:
+        response = client.post("/chat", json={"prompt": "hi", "agent": "coder"})
+
+    assert response.status_code == 403
+    assert "CLI-only" in response.json()["detail"]
+
+
 def test_chat_rejects_empty_prompt():
     with TestClient(app) as client:
         response = client.post("/chat", json={"prompt": "", "agent": "raman"})

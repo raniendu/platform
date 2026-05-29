@@ -104,6 +104,26 @@ async def test_conversation_service_runs_agent_with_persisted_history(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_conversation_service_rejects_cli_only_agent(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+    service = ConversationService(
+        settings=RamanSettings(_env_file=None),
+        store=store,
+    )
+
+    with pytest.raises(RuntimeError, match="CLI-only"):
+        await service.send_message(
+            InboundMessage(
+                interface="telegram",
+                external_thread_id="123",
+                prompt="hello",
+                agent_name="coder",
+                metadata={},
+            )
+        )
+
+
+@pytest.mark.asyncio
 async def test_conversation_service_appends_context_warning_near_limit(tmp_path):
     store = ThreadStore(tmp_path / "raman.sqlite3")
 

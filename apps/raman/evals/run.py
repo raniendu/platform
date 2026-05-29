@@ -12,7 +12,9 @@ from raman.spec import AgentSpec, load_spec
 
 def iter_eval_specs(spec_root: Path) -> Iterator[AgentSpec]:
     for spec_path in sorted(spec_root.glob("*/agent.toml")):
-        yield load_spec(spec_path.parent.name, spec_root)
+        spec = load_spec(spec_path.parent.name, spec_root)
+        if not spec.cli_only:
+            yield spec
 
 
 async def evaluate_spec(spec: AgentSpec, settings: RamanSettings) -> None:

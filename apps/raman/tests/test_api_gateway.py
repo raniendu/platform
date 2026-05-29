@@ -43,6 +43,21 @@ def test_thread_message_endpoint_enqueues_message(monkeypatch):
     assert dispatcher.messages[0].external_thread_id == "abc"
 
 
+def test_thread_message_endpoint_rejects_cli_only_agent(monkeypatch):
+    dispatcher = FakeDispatcher()
+    monkeypatch.setattr(api, "_get_dispatcher", lambda: dispatcher)
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            "/threads/web/abc/messages",
+            json={"prompt": "hello", "agent": "coder"},
+        )
+
+    assert response.status_code == 403
+    assert "CLI-only" in response.json()["detail"]
+    assert dispatcher.messages == []
+
+
 def test_event_status_endpoint_returns_dispatcher_status(monkeypatch):
     dispatcher = FakeDispatcher()
     monkeypatch.setattr(api, "_get_dispatcher", lambda: dispatcher)

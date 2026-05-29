@@ -13,7 +13,7 @@ from raman.gateway import InboundMessage, ThreadStore
 from raman.logging import configure_logging, get_logger, thread_hash
 from raman.observability import init_observability
 from raman.settings import RamanSettings
-from raman.spec import load_spec
+from raman.spec import AgentSurfaceError, ensure_surface_allowed, load_spec
 from raman.telegram import TelegramAdapter
 from raman.telegram_config import TelegramConfig, load_telegram_config
 
@@ -56,10 +56,17 @@ def _get_settings() -> RamanSettings:
     return _settings
 
 
+def _load_http_spec(name: str):
+    settings = _get_settings()
+    spec = load_spec(name, settings.spec_root)
+    ensure_surface_allowed(spec, "http")
+    return spec
+
+
 def _get_agent(name: str) -> Agent[None, str]:
     if name not in _agents:
         settings = _get_settings()
-        spec = load_spec(name, settings.spec_root)
+        spec = _load_http_spec(name)
         _agents[name] = build_agent(spec=spec, settings=settings)
     return _agents[name]
 
@@ -140,6 +147,8 @@ async def chat(req: ChatRequest) -> ChatResponse:
     name = req.agent or _get_settings().default_agent
     try:
         agent = _get_agent(name)
+    except AgentSurfaceError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown agent: {name}") from exc
 
@@ -156,6 +165,15 @@ async def thread_message(
     external_thread_id: str,
     req: ThreadMessageRequest,
 ) -> EnqueueResponse:
+    agent_name = req.agent or _get_settings().default_agent
+    try:
+        _load_http_spec(agent_name)
+    except AgentSurfaceError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Unknown agent: {agent_name}"
+        ) from exc
     logger.info(
         "thread_message_received",
         interface=interface,

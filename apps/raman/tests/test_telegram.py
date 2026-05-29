@@ -284,6 +284,34 @@ async def test_telegram_agent_command_persists_existing_spec(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_telegram_agent_command_rejects_cli_only_spec(tmp_path):
+    store = ThreadStore(tmp_path / "raman.sqlite3")
+    sent = []
+
+    async def send_text(chat_id, text, reply_to_message_id=None):
+        sent.append((chat_id, text, reply_to_message_id))
+
+    adapter = TelegramAdapter(
+        settings=make_settings(),
+        store=store,
+        enqueue_message=None,
+        send_text=send_text,
+    )
+
+    result = await adapter.handle_update(text_update("/agent coder"))
+
+    assert result.status == "handled"
+    assert (
+        store.get_thread("telegram", "123", default_agent="alfred").agent_name
+        == "alfred"
+    )
+    assert sent == [
+        (123, chunk, None)
+        for chunk in expected("Agent coder is only available in the local CLI.")
+    ]
+
+
+@pytest.mark.asyncio
 async def test_telegram_agent_command_persists_in_bot_scoped_thread(tmp_path):
     store = ThreadStore(tmp_path / "raman.sqlite3")
     sent = []

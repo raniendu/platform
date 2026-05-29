@@ -1,12 +1,14 @@
 # Tools
 
-Tools are async Python callables that the agent can invoke during a run.
-They live in `raman/tools.py`, registered by name in `TOOL_REGISTRY`, and are
-referenced by name from each agent's `agent.toml` under `tools = [...]`.
+Tools are async Python callables, or explicit `pydantic_ai.Tool` wrappers, that
+the agent can invoke during a run. They live in `raman/tools.py`, registered by
+name in `TOOL_REGISTRY`, and are referenced by name from each agent's
+`agent.toml` under `tools = [...]`.
 
 ## How a tool flows through the system
 
-1. `raman.tools.TOOL_REGISTRY` maps a string name to an `async def` callable.
+1. `raman.tools.TOOL_REGISTRY` maps a string name to an `async def` callable or
+   a `Tool(...)` wrapper.
 2. Each agent spec lists the tools it wants: `tools = ["web_search"]`.
 3. `raman.agent.build_agent` resolves names against the registry and passes
    the callables to `pydantic_ai.Agent(..., tools=[...])`.
@@ -52,6 +54,9 @@ Conventions:
   receives.
 - **Docstring describes *when* to use the tool**, not just what it does.
   The first line should answer "why would the model pick this?".
+- **Wrap destructive tools.** Tools that write files or execute commands should
+  be registered as `Tool(function, requires_approval=True)` and exposed only on
+  surfaces that can handle deferred approvals.
 
 ### 2. Reference it from a spec
 

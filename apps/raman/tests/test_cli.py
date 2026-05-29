@@ -5,6 +5,10 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from pydantic_ai.messages import ToolCallPart
+from pydantic_ai.tools import DeferredToolRequests, ToolApproved, ToolDenied
+
 APP_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -144,3 +148,49 @@ def test_quiet_rejects_once(capsys):
         raise AssertionError("Expected parser error")
 
     assert "--quiet cannot be combined with --once" in capsys.readouterr().err
+
+
+@pytest.mark.asyncio
+async def test_cli_deferred_tool_handler_prompts_for_approval():
+    from raman.cli import _resolve_deferred_tool_requests
+
+    class FakeSession:
+        def __init__(self):
+            self.answers = ["y", "no"]
+            self.prompts = []
+
+        async def prompt_async(self, prompt, **kwargs):
+            self.prompts.append((prompt, kwargs))
+            return self.answers.pop(0)
+
+    class FakeConsole:
+        def __init__(self):
+            self.messages = []
+
+        def print(self, *args, **kwargs):
+            self.messages.append((args, kwargs))
+
+    session = FakeSession()
+    console = FakeConsole()
+    requests = DeferredToolRequests(
+        approvals=[
+            ToolCallPart(
+                "write_file",
+                {"path": "notes.txt", "content": "hello"},
+                tool_call_id="call-1",
+            ),
+            ToolCallPart(
+                "run_command",
+                {"command": "git status --short"},
+                tool_call_id="call-2",
+            ),
+        ]
+    )
+
+    results = await _resolve_deferred_tool_requests(
+        None, requests, session=session, console=console
+    )
+
+    assert isinstance(results.approvals["call-1"], ToolApproved)
+    assert isinstance(results.approvals["call-2"], ToolDenied)
+    assert len(session.prompts) == 2

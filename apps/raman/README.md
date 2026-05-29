@@ -58,7 +58,7 @@ uv sync
 uv run pre-commit install
 cp .env.example .env
 
-ollama pull gemma4:26b
+ollama pull gemma4:26b-mlx
 ollama serve
 ```
 
@@ -347,7 +347,7 @@ Environment variables (see `.env.example`):
 
 | Variable                      | Default                                | Purpose                                                                    |
 | ----------------------------- | -------------------------------------- | -------------------------------------------------------------------------- |
-| `RAMAN_DEV_MODEL`             | `gemma4:26b`                           | Ollama model name                                                          |
+| `RAMAN_DEV_MODEL`             | `gemma4:26b-mlx`                           | Ollama model name                                                          |
 | `OLLAMA_BASE_URL`             | `http://localhost:11434/v1`            | Ollama server URL                                                          |
 | `RAMAN_AGENT`                 | `raman`                                | Default agent spec to load                                                 |
 | `RAMAN_SPEC_ROOT`             | `<repo>/spec`                          | Spec folder location                                                       |

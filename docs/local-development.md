@@ -150,7 +150,7 @@ cd apps/raman
 cp .env.example .env
 uv sync --locked
 uv run pytest tests -q
-ollama pull gemma4:26b
+ollama pull gemma4:26b-mlx
 uv run raman-api
 ```
 

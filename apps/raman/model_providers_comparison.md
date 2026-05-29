@@ -38,7 +38,7 @@ remaining swappable behind Pydantic AI's `Model` interface.
 | **Groq** | Llama 8B/70B, Qwen3, etc. | $0.05/$0.08 → $0.59/$0.79 | Yes — all models, generous | Yes (varies by model) | No | 8K–128K (model-dep) | Limited | **300–1000 tok/s** | Yes | US | Low |
 | **Cerebras** | Llama 8B/70B, Qwen3 | $0.60/$0.80 → $3.90 (range) | 30 RPM / 1M tok/day | Yes | No | Model-dep | No | **1800+ tok/s** | Yes | US | Low |
 | **OpenRouter** | 200+ models, every major + open | passthrough + ~5% | Per-model varies | Per-model | Per-model | Per-model | Per-model | Per-model | **Yes** | Routes globally | **Low** (purpose-built to *avoid* lock-in) |
-| **Ollama (current dev)** | Any GGUF you pull (gemma4:26b today) | Free (electricity) | n/a | Yes | No | Model-dep | Limited | Hardware-bound | Yes | **localhost** | None |
+| **Ollama (current dev)** | Any GGUF you pull (gemma4:26b-mlx today) | Free (electricity) | n/a | Yes | No | Model-dep | Limited | Hardware-bound | Yes | **localhost** | None |
 
 ---
 
@@ -175,7 +175,7 @@ real usage).
 
 | Provider / Model | Input cost | Output cost | **Monthly** |
 |---|---|---|---|
-| Ollama gemma4:26b (current) | — | — | **$0** (electricity) |
+| Ollama gemma4:26b-mlx (current) | — | — | **$0** (electricity) |
 | Gemini 2.5 Flash-Lite via AI Studio free tier | — | — | **$0** (1500 req/day covers it) |
 | Gemini 2.5 Flash-Lite (paid) | $0.10 | $0.20 | **$0.30** |
 | Groq Llama 3.1 8B | $0.05 | $0.04 | **$0.09** |
@@ -226,7 +226,7 @@ The swap is ~10 lines: replace the `OllamaModel`/`OllamaProvider` pair with
 `OpenAIChatModel("<do-model-id>", provider=OpenAIProvider(base_url=
 "https://inference.do-ai.run/v1", api_key=settings.do_inference_api_key))`,
 add the env var to `RamanSettings`/`.env.example`/README, and update the
-default model id (the current `gemma4:26b` is an Ollama tag, not a DO catalog
+default model id (the current `gemma4:26b-mlx` is an Ollama tag, not a DO catalog
 name). Tool calling is the one runtime risk to validate per chosen model —
 Llama 3.3 70B and the Anthropic passthrough are the safe picks; smaller
 open-weight models in the catalog are inconsistent on multi-step tools.

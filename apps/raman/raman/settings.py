@@ -52,7 +52,7 @@ class RamanSettings(BaseSettings):
     model_provider: ModelProvider = Field(
         default="ollama", validation_alias="RAMAN_MODEL_PROVIDER"
     )
-    dev_model: str = Field(default="gemma4:26b", validation_alias="RAMAN_DEV_MODEL")
+    dev_model: str = Field(default="gemma4:26b-mlx", validation_alias="RAMAN_DEV_MODEL")
     ollama_base_url: str = Field(
         default="http://localhost:11434/v1",
         validation_alias="OLLAMA_BASE_URL",

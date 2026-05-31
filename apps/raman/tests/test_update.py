@@ -284,6 +284,65 @@ def test_run_full_update_writes_metadata(
     assert saved["git_sha"] == new
 
 
+def test_run_reinstalls_when_installed_sha_lags_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source, _ = _wire_source(monkeypatch, tmp_path)
+    _stub_path_with_git_and_uv(monkeypatch)
+
+    installed = "a" * 40
+    current = "b" * 40
+    update_module.write_metadata(
+        {
+            "source_dir": str(source),
+            "python_version": "3.13",
+            "git_sha": installed,
+        }
+    )
+
+    git = GitFake(
+        {
+            ("status", "--porcelain"): "",
+            ("rev-parse", "HEAD"): current,
+            ("rev-parse", "--abbrev-ref", "HEAD"): "main",
+            ("rev-parse", "origin/main"): current,
+        }
+    )
+    monkeypatch.setattr(update_module, "_git", git)
+
+    install_calls: list[Sequence[str]] = []
+
+    def fake_run(
+        cmd: Sequence[str],
+        *,
+        cwd: Path | None = None,
+        capture: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        install_calls.append(cmd)
+        return subprocess.CompletedProcess(
+            args=list(cmd), returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(update_module, "_run", fake_run)
+
+    rc = update_module.run(["--source", str(source)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert installed[:12] in out and current[:12] in out
+    assert "reinstalled" in out
+    assert ("pull", "--quiet", "--ff-only") not in git.calls
+
+    assert len(install_calls) == 1
+    cmd = install_calls[0]
+    assert "--reinstall-package" in cmd
+    assert "--from" in cmd
+    assert str(source / "apps" / "raman") in cmd
+
+    saved = update_module.load_metadata()
+    assert saved["git_sha"] == current
+
+
 def test_spec_root_falls_back_to_install_metadata(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

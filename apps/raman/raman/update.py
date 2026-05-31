@@ -234,7 +234,12 @@ def run(argv: Sequence[str] | None = None) -> int:
                 return 1
             target_sha = _upstream_sha(source, branch)
 
-        if target_sha == old_sha and not args.ref:
+        meta = load_metadata()
+        installed_sha = str(meta.get("git_sha") or "")
+        installed_is_stale = bool(installed_sha) and installed_sha != old_sha
+        source_is_current = target_sha == old_sha and not args.ref
+
+        if source_is_current and not installed_is_stale:
             _emit(
                 f"Already up to date at {old_sha[:12]}.",
                 json_mode=args.json,
@@ -247,26 +252,46 @@ def run(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.check:
-            ahead = _commit_count(source, old_sha, target_sha)
-            _emit(
-                f"{ahead} commit(s) pending: {old_sha[:12]} → {target_sha[:12]}",
-                json_mode=args.json,
-                payload={
-                    "status": "pending",
-                    "old_sha": old_sha,
-                    "new_sha": target_sha,
-                    "commits": ahead,
-                    "source": str(source),
-                },
-            )
+            if source_is_current and installed_is_stale:
+                _emit(
+                    (
+                        "Installed tool is stale: "
+                        f"{installed_sha[:12]} → {old_sha[:12]}"
+                    ),
+                    json_mode=args.json,
+                    payload={
+                        "status": "pending_reinstall",
+                        "old_sha": installed_sha,
+                        "new_sha": old_sha,
+                        "source": str(source),
+                    },
+                )
+            else:
+                ahead = _commit_count(source, old_sha, target_sha)
+                _emit(
+                    (
+                        f"{ahead} commit(s) pending: "
+                        f"{old_sha[:12]} → {target_sha[:12]}"
+                    ),
+                    json_mode=args.json,
+                    payload={
+                        "status": "pending",
+                        "old_sha": old_sha,
+                        "new_sha": target_sha,
+                        "commits": ahead,
+                        "source": str(source),
+                    },
+                )
             return 0
 
-        if not args.ref:
+        if args.ref:
+            new_sha = target_sha
+        elif not source_is_current:
             _git(["pull", "--quiet", "--ff-only"], cwd=source)
+            new_sha = _git(["rev-parse", "HEAD"], cwd=source)
+        else:
+            new_sha = old_sha
 
-        new_sha = _git(["rev-parse", "HEAD"], cwd=source)
-
-        meta = load_metadata()
         python_version = str(meta.get("python_version") or DEFAULT_PYTHON_VERSION)
         raman_dir = source / "apps" / "raman"
         if not (raman_dir / "pyproject.toml").is_file():
@@ -309,18 +334,30 @@ def run(argv: Sequence[str] | None = None) -> int:
             }
         )
 
-        ahead = _commit_count(source, old_sha, new_sha)
-        _emit(
-            f"raman: {old_sha[:12]} → {new_sha[:12]} ({ahead} commit(s))",
-            json_mode=args.json,
-            payload={
-                "status": "updated",
-                "old_sha": old_sha,
-                "new_sha": new_sha,
-                "commits": ahead,
-                "source": str(source),
-            },
-        )
+        if source_is_current and installed_is_stale:
+            _emit(
+                f"raman: {installed_sha[:12]} → {new_sha[:12]} (reinstalled)",
+                json_mode=args.json,
+                payload={
+                    "status": "reinstalled",
+                    "old_sha": installed_sha,
+                    "new_sha": new_sha,
+                    "source": str(source),
+                },
+            )
+        else:
+            ahead = _commit_count(source, old_sha, new_sha)
+            _emit(
+                f"raman: {old_sha[:12]} → {new_sha[:12]} ({ahead} commit(s))",
+                json_mode=args.json,
+                payload={
+                    "status": "updated",
+                    "old_sha": old_sha,
+                    "new_sha": new_sha,
+                    "commits": ahead,
+                    "source": str(source),
+                },
+            )
         return 0
     except UpdateError as exc:
         print(str(exc), file=sys.stderr)

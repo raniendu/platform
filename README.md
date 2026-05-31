@@ -1,41 +1,39 @@
 # Platform
 
-Monorepo for the services previously split across `dotDev`, `prefect`, `flow`, and `raman`, plus shared deployment wiring.
+A personal monorepo of small, independent Python apps that share one deployment
+setup. Each app keeps its own dependencies and tests; everything ships together
+to a single host behind one reverse proxy.
 
-Production runs on a single DigitalOcean Droplet managed by Terraform and deployed from GitHub Actions with Docker Compose. Local development remains Docker-first and uses the same app layout as production.
+Local development is Docker-first and mirrors the production layout, so the same
+Compose stack you run on your machine is the one that runs in production.
 
-Current production host: `platform-shared` at `174.138.71.121`, size `s-1vcpu-2gb`, with weekly Droplet backups enabled. The steady-state DigitalOcean estimate is about `$14.40/month` before taxes and unusual bandwidth.
+## Apps
 
-## Layout
+| App | What it is | Stack |
+| --- | --- | --- |
+| `apps/dotdev/` | Personal website | Flask, Python 3.13 |
+| `apps/raman/` | Personal AI agent (HTTP + Telegram) | FastAPI + Pydantic AI, Python 3.13 |
+| `apps/prefect/` | Prefect flows, server, and worker | Prefect, Python 3.10+ |
+| `apps/flow/` | Airflow DAGs and image | Airflow, Python 3.10+ |
 
-- `apps/dotdev/` - Flask personal site, Python 3.13.
-- `apps/raman/` - Personal Pydantic AI agent, FastAPI HTTP/Telegram surface, Python 3.13.
-- `apps/prefect/` - Prefect flows, config, worker scripts, Python 3.10+.
-- `apps/flow/` - Airflow DAGs and image, Python 3.10+.
-- `deploy/compose/` - shared local and production Docker Compose files.
+## Repository Layout
+
+- `apps/` - the apps above, each self-contained with its own `pyproject.toml`.
+- `deploy/compose/` - local and production Docker Compose files.
 - `deploy/caddy/` - Caddy routing for local and production.
-- `infra/terraform/` - shared DigitalOcean Droplet infrastructure.
-- `.github/workflows/` - CI and production deploy workflows.
-- `docs/` - documentation map, architecture, local development, deployment, operations, DNS, secrets, rollback, cost, and app architecture docs.
-- `scripts/` - root helpers for uv, tests, and local Compose.
+- `infra/terraform/` - infrastructure definitions.
+- `.github/workflows/` - CI and deploy workflows.
+- `scripts/` - root helpers for syncing apps, running tests, and local Compose.
+- `docs/` - architecture, runbooks, and per-app docs (start at `docs/README.md`).
 
 ## Quick Start
 
-Install `uv` and Docker Desktop, then create local env values:
+You need `uv` and Docker Desktop. Create local env values, install per-app
+Python environments, and run the test suites:
 
 ```bash
 cp .env.example .env.local
-```
-
-Install per-app Python environments:
-
-```bash
 ./scripts/sync-apps.sh --locked
-```
-
-Run targeted checks:
-
-```bash
 ./scripts/test-apps.sh
 ```
 
@@ -45,21 +43,24 @@ Start the shared local stack:
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local up -d --build
 ```
 
-Local service URLs:
+Apps are served through Caddy on friendly hostnames:
 
 - DotDev: `http://dotdev.localhost`
 - Prefect: `http://prefect.localhost`
 - Raman: `http://raman.localhost`
 - Airflow: `http://flow.localhost`
 
-Direct container ports are also exposed for smoke checks:
+Container ports are also exposed directly for quick smoke checks:
 
 - DotDev: `http://localhost:8501`
 - Raman: `http://localhost:8000/healthz`
 - Prefect: `http://localhost:4200/api/health`
 - Airflow: `http://localhost:8080`
+- Jaeger: `http://localhost:16686`
 
-## Common Commands
+## Working on One App
+
+Use the per-app `uv` project when you're changing a single app:
 
 ```bash
 uv sync --project apps/dotdev
@@ -74,20 +75,24 @@ uv run --project apps/prefect pytest apps/prefect/tests/property/
 uv sync --project apps/flow
 uv run --project apps/flow python apps/flow/scripts/validate-dags.py
 uv run --project apps/flow pytest apps/flow/tests/
+```
 
+Validate or inspect the local stack without rebuilding:
+
+```bash
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local config
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local ps
 docker compose -f deploy/compose/docker-compose.local.yml --env-file .env.local down
 ```
 
-## Raman Local Testing
+## Running Raman Locally
 
-Raman has two local run modes:
+Raman has two local run modes that use different env files:
 
-- Platform Compose from the repo root uses root `.env.local`.
+- Repo-root Compose uses the root `.env.local`.
 - Direct app development from `apps/raman/` uses `apps/raman/.env`.
 
-For the platform container path:
+Through the platform container:
 
 ```bash
 cp .env.example .env.local
@@ -96,7 +101,7 @@ curl http://localhost:8000/healthz
 curl http://localhost:8000/chat --json '{"prompt":"say pong"}'
 ```
 
-For direct app development:
+Direct app development:
 
 ```bash
 cd apps/raman
@@ -106,33 +111,41 @@ uv run pytest tests -q
 uv run raman-api
 ```
 
-Use `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1` in root
-`.env.local` for Docker, and `OLLAMA_BASE_URL=http://localhost:11434/v1` in
-`apps/raman/.env` for direct `uv` runs on your Mac.
+The two modes also point at Ollama differently: use
+`OLLAMA_BASE_URL=http://host.docker.internal:11434/v1` in the root `.env.local`
+for Docker, and `OLLAMA_BASE_URL=http://localhost:11434/v1` in `apps/raman/.env`
+for direct `uv` runs.
 
 ## Production
 
-Public routes:
+The public site and apps live at:
 
 - DotDev: `https://raniendu.dev`
 - Prefect: `https://prefect.raniendu.dev`
 - Raman: `https://raman.raniendu.dev`
-- Jaeger: `https://jaeger.raniendu.dev` when observability is enabled
-- Airflow: `https://flow.raniendu.dev` when enabled
+- Airflow: `https://flow.raniendu.dev`
+- Jaeger: `https://jaeger.raniendu.dev`
 
-Deploys run automatically after pushes to `main`. Manual redeploy remains available:
+Pushing to `main` deploys automatically. A manual redeploy is available too:
 
 ```bash
 gh workflow run deploy.yml --repo raniendu/platform --ref main
 gh run watch --repo raniendu/platform --exit-status
 ```
 
-The deploy workflow temporarily allowlists the GitHub runner for SSH, uploads the repo and production env file, starts production Compose, force-recreates Caddy, runs public smoke checks, and removes the temporary SSH firewall rule in an `always()` cleanup step.
+Infrastructure changes go through reviewed PRs and GitHub Actions — local
+`doctl` is read-only and not used for writes. See the runbooks below for host,
+DNS, secret, and rollback details.
 
-Do not use local DigitalOcean CLI commands for infrastructure writes. Local `doctl` is read-only; reviewed PRs and GitHub Actions are the production write path.
+## Documentation
 
-Use [docs/README.md](docs/README.md) as the documentation map. Cloud provider
-architecture and cost tradeoffs are summarized in
-`docs/cloud-architecture-recommendation.md`. Developer workflows are covered in
-`docs/developer-guide.md`. App-level architecture docs live under `docs/apps/`,
-and datastore ownership is documented in `docs/database/`.
+Start at [docs/README.md](docs/README.md) for the full map. The most useful
+runbooks:
+
+- [Architecture](docs/architecture.md) - how the pieces fit together.
+- [Local development](docs/local-development.md) - run the stack on your machine.
+- [Developer guide](docs/developer-guide.md) - per-app workflows.
+- [Deployment](docs/deployment.md) and [Operations](docs/operations.md) - ship and run production.
+- [Secrets](docs/secrets.md) and [Rollback](docs/rollback.md) - credentials and recovery.
+- [Cloud architecture recommendation](docs/cloud-architecture-recommendation.md) - hosting and cost tradeoffs.
+- Per-app architecture under [docs/apps/](docs/apps/README.md); datastore ownership under [docs/database/](docs/database/README.md).

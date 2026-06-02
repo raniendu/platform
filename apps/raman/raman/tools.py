@@ -73,6 +73,26 @@ UV_RUN_OPTIONS_WITH_VALUE = {
     "--with-editable",
     "--with-requirements",
 }
+SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9._/@+-]+$")
+READ_ONLY_GIT_BRANCH_OPTIONS = {
+    "-a",
+    "-r",
+    "-v",
+    "-vv",
+    "--all",
+    "--list",
+    "--remotes",
+    "--show-current",
+    "--verbose",
+}
+READ_ONLY_GIT_REMOTE_OPTIONS = {
+    "-v",
+    "--verbose",
+}
+GIT_READ_OPTIONS_THAT_WRITE_OR_EXEC = {
+    "--ext-diff",
+    "--external-diff",
+}
 
 
 @lru_cache(maxsize=1)
@@ -433,7 +453,9 @@ def _is_allowed_command(argv: list[str]) -> bool:
         return False
     executable = Path(argv[0]).name
     if executable == "git":
-        return len(argv) >= 2 and argv[1] in {"diff", "status"}
+        return _is_read_only_git_command(argv[1:]) or _is_allowed_git_update_command(
+            argv[1:]
+        )
     if executable in {"black", "isort", "pre-commit", "pytest"}:
         return True
     if executable.startswith("python"):
@@ -450,6 +472,105 @@ def _is_allowed_command(argv: list[str]) -> bool:
     if executable == "uv":
         return _is_allowed_uv_run(argv)
     return False
+
+
+def _is_read_only_command(argv: list[str]) -> bool:
+    if not argv:
+        return False
+    executable = Path(argv[0]).name
+    if executable == "git":
+        return _is_read_only_git_command(argv[1:])
+    return False
+
+
+def _is_read_only_git_command(args: list[str]) -> bool:
+    if not args:
+        return False
+    subcommand, rest = args[0], args[1:]
+    if subcommand == "status":
+        return True
+    if subcommand in {"diff", "log", "show"}:
+        return not _has_git_write_or_exec_option(rest)
+    if subcommand == "branch":
+        return all(option in READ_ONLY_GIT_BRANCH_OPTIONS for option in rest)
+    if subcommand == "remote":
+        return _is_read_only_git_remote(rest)
+    if subcommand in {"ls-files", "ls-tree", "rev-list", "rev-parse"}:
+        return True
+    return False
+
+
+def _is_read_only_git_remote(args: list[str]) -> bool:
+    if not args:
+        return True
+    if len(args) == 1 and args[0] in READ_ONLY_GIT_REMOTE_OPTIONS:
+        return True
+    if args[0] == "show":
+        return len(args) == 1 or (len(args) == 2 and _is_safe_git_ref(args[1]))
+    if args[0] == "get-url":
+        return len(args) == 2 and _is_safe_git_ref(args[1])
+    return False
+
+
+def _has_git_write_or_exec_option(args: list[str]) -> bool:
+    for arg in args:
+        if arg in GIT_READ_OPTIONS_THAT_WRITE_OR_EXEC:
+            return True
+        if arg == "--output" or arg.startswith("--output="):
+            return True
+    return False
+
+
+def _is_allowed_git_update_command(args: list[str]) -> bool:
+    if not args:
+        return False
+    subcommand, rest = args[0], args[1:]
+    if subcommand == "switch":
+        return _is_allowed_git_switch(rest)
+    if subcommand == "pull":
+        return _is_allowed_git_pull(rest)
+    if subcommand == "fetch":
+        return _is_allowed_git_fetch(rest)
+    if subcommand == "merge":
+        return _is_allowed_git_ff_merge(rest)
+    return False
+
+
+def _is_allowed_git_switch(args: list[str]) -> bool:
+    return len(args) == 1 and (args[0] == "-" or _is_safe_git_ref(args[0]))
+
+
+def _is_allowed_git_pull(args: list[str]) -> bool:
+    if args == ["--ff-only"]:
+        return True
+    return (
+        len(args) == 3
+        and args[0] == "--ff-only"
+        and _is_safe_git_ref(args[1])
+        and _is_safe_git_ref(args[2])
+    )
+
+
+def _is_allowed_git_fetch(args: list[str]) -> bool:
+    if not args:
+        return True
+    if len(args) == 1:
+        return _is_safe_git_ref(args[0])
+    return len(args) == 2 and _is_safe_git_ref(args[0]) and _is_safe_git_ref(args[1])
+
+
+def _is_allowed_git_ff_merge(args: list[str]) -> bool:
+    return len(args) == 2 and args[0] == "--ff-only" and _is_safe_git_ref(args[1])
+
+
+def _is_safe_git_ref(value: str) -> bool:
+    if not value or value.startswith("-"):
+        return False
+    if value in {".", ".."}:
+        return False
+    if ".." in value or "@{" in value or value.endswith(".lock"):
+        return False
+    return SAFE_GIT_REF_RE.fullmatch(value) is not None
 
 
 def _is_allowed_uv_run(argv: list[str]) -> bool:
@@ -480,6 +601,33 @@ def _truncate_output(text: str, limit: int) -> str:
     return text[:limit] + "\n... output truncated"
 
 
+async def inspect_command(
+    command: str,
+    timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    max_output_chars: int = MAX_COMMAND_OUTPUT_CHARS,
+) -> str:
+    """Run an allowlisted read-only inspection command in cwd.
+
+    Use this for local git inspection that should not require a human approval
+    prompt, such as git status, git branch -a, git remote -v, git log, or git
+    rev-parse. The command is parsed with shlex and executed without a shell.
+    Commands that can change repository state are refused.
+
+    Args:
+        command: Command string, e.g. "git status --short".
+        timeout_seconds: Seconds to wait before killing the process.
+        max_output_chars: Maximum combined output characters to return.
+    """
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        return f"Invalid command: {exc}"
+    if not _is_read_only_command(argv):
+        executable = argv[0] if argv else ""
+        return f"Command is not allowlisted: {executable or command}"
+    return await _execute_command(command, argv, timeout_seconds, max_output_chars)
+
+
 async def run_command(
     command: str,
     timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS,
@@ -487,8 +635,9 @@ async def run_command(
 ) -> str:
     """Run an allowlisted command in the current working directory.
 
-    Use this for validation commands only: tests, formatters, and safe git
-    inspection commands such as git status or git diff. The command is parsed
+    Use this for validation commands and approved repository state changes,
+    such as tests, formatters, git switch <branch>, and git pull --ff-only.
+    Prefer inspect_command for read-only git inspection. The command is parsed
     with shlex and executed without a shell. This tool requires explicit human
     approval before Pydantic AI executes it.
 
@@ -504,6 +653,15 @@ async def run_command(
     if not _is_allowed_command(argv):
         executable = argv[0] if argv else ""
         return f"Command is not allowlisted: {executable or command}"
+    return await _execute_command(command, argv, timeout_seconds, max_output_chars)
+
+
+async def _execute_command(
+    command: str,
+    argv: list[str],
+    timeout_seconds: int,
+    max_output_chars: int,
+) -> str:
     if timeout_seconds < 1:
         return "timeout_seconds must be at least 1."
     if max_output_chars < 1:
@@ -631,6 +789,7 @@ TOOL_REGISTRY: dict[str, ToolEntry] = {
     "read_file": read_file,
     "glob": glob,
     "grep": grep,
+    "inspect_command": inspect_command,
     "write_file": Tool(write_file, requires_approval=True, sequential=True),
     "edit_file": Tool(edit_file, requires_approval=True, sequential=True),
     "run_command": Tool(run_command, requires_approval=True, sequential=True),

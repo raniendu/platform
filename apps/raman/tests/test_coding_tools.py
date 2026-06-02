@@ -103,6 +103,49 @@ async def test_run_command_uses_allowlist(monkeypatch, tmp_path):
     assert "git status --short" in allowed
 
 
+@pytest.mark.asyncio
+async def test_inspect_command_allows_read_only_git_commands(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    branch = await tools.inspect_command("git branch -a")
+    remote = await tools.inspect_command("git remote -v")
+    current = await tools.inspect_command("git rev-parse --abbrev-ref HEAD")
+
+    assert "$ git branch -a" in branch
+    assert "$ git remote -v" in remote
+    assert "$ git rev-parse --abbrev-ref HEAD" in current
+
+
+@pytest.mark.asyncio
+async def test_inspect_command_rejects_mutating_git_commands(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    switch = await tools.inspect_command("git switch main")
+    delete_branch = await tools.inspect_command("git branch -D main")
+    remote_add = await tools.inspect_command("git remote add origin example")
+    diff_output = await tools.inspect_command("git diff --output=patch.txt")
+
+    assert "not allowlisted" in switch
+    assert "not allowlisted" in delete_branch
+    assert "not allowlisted" in remote_add
+    assert "not allowlisted" in diff_output
+
+
+@pytest.mark.asyncio
+async def test_run_command_allows_approved_git_branch_updates(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    switch = await tools.run_command("git switch main")
+    pull = await tools.run_command("git pull --ff-only")
+    unsafe_pull = await tools.run_command("git pull --rebase")
+    reset = await tools.run_command("git reset --hard")
+
+    assert "$ git switch main" in switch
+    assert "$ git pull --ff-only" in pull
+    assert "not allowlisted" in unsafe_pull
+    assert "not allowlisted" in reset
+
+
 def test_destructive_tools_require_pydantic_ai_approval():
     for name in ("write_file", "edit_file", "run_command"):
         tool = tools.TOOL_REGISTRY[name]
@@ -112,5 +155,5 @@ def test_destructive_tools_require_pydantic_ai_approval():
 
 
 def test_read_only_tools_do_not_require_approval():
-    for name in ("read_file", "glob", "grep"):
+    for name in ("read_file", "glob", "grep", "inspect_command"):
         assert not isinstance(tools.TOOL_REGISTRY[name], Tool)

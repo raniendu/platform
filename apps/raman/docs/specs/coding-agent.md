@@ -58,7 +58,7 @@ flowchart LR
     user[Operator] -->|uv run raman --agent coder| cli[raman.cli<br/>run_interactive]
     cli -->|build_agent| agent[Coder Agent<br/>spec/coder]
     cli -->|agent.iter loop| agent
-    agent -->|tool calls| tools[TOOL_REGISTRY<br/>read/write/edit/glob/grep/run]
+    agent -->|tool calls| tools[TOOL_REGISTRY<br/>read/write/edit/glob/grep/inspect/run]
     tools -->|cwd-relative| repo[(Working dir<br/>= workspace)]
     tools -.->|destructive ops| gate{Approval prompt}
     gate -.->|confirm| repo
@@ -86,9 +86,9 @@ approval gate (below) precisely:
 
 | Tier      | Tools                                      | Risk                       |
 | --------- | ------------------------------------------ | -------------------------- |
-| Read-only | `read_file`, `glob`, `grep`                | safe                       |
-| Write     | `write_file`, `edit_file` (string-replace) | needs approval             |
-| Exec      | `run_command`                              | needs approval + allowlist |
+| Read-only | `read_file`, `glob`, `grep`, `inspect_command` | safe                       |
+| Write     | `write_file`, `edit_file` (string-replace)     | needs approval             |
+| Exec      | `run_command`                                  | needs approval + allowlist |
 
 ### MCP compatibility (platform-wide)
 
@@ -128,7 +128,9 @@ outside strong models; see the model-knob comments in `spec/raman/agent.toml`).
 ## Approval gate
 
 Destructive tools — `write_file`, `edit_file`, `run_command` — must **confirm
-before executing**. This is the main safety addition.
+before executing**. Read-only tools, including `inspect_command` for constrained
+git inspection, run without an approval prompt. This is the main safety
+addition.
 
 It is feasible precisely *because* the surface is the interactive, local CLI: a
 prompt_toolkit confirmation (the same library already used in
@@ -145,8 +147,11 @@ Telegram/HTTP, which is another reason those surfaces are out of scope.
   added to any Telegram bot in `spec/telegram.toml`.
 - **Secrets.** Honors the repo CLAUDE.md rules — never print or commit values
   from `.env.*`, Terraform state, or secrets.
-- **`run_command` allowlist.** Start with a conservative allowlist (tests,
-  formatters, git status/diff) plus the approval gate; widen deliberately.
+- **Command allowlists.** `inspect_command` allows constrained read-only git
+  inspection such as `status`, `branch -a`, `remote -v`, `log`, `diff`, and
+  `rev-parse` without approval. `run_command` keeps tests, formatters, and
+  approved git state updates such as `git switch <branch>` and
+  `git pull --ff-only` behind the approval gate; widen deliberately.
 
 ## Caveats & risks
 

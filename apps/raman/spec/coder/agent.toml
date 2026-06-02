@@ -16,6 +16,7 @@ tools = [
   "read_file",
   "glob",
   "grep",
+  "inspect_command",
   "write_file",
   "edit_file",
   "run_command",

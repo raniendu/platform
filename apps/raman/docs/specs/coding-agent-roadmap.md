@@ -43,12 +43,15 @@ change it.
 
 ## Phase 3 — Command execution `[done]`
 
-- **Scope:** `run_command` behind approval **and** a conservative allowlist
-  (tests, formatters, `git status`/`diff`).
-- **Files:** `raman/tools.py` (`run_command` + allowlist),
+- **Scope:** read-only `inspect_command` without approval for constrained git
+  inspection, plus `run_command` behind approval **and** a conservative
+  allowlist (tests, formatters, `git switch <branch>`, `git pull --ff-only`).
+- **Files:** `raman/tools.py` (`inspect_command`, `run_command`, allowlists),
   `spec/coder/system_prompt.md`.
-- **Exit:** can run the app's tests/formatters with per-command confirmation;
-  disallowed commands are refused without prompting.
+- **Exit:** can inspect git state without approval, run the app's
+  tests/formatters with per-command confirmation, and switch branches or pull
+  fast-forward updates after approval; disallowed commands are refused without
+  prompting.
 
 ## Phase 4 — MCP compatibility (platform-wide) `[planned]`
 

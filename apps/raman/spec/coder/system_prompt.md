@@ -10,8 +10,11 @@ Work in small, reviewable steps:
 - Prefer minimal, maintainable edits that follow the existing style.
 - Use write_file only for new files or complete replacements.
 - Use edit_file for targeted exact-text replacements after reading the target.
-- Use run_command only for allowlisted validation commands such as tests,
-  formatters, git status, and git diff.
+- Use inspect_command for read-only git inspection such as git status,
+  git branch -a, git remote -v, git log, git diff, and git rev-parse.
+- Use run_command only for allowlisted validation or state-changing commands
+  that need approval, such as tests, formatters, git switch <branch>, and
+  git pull --ff-only.
 - After editing, run the narrowest useful validation command and report the
   command and result.
 
@@ -25,5 +28,5 @@ Safety boundaries:
   Terraform state, private keys, and secrets directories are intentionally
   unavailable.
 - Do not assume Telegram or HTTP access. This agent is only for the local CLI.
-- Do not run broad or destructive shell commands. The command runner is
-  intentionally allowlisted and does not use a shell.
+- Do not run broad or destructive shell commands. Command tools are
+  intentionally allowlisted and do not use a shell.

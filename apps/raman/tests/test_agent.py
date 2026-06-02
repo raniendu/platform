@@ -5,6 +5,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 
 from raman.agent import agent, build_agent
 from raman.settings import RamanSettings, build_model
+from raman.spec import AgentSpec
 
 RAMAN_ENV_VARS = (
     "RAMAN_DEV_MODEL",
@@ -42,6 +43,26 @@ def test_build_agent_uses_requested_settings(monkeypatch):
     assert local_agent.name == "Raman"
     assert isinstance(local_agent.model, OllamaModel)
     assert local_agent.model.model_name == "qwen3"
+
+
+def test_build_agent_reports_unknown_tools(monkeypatch, tmp_path):
+    (tmp_path / "system_prompt.md").write_text("PROMPT", encoding="utf-8")
+    spec = AgentSpec(
+        name="Broken",
+        description="Spec with a missing tool",
+        system_prompt=tmp_path / "system_prompt.md",
+        tools=["missing_tool"],
+        agent_dir=tmp_path,
+        shared_dir=tmp_path / "shared",
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        build_agent(spec=spec, settings=clean_settings(monkeypatch))
+
+    message = str(exc_info.value)
+    assert "Broken" in message
+    assert "missing_tool" in message
+    assert "raman update" in message
 
 
 def test_settings_default_to_local_ollama(monkeypatch):

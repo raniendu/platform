@@ -101,8 +101,9 @@ bash apps/raman/install.sh                           # from inside a checkout
 # bash ~/.local/share/raman/apps/raman/install.sh
 ```
 
-The script prints the env exports you need to add to your shell rc — at
-minimum `RAMAN_SPEC_ROOT` (the bundled wheel does not include `spec/`).
+The installed wheel bundles the built-in agent specs. Set `RAMAN_SPEC_ROOT`
+only when you want the CLI to load specs from a different checkout or custom
+spec directory.
 
 ### Updating
 
@@ -350,7 +351,7 @@ Environment variables (see `.env.example`):
 | `RAMAN_DEV_MODEL`             | `gemma4:26b-mlx`                           | Ollama model name                                                          |
 | `OLLAMA_BASE_URL`             | `http://localhost:11434/v1`            | Ollama server URL                                                          |
 | `RAMAN_AGENT`                 | `raman`                                | Default agent spec to load                                                 |
-| `RAMAN_SPEC_ROOT`             | `<repo>/spec`                          | Spec folder location                                                       |
+| `RAMAN_SPEC_ROOT`             | bundled `spec/`                        | Optional override for the spec folder location                             |
 | `RAMAN_LOG_LEVEL`             | `INFO`                                 | Structured JSON log level for API, Telegram, DBOS, and agent handoffs      |
 | `RAMAN_OBSERVABILITY_ENABLED` | `false`                                | Enable OpenLIT/OpenTelemetry tracing                                       |
 | `RAMAN_OTLP_ENDPOINT`         | —                                      | OTLP endpoint, e.g. `http://jaeger:4318` in Compose                         |
